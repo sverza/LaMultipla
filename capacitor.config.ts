@@ -1,0 +1,1 @@
+import type {CapacitorConfig} from '@capacitor/cli';const config:CapacitorConfig={appId:'it.personale.lamultipla',appName:'La Multipla',webDir:'out',android:{backgroundColor:'#f5f1e8'}};export default config;
