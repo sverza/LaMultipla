@@ -1,3 +1,33 @@
 {
-  "available": false
+  "available": true,
+  "id": "2026-27-2",
+  "slip": {
+    "season": "2026/27",
+    "matchday": 2,
+    "date": "2026-08-28",
+    "notes": "Schedina finale 2ª giornata. Selezioni scelte per convergenza tra quota, contesto, forma iniziale e analisi esperte disponibili. Copertura MondoPengwin specifica della giornata non ancora reperibile/indicizzata al momento della finalizzazione.",
+    "selections": [
+      {
+        "match": "Milan - Venezia",
+        "market": "1",
+        "odd": 1.36,
+        "probability": 76,
+        "confidence": 4
+      },
+      {
+        "match": "Juventus - Parma",
+        "market": "Under 2.5",
+        "odd": 2.2,
+        "probability": 64,
+        "confidence": 4
+      },
+      {
+        "match": "Lazio - Genoa",
+        "market": "1",
+        "odd": 1.96,
+        "probability": 59,
+        "confidence": 4
+      }
+    ]
+  }
 }
