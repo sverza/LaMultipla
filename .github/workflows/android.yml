@@ -1,0 +1,68 @@
+name: Genera APK Android
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    env:
+      KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+      - run: npm ci
+      - run: npm run build
+      - run: npx cap sync android
+
+      - name: Configura firma privata
+        if: env.KEYSTORE_B64 != ''
+        run: |
+          mkdir -p android/app/keystore
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > android/app/keystore/la-multipla-release.jks
+          printf 'storeFile=keystore/la-multipla-release.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > android/keystore.properties
+
+      - name: Genera APK firmato
+        if: env.KEYSTORE_B64 != ''
+        working-directory: android
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Genera APK di prova
+        if: env.KEYSTORE_B64 == ''
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Prepara APK
+        run: |
+          if [ -f android/app/build/outputs/apk/release/app-release.apk ]; then
+            cp android/app/build/outputs/apk/release/app-release.apk LaMultipla.apk
+          else
+            cp android/app/build/outputs/apk/debug/app-debug.apk LaMultipla-prova.apk
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LaMultipla-Android
+          path: LaMultipla*.apk
+
+      - name: Pubblica la Release
+        if: startsWith(github.ref, 'refs/tags/') && env.KEYSTORE_B64 != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" LaMultipla.apk --generate-notes --title "La Multipla $GITHUB_REF_NAME"

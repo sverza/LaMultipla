@@ -1,58 +1,478 @@
 'use client';
-/* eslint-disable @next/next/no-img-element -- il percorso relativo deve funzionare anche sotto GitHub Pages */
-import {useEffect,useMemo,useRef,useState} from 'react';
-type R='pending'|'won'|'lost'|'void';
-type Pick={id:string;match:string;market:string;odd:number;probability:number;confidence:number;result:R};
-type Slip={id:string;season:string;matchday:number;date:string;stake:3;placement?:'draft'|'played';playedOdd?:number;result:R;returnAmount:number;notes?:string;picks:Pick[]};
-type UndoState={previous?:Slip;currentId:string;message:string};
-const EXAMPLE=`{\n  "season": "2026/27",\n  "matchday": 1,\n  "date": "2026-08-23",\n  "notes": "Prima giornata",\n  "selections": [\n    {\n      "match": "Inter - Torino",\n      "market": "1",\n      "odd": 1.55,\n      "probability": 70,\n      "confidence": 4\n    }\n  ]\n}`;
-const labels:Record<R,string>={pending:'In attesa',won:'Vinta',lost:'Persa',void:'Nulla'};
-const symbols:Record<R,string>={pending:'—',won:'✓',lost:'×',void:'○'};
-const euro=(n:number)=>new Intl.NumberFormat('it-IT',{style:'currency',currency:'EUR'}).format(n);
-const pct=(n:number)=>`${n.toFixed(1).replace('.',',')}%`;
-const isPlayed=(s:Slip)=>s.placement!=='draft';
-const effectiveOdd=(s:Slip)=>s.playedOdd&&s.playedOdd>1?s.playedOdd:s.picks.reduce((a,p)=>a*p.odd,1);
-function db(){return new Promise<IDBDatabase>((ok,no)=>{const q=indexedDB.open('seriea-multipla',1);q.onupgradeneeded=()=>q.result.createObjectStore('slips',{keyPath:'id'});q.onsuccess=()=>ok(q.result);q.onerror=()=>no(q.error)})}
-async function readAll(){const d=await db();return new Promise<Slip[]>((ok,no)=>{const q=d.transaction('slips').objectStore('slips').getAll();q.onsuccess=()=>ok(q.result);q.onerror=()=>no(q.error)})}
-async function put(s:Slip){const d=await db();return new Promise<void>((ok,no)=>{const q=d.transaction('slips','readwrite').objectStore('slips').put(s);q.onsuccess=()=>ok();q.onerror=()=>no(q.error)})}
-async function remove(id:string){const d=await db();return new Promise<void>((ok,no)=>{const q=d.transaction('slips','readwrite').objectStore('slips').delete(id);q.onsuccess=()=>ok();q.onerror=()=>no(q.error)})}
-async function updateStored(oldId:string,s:Slip){const d=await db();return new Promise<void>((ok,no)=>{const t=d.transaction('slips','readwrite'),store=t.objectStore('slips');if(oldId!==s.id)store.delete(oldId);store.put(s);t.oncomplete=()=>ok();t.onerror=()=>no(t.error)})}
-async function replace(items:Slip[]){const d=await db();return new Promise<void>((ok,no)=>{const t=d.transaction('slips','readwrite'),s=t.objectStore('slips');s.clear();items.forEach(x=>s.put(x));t.oncomplete=()=>ok();t.onerror=()=>no(t.error)})}
-function parse(raw:unknown):Slip{if(!raw||typeof raw!=='object')throw Error('Il JSON deve contenere un oggetto.');const x=raw as Record<string,unknown>,a=x.selections;if(!Array.isArray(a)||a.length<1||a.length>6)throw Error('Servono da 1 a 6 selezioni.');const season=String(x.season||''),date=String(x.date||''),matchday=Number(x.matchday);if(!season||!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Number.isInteger(matchday)||matchday<1)throw Error('Controlla stagione, giornata e data.');const picks=a.map((v,i)=>{const z=v as Record<string,unknown>,odd=Number(z.odd),probability=Number(z.probability),confidence=Number(z.confidence);if(!z.match||!z.market||odd<=1||probability<=0||probability>100||confidence<1||confidence>5)throw Error(`Selezione ${i+1}: valori non validi.`);return{id:crypto.randomUUID(),match:String(z.match),market:String(z.market),odd,probability,confidence,result:'pending' as R}});return{id:`${season}-${matchday}-${date}`,season,matchday,date,stake:3,placement:'draft',result:'pending',returnAmount:0,notes:String(x.notes||''),picks}}
-export default function Home(){
- const[slips,setSlips]=useState<Slip[]>([]),[ready,setReady]=useState(false),[view,setView]=useState<'dash'|'history'|'detail'>('dash'),[chosen,setChosen]=useState(''),[modal,setModal]=useState<'import'|'remote'|'edit'|'schema'|'backup'|null>(null),[text,setText]=useState(''),[msg,setMsg]=useState(''),[lastBackup,setLastBackup]=useState(''),[backupDays,setBackupDays]=useState<number|null>(null),[remoteId,setRemoteId]=useState(''),[undo,setUndo]=useState<UndoState|null>(null);const file=useRef<HTMLInputElement>(null);
- const load=async()=>{setSlips((await readAll()).sort((a,b)=>b.date.localeCompare(a.date)||b.matchday-a.matchday));setReady(true)};useEffect(()=>{readAll().then(data=>{const sorted=data.sort((a,b)=>b.date.localeCompare(a.date)||b.matchday-a.matchday);setSlips(sorted);setReady(true);const last=localStorage.getItem('la-multipla-last-backup')||'';setLastBackup(last);setBackupDays(last?Math.max(0,Math.floor((Date.now()-new Date(last).getTime())/86400000)):null);fetch('./latest-slip.json',{cache:'no-store'}).then(r=>r.ok?r.json():null).then((feed:unknown)=>{if(!feed||typeof feed!=='object')return;const source=feed as Record<string,unknown>;if(source.available===false)return;const raw=source.slip||source,preview=parse(raw),id=String(source.id||`${preview.season}-${preview.matchday}`);if(localStorage.getItem('la-multipla-imported-feed')===id||sorted.some(s=>s.season===preview.season&&s.matchday===preview.matchday))return;setRemoteId(id);setText(JSON.stringify(raw,null,2));setModal('remote')}).catch(()=>{})});const saved=localStorage.getItem('la-multipla-theme');if(saved==='light'||saved==='dark')document.documentElement.dataset.theme=saved;if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js')},[]);
- const selected=slips.find(x=>x.id===chosen)||slips[0];const stats=useMemo(()=>{const placed=slips.filter(isPlayed),settled=placed.filter(s=>s.result!=='pending'),decisive=settled.filter(s=>s.result==='won'||s.result==='lost'),pending=placed.filter(s=>s.result==='pending'),settledStake=settled.length*3,returns=settled.reduce((a,s)=>a+s.returnAmount,0),profit=returns-settledStake,picks=placed.flatMap(s=>s.picks),settledPicks=picks.filter(x=>x.result==='won'||x.result==='lost'),wonPicks=settledPicks.filter(x=>x.result==='won').length,wonCount=decisive.filter(s=>s.result==='won').length,lostCount=decisive.filter(s=>s.result==='lost').length,odds=placed.map(effectiveOdd),values=picks.map(p=>(p.odd*p.probability/100-1)*100),chronological=settled.slice().sort((a,b)=>a.date.localeCompare(b.date)||a.matchday-b.matchday),trend=chronological.map((s,i)=>({day:s.matchday,value:chronological.slice(0,i+1).reduce((a,x)=>a+x.returnAmount-3,0),result:s.result})),recent=settled.slice().sort((a,b)=>b.date.localeCompare(a.date)||b.matchday-a.matchday),streakResult=recent[0]?.result,firstDifferent=recent.findIndex(s=>s.result!==streakResult),streak=streakResult==='won'||streakResult==='lost'?(firstDifferent===-1?recent.length:firstDifferent):0;return{stake:placed.length*3,settledStake,atRisk:pending.length*3,returns,profit,roi:settledStake?profit/settledStake*100:0,win:decisive.length?wonCount/decisive.length*100:0,hit:settledPicks.length?wonPicks/settledPicks.length*100:0,registered:placed.length,drafts:slips.length-placed.length,played:settled.length,pending:pending.length,wonCount,lostCount,wonPicks,lostPicks:settledPicks.length-wonPicks,totalPicks:picks.length,avgOdd:odds.length?odds.reduce((a,n)=>a+n,0)/odds.length:0,avgPicks:placed.length?picks.length/placed.length:0,avgValue:values.length?values.reduce((a,n)=>a+n,0)/values.length:0,best:chronological.length?Math.max(...chronological.map(s=>s.returnAmount-3)):0,worst:chronological.length?Math.min(...chronological.map(s=>s.returnAmount-3)):0,trend,streak,streakResult}},[slips]);
- const backupDue=slips.length>0&&(backupDays===null||backupDays>=14);
- const save=async(s:Slip,previous?:Slip,message?:string)=>{await put(s);if(previous&&message)setUndo({previous,currentId:s.id,message});if(message)setMsg(message);await load()};const importSlip=async()=>{try{const s=parse(JSON.parse(text));if(slips.some(x=>x.season===s.season&&x.matchday===s.matchday)){if(remoteId)localStorage.setItem('la-multipla-imported-feed',remoteId);throw Error(`La giornata ${s.matchday} è già presente.`)}await put(s);const message=`Giornata ${s.matchday} importata come bozza.`;setUndo({currentId:s.id,message});if(remoteId)localStorage.setItem('la-multipla-imported-feed',remoteId);setRemoteId('');setText('');setModal(null);setMsg(message);await load()}catch(e){setMsg(e instanceof Error?e.message:'JSON non valido.')}};
- const editable=(s:Slip)=>JSON.stringify({season:s.season,matchday:s.matchday,date:s.date,notes:s.notes||'',selections:s.picks.map(p=>({match:p.match,market:p.market,odd:p.odd,probability:p.probability,confidence:p.confidence}))},null,2);
- const openEdit=(s:Slip)=>{setChosen(s.id);setText(editable(s));setModal('edit')};
- const editSlip=async()=>{try{if(!selected)throw Error('Schedina non trovata.');const parsed=parse(JSON.parse(text));if(slips.some(s=>s.season===parsed.season&&s.matchday===parsed.matchday&&s.id!==selected.id))throw Error(`La giornata ${parsed.matchday} è già presente.`);const updated:Slip={...parsed,placement:selected.placement,playedOdd:selected.playedOdd,result:selected.result,returnAmount:selected.returnAmount,picks:parsed.picks.map((p,i)=>({...p,id:selected.picks[i]?.id||p.id,result:selected.picks[i]?.result||'pending'}))},message=`Giornata ${parsed.matchday} aggiornata.`;await updateStored(selected.id,updated);setUndo({previous:selected,currentId:updated.id,message});setChosen(updated.id);setText('');setModal(null);setMsg(message);await load()}catch(e){setMsg(e instanceof Error?e.message:'Modifica non valida.')}};
- const backup=()=>{const now=new Date().toISOString(),b=new Blob([JSON.stringify({app:'seriea-multipla',version:1,exportedAt:now,slips},null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`seriea-backup-${now.slice(0,10)}.json`;a.click();URL.revokeObjectURL(a.href);localStorage.setItem('la-multipla-last-backup',now);setLastBackup(now);setBackupDays(0)};
- const exportCsv=()=>{const q=(v:unknown)=>`"${String(v??'').replaceAll('"','""')}"`,header=['Stagione','Giornata','Data','Stato','Esito multipla','Puntata','Quota giocata','Ritorno','Profit/Loss','Partita','Mercato','Quota selezione','Probabilità stimata','Quota equa','Value','Fiducia','Esito selezione','Note'],rows=slips.flatMap(s=>s.picks.map(p=>[s.season,s.matchday,s.date,isPlayed(s)?'Giocata':'Bozza',labels[s.result],isPlayed(s)?s.stake:'',effectiveOdd(s).toFixed(2),isPlayed(s)&&s.result!=='pending'?s.returnAmount.toFixed(2):'',isPlayed(s)&&s.result!=='pending'?(s.returnAmount-s.stake).toFixed(2):'',p.match,p.market,p.odd.toFixed(2),p.probability,(100/p.probability).toFixed(2),((p.odd*p.probability/100-1)*100).toFixed(1),p.confidence,labels[p.result],s.notes||''])),csv='\ufeff'+[header,...rows].map(row=>row.map(q).join(';')).join('\r\n'),a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download=`la-multipla-${new Date().toISOString().slice(0,10)}.csv`;a.click();URL.revokeObjectURL(a.href)};
- const deleteSlip=async(s:Slip)=>{if(!confirm(`Eliminare definitivamente la giornata ${s.matchday}?`))return;await remove(s.id);const message=`Giornata ${s.matchday} eliminata.`;setUndo({previous:s,currentId:s.id,message});await load();setView('history');setMsg(message)};
- const restore=async(f:File)=>{try{const x=JSON.parse(await f.text());if(x.app!=='seriea-multipla'||!Array.isArray(x.slips))throw Error('Backup non riconosciuto.');await replace(x.slips);setUndo(null);await load();setMsg('Backup ripristinato.')}catch(e){setMsg(e instanceof Error?e.message:'Backup non valido.')}};
- const undoLast=async()=>{if(!undo)return;if(undo.previous){await updateStored(undo.currentId,undo.previous);setChosen(undo.previous.id)}else await remove(undo.currentId);setUndo(null);await load();setMsg('Operazione annullata.')};
- const toggleTheme=()=>{const root=document.documentElement,current=root.dataset.theme||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'),next=current==='dark'?'light':'dark';root.dataset.theme=next;localStorage.setItem('la-multipla-theme',next)};
- const cycle=async(s:Slip,id:string)=>{const o:R[]=['pending','won','lost','void'],message='Esito selezione aggiornato.';await save({...s,picks:s.picks.map(p=>p.id===id?{...p,result:o[(o.indexOf(p.result)+1)%4]}:p)},s,message)};const settle=async(s:Slip,r:R,manual?:number)=>{const fallback=r==='won'?s.stake*effectiveOdd(s):r==='void'?3:0,returnAmount=manual!==undefined&&Number.isFinite(manual)&&manual>=0?manual:fallback,message=`Giornata ${s.matchday}: ${labels[r].toLowerCase()}, ritorno ${euro(returnAmount)}.`;await save({...s,result:r,returnAmount:+returnAmount.toFixed(2)},s,message)};
- const setPlacement=async(s:Slip,playedOdd?:number)=>{const played=s.placement==='draft',message=played?`Giornata ${s.matchday} confermata come giocata.`:`Giornata ${s.matchday} riportata in bozza.`;await save({...s,placement:played?'played':'draft',playedOdd:played?playedOdd||effectiveOdd(s):s.playedOdd},s,message)};
- const setPlayedOdd=async(s:Slip,odd:number)=>{const message=`Quota giocata aggiornata a ${odd.toFixed(2)}.`;await save({...s,playedOdd:odd},s,message)};
- return <main className="shell"><header><div className="brand"><img src="./icon-192.png" alt=""/><span><strong>La Multipla</strong><small>Serie A · stake fisso €3</small></span></div><div className="header-actions"><button className="round theme-toggle" onClick={toggleTheme} aria-label="Cambia modalità colore"><span className="moon">☾</span><span className="sun">☀</span></button><button className={`round backup-button ${backupDue?'due':''}`} onClick={()=>setModal('backup')} aria-label={backupDue?'Backup consigliato':'Backup'}>↥</button></div></header><section className="content">
- {view==='dash'&&<><div className="eye">PANORAMICA STAGIONE</div><h1>Il tuo campionato,<br/><em>una multipla alla volta.</em></h1>{!ready?<div className="empty">Caricamento…</div>:!slips.length?<div className="welcome"><div>⚽</div><h2>Pronto per la prima giornata?</h2><p>Importa il JSON della schedina. I dati restano solo su questo dispositivo.</p><button className="primary" onClick={()=>setModal('import')}>Importa schedina</button><button className="link" onClick={()=>setModal('schema')}>Vedi formato JSON</button></div>:<><div className="hero"><div className="hero-top"><small>PROFITTO REALIZZATO</small><span>{stats.played} concluse · {stats.pending} aperte{stats.drafts?` · ${stats.drafts} bozze`:''}</span></div><strong className={stats.profit>=0?'pos':'neg'}>{stats.profit>=0?'+':''}{euro(stats.profit)}</strong><div>{[['ROI',pct(stats.roi)],['Ritorni',euro(stats.returns)],['A rischio',euro(stats.atRisk)]].map(x=><span key={x[0]}><small>{x[0]}</small><b>{x[1]}</b></span>)}</div></div><div className="metrics four"><span><small>Totale puntato</small><strong>{euro(stats.stake)}</strong></span><span><small>Quota media</small><strong>{stats.avgOdd.toFixed(2)}</strong></span><span><small>Media selezioni</small><strong>{stats.avgPicks.toFixed(1)}</strong></span><span><small>Value medio</small><strong className={stats.avgValue>=0?'pos-text':'neg-text'}>{stats.avgValue>=0?'+':''}{pct(stats.avgValue)}</strong></span></div><Title title="Curva del profitto" meta={slips[0]?.season}/><TrendChart points={stats.trend}/><div className="chart-caption"><span>Profitto cumulativo</span><small>Solo giornate concluse</small></div><Title title="Giornata per giornata" meta={`${stats.played}/38 concluse`}/><OutcomeChart slips={slips.filter(isPlayed)}/><div className="rings"><Ring value={stats.win} label="Multiple" detail={`${stats.wonCount} vinte · ${stats.lostCount} perse`}/><Ring value={stats.hit} label="Selezioni" detail={`${stats.wonPicks}/${stats.wonPicks+stats.lostPicks} corrette`}/></div><PerformanceBreakdown picks={slips.filter(isPlayed).flatMap(s=>s.picks)} matchdays={stats.played}/><Calibration picks={slips.filter(isPlayed).flatMap(s=>s.picks)}/><div className="season-card"><div className="season-head"><span><small>AVANZAMENTO STAGIONE</small><strong>{stats.registered} di 38 giornate giocate</strong></span><b>{pct(stats.registered/38*100)}</b></div><div className="progress"><i style={{width:`${Math.min(100,stats.registered/38*100)}%`}}/></div><div className="season-facts"><span><small>Esposizione prevista</small><b>{euro(114)}</b></span><span><small>Miglior giornata</small><b className="pos-text">{stats.played?`+${euro(Math.max(0,stats.best))}`:'—'}</b></span><span><small>Peggior giornata</small><b className="neg-text">{stats.played?euro(stats.worst):'—'}</b></span><span><small>Serie attuale</small><b>{stats.streak?`${stats.streak} ${stats.streakResult==='won'?'vinte':'perse'}`:'—'}</b></span></div></div>{backupDue&&<button className="backup-reminder" onClick={()=>setModal('backup')}><span>↥</span><div><strong>{backupDays===null?'Proteggi il tuo storico':'È ora di un nuovo backup'}</strong><small>{backupDays===null?'Non hai ancora esportato una copia.':`Ultimo backup ${backupDays} giorni fa.`}</small></div><b>Apri →</b></button>}<Title title="Ultima schedina" action={()=>{setChosen(slips[0].id);setView('detail')}}/><SlipCard slip={slips[0]}/></>}</>}
- {view==='history'&&<><div className="eye">ARCHIVIO</div><h1>Storico<br/><em>giornate.</em></h1>{!slips.length?<div className="empty">Nessuna schedina ancora.</div>:<div className="list">{slips.map(s=><button key={s.id} onClick={()=>{setChosen(s.id);setView('detail')}}><SlipCard slip={s}/></button>)}</div>}</>}
- {view==='detail'&&selected&&<><button className="back" onClick={()=>setView('history')}>← Storico</button><div className="eye">GIORNATA {selected.matchday} · {new Date(selected.date+'T12:00:00').toLocaleDateString('it-IT')}</div><h1>La tua<br/><em>multipla.</em></h1><SlipCard slip={selected}/><PlacementPanel key={`${selected.id}-${selected.placement}-${selected.playedOdd}`} slip={selected} onToggle={odd=>setPlacement(selected,odd)} onOdd={odd=>setPlayedOdd(selected,odd)}/><button className="secondary wide edit-button" onClick={()=>openEdit(selected)}>✎ Modifica schedina</button><div className="picks">{selected.picks.map(p=>{const fair=100/p.probability,value=(p.odd*p.probability/100-1)*100;return <button className={`pick ${p.result}`} key={p.id} disabled={!isPlayed(selected)} onClick={()=>cycle(selected,p.id)}><b>{symbols[p.result]}</b><span><strong>{p.match}</strong><small>{p.market} · quota {p.odd.toFixed(2)}</small><small>Equa {fair.toFixed(2)} · Value {value>=0?'+':''}{pct(value)} · {'●'.repeat(p.confidence)}{'○'.repeat(5-p.confidence)}</small></span><em>{labels[p.result]}</em></button>})}</div><p className="hint">{isPlayed(selected)?'Tocca una selezione per cambiarne l’esito.':'Conferma prima di aver giocato la schedina.'}</p>{isPlayed(selected)&&<Settlement key={`${selected.id}-${selected.result}-${selected.returnAmount}-${selected.playedOdd}`} slip={selected} onSettle={(r,amount)=>settle(selected,r,amount)}/>}<button className="danger" onClick={()=>deleteSlip(selected)}>Elimina schedina</button></>}
- </section><button className="fab" onClick={()=>setModal('import')}>＋</button><nav><button className={view==='dash'?'active':''} onClick={()=>setView('dash')}><b>⌂</b>Dashboard</button><button className={view!=='dash'?'active':''} onClick={()=>setView('history')}><b>◷</b>Storico</button></nav>{msg&&<div className="toast"><span>{msg}</span>{undo&&msg===undo.message&&<button onClick={undoLast}>Annulla</button>}<button className="toast-close" onClick={()=>setMsg('')} aria-label="Chiudi">×</button></div>}
- {modal&&<div className="overlay" onMouseDown={e=>e.target===e.currentTarget&&setModal(null)}><div className="modal"><button className="close" onClick={()=>setModal(null)}>×</button>{modal==='remote'&&<><div className="eye">NUOVA SCHEDINA DISPONIBILE</div><h2>È arrivata da GitHub</h2><p>Controllala e importala: entrerà come bozza e non verrà conteggiata finché non confermi di averla giocata.</p><RemoteSummary text={text}/><button className="primary wide" onClick={importSlip}>Importa come bozza</button><button className="secondary wide" onClick={()=>setModal(null)}>Non ora</button></>}{modal==='import'&&<><div className="eye">NUOVA GIORNATA</div><h2>Incolla la schedina</h2><p>Da 1 a 6 selezioni. Verrà salvata come bozza; lo stake è sempre 3 €.</p><textarea value={text} onChange={e=>setText(e.target.value)} placeholder={EXAMPLE}/><button className="primary wide" onClick={importSlip}>Controlla e importa</button><button className="link" onClick={()=>setModal('schema')}>Vedi lo schema accettato</button></>}{modal==='edit'&&<><div className="eye">MODIFICA GIORNATA</div><h2>Correggi la schedina</h2><p>Puoi cambiare data, quota, mercato o selezioni. Gli esiti già inseriti restano associati per ordine.</p><textarea value={text} onChange={e=>setText(e.target.value)} /><button className="primary wide" onClick={editSlip}>Salva modifiche</button></>}{modal==='schema'&&<><div className="eye">FORMATO ACCETTATO</div><h2>Schema JSON</h2><p><code>probability</code> è una percentuale; <code>confidence</code> va da 1 a 5.</p><pre>{EXAMPLE}</pre><button className="primary wide" onClick={()=>{navigator.clipboard.writeText(EXAMPLE);setMsg('Schema copiato.')}}>Copia esempio</button></>}{modal==='backup'&&<><div className="eye">I TUOI DATI</div><h2>Backup ed esportazione</h2><p>Esporta una copia completa, crea un CSV per Excel oppure ripristina lo storico su un altro dispositivo.</p>{lastBackup&&<div className="last-backup"><small>ULTIMA COPIA</small><strong>{new Date(lastBackup).toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'})}</strong></div>}<button className="primary wide" onClick={backup}>Esporta backup JSON</button><button className="secondary wide" onClick={exportCsv}>Esporta CSV per Excel</button><button className="secondary wide" onClick={()=>file.current?.click()}>Importa backup</button><input hidden ref={file} type="file" accept=".json,application/json" onChange={e=>e.target.files?.[0]&&restore(e.target.files[0])}/><small className="privacy">🔒 Nessun dato lascia il dispositivo.</small></>}</div></div>}</main>}
-function readRemoteSummary(text:string){try{const raw=JSON.parse(text) as Record<string,unknown>,picks=Array.isArray(raw.selections)?raw.selections as Record<string,unknown>[]:[];return{matchday:String(raw.matchday||'—'),picks}}catch{return null}}
-function RemoteSummary({text}:{text:string}){const data=readRemoteSummary(text);if(!data)return <div className="analysis-empty">Anteprima non disponibile: il file verrà comunque controllato prima dell’importazione.</div>;return <div className="remote-summary"><div><span><small>GIORNATA</small><b>{data.matchday}</b></span><span><small>SELEZIONI</small><b>{data.picks.length}</b></span></div>{data.picks.map((p,i)=><p key={i}><b>{i+1}</b><span><strong>{String(p.match||'')}</strong><small>{String(p.market||'')} · @{Number(p.odd).toFixed(2)}</small></span></p>)}</div>}
-function PlacementPanel({slip,onToggle,onOdd}:{slip:Slip;onToggle:(odd?:number)=>void;onOdd:(odd:number)=>void}){const suggested=slip.picks.reduce((a,p)=>a*p.odd,1),[odd,setOdd]=useState(effectiveOdd(slip).toFixed(2).replace('.',',')),value=Number(odd.replace(',','.')),invalid=!Number.isFinite(value)||value<=1;return <div className={`placement-panel ${isPlayed(slip)?'played':'draft'}`}><div className="placement-head"><span><small>{isPlayed(slip)?'SCHEDINA GIOCATA':'BOZZA NON CONTEGGIATA'}</small><strong>{isPlayed(slip)?'Stake attivo: 3 €':'Conferma solo dopo bet365'}</strong></span><b>{isPlayed(slip)?'✓':'✦'}</b></div><label><span>Quota totale realmente giocata</span><small>Quota suggerita: {suggested.toFixed(2)}</small></label><div className="odd-field"><span>@</span><input inputMode="decimal" value={odd} onChange={e=>setOdd(e.target.value)} aria-invalid={invalid}/></div>{isPlayed(slip)?<div className="placement-actions"><button className="secondary" disabled={invalid} onClick={()=>onOdd(value)}>Salva quota</button><button className="link" onClick={()=>onToggle()}>Riporta in bozza</button></div>:<button className="primary wide" disabled={invalid} onClick={()=>onToggle(value)}>Conferma come giocata</button>}</div>}
-function marketGroup(raw:string){const x=raw.trim().toUpperCase();if(/DRAW NO BET|\bDNB\b/.test(x))return'Draw no bet';if(/HANDICAP|AH[ +-]/.test(x))return'Handicap';if(/OVER|UNDER/.test(x))return'Over / Under';if(/NO GOL|GOAL|GOL|BTTS/.test(x))return'Gol / No Gol';if(/DOPPIA|\b1X\b|\bX2\b|\b12\b/.test(x))return'Doppia chance';if(/1X2|ESITO FINALE|^\s*[12X]\s*$/.test(x))return'1X2';if(/COMBO|\+/.test(x))return'Combinata';return raw.trim()||'Altro'}
-function PerformanceBreakdown({picks,matchdays}:{picks:Pick[];matchdays:number}){const closed=picks.filter(p=>p.result==='won'||p.result==='lost'),summarize=(getLabel:(p:Pick)=>string)=>{const map=new Map<string,{label:string,total:number,wins:number}>();closed.forEach(p=>{const label=getLabel(p),row=map.get(label)||{label,total:0,wins:0};row.total++;if(p.result==='won')row.wins++;map.set(label,row)});return[...map.values()].sort((a,b)=>b.total-a.total||b.wins/b.total-a.wins/a.total)},markets=summarize(p=>marketGroup(p.market)),confidence=summarize(p=>`Fiducia ${p.confidence}/5`).sort((a,b)=>Number(b.label[8])-Number(a.label[8]));return <><Title title="Cosa sta funzionando" meta={`${closed.length} selezioni chiuse`}/>{!closed.length?<div className="analysis-empty">Segna gli esiti delle selezioni per vedere il rendimento per mercato e fiducia.</div>:<div className="breakdown"><div className="breakdown-card"><div className="breakdown-head"><strong>Per mercato</strong><small>Hit rate</small></div>{markets.map(row=><AnalysisRow key={row.label} label={row.label} wins={row.wins} total={row.total}/>)}</div><div className="breakdown-card"><div className="breakdown-head"><strong>Per fiducia</strong><small>Hit rate</small></div>{confidence.map(row=><AnalysisRow key={row.label} label={row.label} wins={row.wins} total={row.total}/>)}</div><p className="sample-note">{matchdays<8?'Dati ancora indicativi: il confronto diventa più affidabile dopo circa 8–10 giornate.':`Basato su ${closed.length} selezioni concluse.`}</p></div>}</>}
-function AnalysisRow({label,wins,total}:{label:string;wins:number;total:number}){const value=total?wins/total*100:0;return <div className="analysis-row"><div><span>{label}</span><small>{wins}/{total}</small><b>{pct(value)}</b></div><i><b style={{width:`${value}%`}}/></i></div>}
-function Calibration({picks}:{picks:Pick[]}){const closed=picks.filter(p=>p.result==='won'||p.result==='lost');if(!closed.length)return null;const rows=[5,4,3,2,1].map(confidence=>{const items=closed.filter(p=>p.confidence===confidence),expected=items.length?items.reduce((a,p)=>a+p.probability,0)/items.length:0,actual=items.length?items.filter(p=>p.result==='won').length/items.length*100:0;return{confidence,expected,actual,total:items.length}}).filter(r=>r.total);return <><Title title="Previsione vs realtà" meta="Calibrazione"/><div className="calibration-card">{rows.map(r=><div className="calibration-row" key={r.confidence}><div><strong>Fiducia {r.confidence}/5</strong><small>{r.total} selezioni</small></div><span><small>Stimata {pct(r.expected)}</small><i><b style={{width:`${r.expected}%`}}/></i></span><span><small>Reale {pct(r.actual)}</small><i className="actual"><b style={{width:`${r.actual}%`}}/></i></span></div>)}</div></>}
-function Settlement({slip,onSettle}:{slip:Slip;onSettle:(result:R,amount?:number)=>void}){const expected=+(slip.stake*effectiveOdd(slip)).toFixed(2),[amount,setAmount]=useState(slip.result==='pending'?'':String(slip.returnAmount).replace('.',',')),[touched,setTouched]=useState(false),parsed=amount.trim()===''?undefined:Number(amount.replace(',','.')),invalid=parsed!==undefined&&(!Number.isFinite(parsed)||parsed<0),submit=(result:R)=>onSettle(result,touched?parsed:result===slip.result?parsed:undefined);return <div className="settlement-card"><label htmlFor="actual-return"><span>Ritorno effettivo</span><small>Totale accreditato da bet365</small></label><div className="return-field"><span>€</span><input id="actual-return" inputMode="decimal" value={amount} onChange={e=>{setAmount(e.target.value);setTouched(true)}} placeholder={expected.toFixed(2).replace('.',',')} aria-invalid={invalid}/></div><p>Lascia vuoto per usare il calcolo automatico ({euro(expected)} se vinta). Puoi inserire quote maggiorate, rimborsi o cash-out.</p><div className="settle three"><button disabled={invalid} onClick={()=>submit('lost')}>Persa</button><button disabled={invalid} onClick={()=>submit('void')}>Nulla</button><button disabled={invalid} className="primary" onClick={()=>submit('won')}>Vinta</button></div></div>}
-function Title({title,meta,action}:{title:string;meta?:string;action?:()=>void}){return <div className="section-title"><h2>{title}</h2>{action?<button onClick={action}>Apri →</button>:<span>{meta}</span>}</div>}
-function TrendChart({points}:{points:{day:number;value:number;result:R}[]}){if(!points.length)return <div className="chart-empty"><span>⌁</span><b>Il grafico nascerà qui</b><small>Segna l’esito della prima schedina.</small></div>;const values=[0,...points.map(p=>p.value)],min=Math.min(0,...values),max=Math.max(0,...values),range=max-min||6,toX=(i:number)=>34+i*(296/Math.max(1,points.length)),toY=(v:number)=>132-(v-min)/range*96,coords=[{x:34,y:toY(0)},...points.map((p,i)=>({x:toX(i+1),y:toY(p.value)}))],path=coords.map((p,i)=>`${i?'L':'M'} ${p.x} ${p.y}`).join(' '),zeroY=toY(0);return <div className="trend-card"><svg viewBox="0 0 360 166" role="img" aria-label="Profitto cumulativo per giornata"><title>Profitto cumulativo per giornata</title><line x1="34" y1={zeroY} x2="340" y2={zeroY} className="zero-line"/><text x="5" y="18" className="axis-label">{euro(max)}</text><text x="5" y="151" className="axis-label">{euro(min)}</text><path d={path} className={points.at(-1)!.value>=0?'trend-line positive-line':'trend-line negative-line'}/>{coords.slice(1).map((p,i)=><g key={points[i].day}><circle cx={p.x} cy={p.y} r="5" className={points[i].result==='won'?'point-win':'point-loss'}/><text x={p.x} y="157" textAnchor="middle" className="day-label">G{points[i].day}</text></g>)}</svg><div className="trend-value"><small>ORA</small><b className={points.at(-1)!.value>=0?'pos-text':'neg-text'}>{points.at(-1)!.value>=0?'+':''}{euro(points.at(-1)!.value)}</b></div></div>}
-function OutcomeChart({slips}:{slips:Slip[]}){const items=slips.slice().sort((a,b)=>a.date.localeCompare(b.date)||a.matchday-b.matchday);if(!items.length)return <div className="chart-empty compact"><span>✦</span><b>Nessuna giocata confermata</b><small>Le bozze non entrano nei grafici.</small></div>;const settled=items.filter(s=>s.result!=='pending'),max=Math.max(3,...settled.map(s=>Math.abs(s.returnAmount-3)));return <div className="outcome-card"><div className="outcome-grid">{items.map(s=>{const value=s.result==='pending'?null:s.returnAmount-3,height=value===null?6:Math.max(10,Math.abs(value)/max*44);return <div className="outcome-col" key={s.id} title={`Giornata ${s.matchday}: ${value===null?'in attesa':euro(value)}`}><div className="bar-zone"><i className={value===null?'pending-bar':value>=0?'gain-bar':'loss-bar'} style={value===null?{height:`${height}%`,top:'47%'}:value>=0?{height:`${height}%`,bottom:'50%'}:{height:`${height}%`,top:'50%'}}/></div><small>G{s.matchday}</small></div>})}</div><div className="zero-label">0 €</div></div>}
-function Ring({value,label,detail}:{value:number;label:string;detail:string}){const safe=Math.max(0,Math.min(100,value));return <div className="ring-card"><div className="ring" style={{background:`conic-gradient(var(--green) ${safe}%, var(--ring-track) 0)`}}><span>{pct(value)}</span></div><div><small>WIN RATE</small><strong>{label}</strong><span>{detail}</span></div></div>}
-function SlipCard({slip}:{slip:Slip}){return <div className={`slip ${isPlayed(slip)?'':'draft'}`}><span><b>GIORNATA {slip.matchday}</b><small>{slip.picks.length} selezioni · {new Date(slip.date+'T12:00:00').toLocaleDateString('it-IT',{day:'2-digit',month:'short'})}</small></span><strong>@ {effectiveOdd(slip).toFixed(2)}</strong><em className={isPlayed(slip)?slip.result:'draft'}>{isPlayed(slip)?labels[slip.result]:'Bozza · non conteggiata'}</em></div>}
+/* eslint-disable @next/next/no-img-element -- i percorsi relativi devono funzionare anche sotto GitHub Pages */
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Calibration,
+  CurrentSlipCard,
+  PerformanceBreakdown,
+  PickResultControl,
+  PlacementPanel,
+  Ring,
+  SeasonComparison,
+  SeasonMap,
+  Settlement,
+  SlipCard,
+  Title,
+  TrendChart,
+} from './components';
+import {
+  APP_VERSION,
+  buildStats,
+  compareVersions,
+  effectiveOdd,
+  euro,
+  formatDate,
+  isPlayed,
+  normalizeSlip,
+  parseSlip,
+  PickResult,
+  quotedOdd,
+  Slip,
+  slipLabels,
+  SlipResult,
+} from './lib/model';
+import {
+  appVersion,
+  cancelResultReminder,
+  configureSync,
+  exportBackupFile,
+  fetchRemoteFeed,
+  fetchUpdateInfo,
+  getSyncStatus,
+  haptic,
+  isNative,
+  notificationPermission,
+  requestNotificationPermission,
+  runNativeSyncNow,
+  scheduleResultReminder,
+  setNativeNotificationsEnabled,
+  shareSlipCard,
+  UpdateInfo,
+} from './lib/native';
+import { putSlip, readAll, removeSlip, replaceAll, updateSlip } from './lib/storage';
+
+type View = 'dash' | 'current' | 'history' | 'detail' | 'settings';
+type Modal = 'import' | 'edit' | 'schema' | 'backup' | null;
+type Theme = 'system' | 'light' | 'dark';
+type UndoState = { previous?: Slip; currentId: string; message: string };
+type SyncStatus = Awaited<ReturnType<typeof getSyncStatus>>;
+
+const EXAMPLE = `{
+  "season": "2026/27",
+  "matchday": 1,
+  "date": "2026-08-29",
+  "notes": "Prima giornata",
+  "selections": [
+    {
+      "match": "Inter - Torino",
+      "market": "Over 1.5",
+      "odd": 1.35,
+      "probability": 78,
+      "confidence": 4
+    }
+  ]
+}`;
+
+const sortSlips = (items: Slip[]) => items.slice().sort((a, b) => b.date.localeCompare(a.date) || b.matchday - a.matchday);
+
+export default function Home() {
+  const [slips, setSlips] = useState<Slip[]>([]);
+  const [ready, setReady] = useState(false);
+  const [view, setView] = useState<View>('dash');
+  const [chosen, setChosen] = useState('');
+  const [modal, setModal] = useState<Modal>(null);
+  const [text, setText] = useState('');
+  const [message, setMessage] = useState('');
+  const [undo, setUndo] = useState<UndoState | null>(null);
+  const [lastBackup, setLastBackup] = useState(() => typeof window === 'undefined' ? '' : localStorage.getItem('la-multipla-last-backup') || '');
+  const [backupDays, setBackupDays] = useState<number | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const saved = localStorage.getItem('la-multipla-last-backup');
+    return saved ? Math.max(0, Math.floor((Date.now() - new Date(saved).getTime()) / 86_400_000)) : null;
+  });
+  const [activeSeason, setActiveSeason] = useState('');
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window === 'undefined') return 'system';
+    const saved = localStorage.getItem('la-multipla-theme');
+    return saved === 'light' || saved === 'dark' ? saved : 'system';
+  });
+  const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
+  const [notifications, setNotifications] = useState('prompt');
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [checking, setChecking] = useState(false);
+  const backupInput = useRef<HTMLInputElement>(null);
+  const checkingRef = useRef(false);
+
+  const load = useCallback(async () => {
+    const items = sortSlips(await readAll());
+    setSlips(items);
+    setReady(true);
+    setActiveSeason((current) => {
+      if (current && items.some((slip) => slip.season === current)) return current;
+      const saved = localStorage.getItem('la-multipla-season');
+      if (saved && items.some((slip) => slip.season === saved)) return saved;
+      return items[0]?.season || saved || '2026/27';
+    });
+    return items;
+  }, []);
+
+  const refreshStatus = useCallback(async () => {
+    setSyncStatus(await getSyncStatus());
+    setNotifications(await notificationPermission());
+    setUpdateInfo(await fetchUpdateInfo());
+  }, []);
+
+  const checkGitHub = useCallback(async (announce = false) => {
+    if (checkingRef.current) return;
+    checkingRef.current = true;
+    setChecking(true);
+    try {
+      const feed = await fetchRemoteFeed();
+      if (!feed || typeof feed !== 'object') throw new Error('Il file GitHub non contiene dati validi.');
+      const source = feed as Record<string, unknown>;
+      if (source.available === false) {
+        if (announce) setMessage('Controllo completato: nessuna nuova schedina.');
+        return;
+      }
+      const raw = source.slip || source;
+      const preview = parseSlip(raw);
+      const feedId = String(source.id || `${preview.season}-${preview.matchday}`);
+      localStorage.setItem('la-multipla-last-feed-id', feedId);
+      const importedId = localStorage.getItem('la-multipla-imported-feed');
+      const current = await readAll();
+      const duplicate = current.some((slip) => slip.season === preview.season && slip.matchday === preview.matchday);
+      if (importedId === feedId || duplicate) {
+        localStorage.setItem('la-multipla-imported-feed', feedId);
+        if (announce) setMessage('Controllo completato: sei già aggiornato.');
+        return;
+      }
+      await putSlip(preview);
+      localStorage.setItem('la-multipla-imported-feed', feedId);
+      localStorage.setItem('la-multipla-season', preview.season);
+      setActiveSeason(preview.season);
+      await load();
+      await haptic('success');
+      setMessage(`Giornata ${preview.matchday} importata automaticamente come bozza.`);
+    } catch (error) {
+      if (announce) setMessage(error instanceof Error ? error.message : 'Controllo GitHub non riuscito.');
+    } finally {
+      checkingRef.current = false;
+      setChecking(false);
+      setSyncStatus(await getSyncStatus());
+    }
+  }, [load]);
+
+  useEffect(() => {
+    const savedTheme = (localStorage.getItem('la-multipla-theme') || 'system') as Theme;
+    if (savedTheme === 'light' || savedTheme === 'dark') document.documentElement.dataset.theme = savedTheme;
+    else delete document.documentElement.dataset.theme;
+
+    const initialLoad = window.setTimeout(() => {
+      void load().then(() => checkGitHub(false));
+      void refreshStatus();
+    }, 0);
+    if (!isNative && 'serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') checkGitHub(false);
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.clearTimeout(initialLoad);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [checkGitHub, load, refreshStatus]);
+
+  const seasons = useMemo(() => [...new Set(slips.map((slip) => slip.season))].sort().reverse(), [slips]);
+  const seasonSlips = useMemo(() => slips.filter((slip) => slip.season === activeSeason), [slips, activeSeason]);
+  const currentSlip = seasonSlips[0];
+  const selected = slips.find((slip) => slip.id === chosen) || (view === 'current' ? currentSlip : undefined);
+  const stats = useMemo(() => buildStats(seasonSlips), [seasonSlips]);
+  const previousSeason = seasons[seasons.indexOf(activeSeason) + 1];
+  const previousStats = useMemo(() => buildStats(slips.filter((slip) => slip.season === previousSeason)), [slips, previousSeason]);
+  const backupDue = slips.length > 0 && (backupDays === null || backupDays >= 14);
+
+  const selectSeason = (season: string) => {
+    setActiveSeason(season);
+    localStorage.setItem('la-multipla-season', season);
+  };
+
+  const openSlip = (slip: Slip, destination: 'detail' | 'current' = 'detail') => {
+    setChosen(slip.id);
+    setView(destination);
+  };
+
+  const save = async (slip: Slip, previous?: Slip, savedMessage?: string) => {
+    await putSlip(slip);
+    if (previous && savedMessage) setUndo({ previous, currentId: slip.id, message: savedMessage });
+    if (savedMessage) setMessage(savedMessage);
+    await load();
+  };
+
+  const importSlip = async () => {
+    try {
+      const slip = parseSlip(JSON.parse(text));
+      const current = await readAll();
+      if (current.some((item) => item.season === slip.season && item.matchday === slip.matchday)) throw new Error(`La giornata ${slip.matchday} è già presente.`);
+      await putSlip(slip);
+      const savedMessage = `Giornata ${slip.matchday} importata come bozza.`;
+      setUndo({ currentId: slip.id, message: savedMessage });
+      setText('');
+      setModal(null);
+      selectSeason(slip.season);
+      setMessage(savedMessage);
+      await load();
+      await haptic('success');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'JSON non valido.');
+    }
+  };
+
+  const editable = (slip: Slip) => JSON.stringify({
+    season: slip.season,
+    matchday: slip.matchday,
+    date: slip.date,
+    notes: slip.notes || '',
+    selections: slip.picks.map((pick) => ({ match: pick.match, market: pick.market, odd: pick.odd, probability: pick.probability, confidence: pick.confidence })),
+  }, null, 2);
+
+  const openEdit = (slip: Slip) => {
+    setChosen(slip.id);
+    setText(editable(slip));
+    setModal('edit');
+  };
+
+  const editSlip = async () => {
+    try {
+      if (!selected) throw new Error('Schedina non trovata.');
+      const parsed = parseSlip(JSON.parse(text));
+      if (slips.some((slip) => slip.season === parsed.season && slip.matchday === parsed.matchday && slip.id !== selected.id)) throw new Error(`La giornata ${parsed.matchday} è già presente.`);
+      const updated: Slip = {
+        ...parsed,
+        placement: selected.placement,
+        playedOdd: selected.playedOdd,
+        result: selected.result,
+        returnAmount: selected.returnAmount,
+        picks: parsed.picks.map((pick, index) => ({ ...pick, id: selected.picks[index]?.id || pick.id, result: selected.picks[index]?.result || 'pending' })),
+      };
+      const savedMessage = `Giornata ${parsed.matchday} aggiornata.`;
+      await updateSlip(selected.id, updated);
+      setUndo({ previous: selected, currentId: updated.id, message: savedMessage });
+      setChosen(updated.id);
+      setText('');
+      setModal(null);
+      setMessage(savedMessage);
+      selectSeason(updated.season);
+      await load();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Modifica non valida.');
+    }
+  };
+
+  const backup = async () => {
+    try {
+      const now = new Date().toISOString();
+      const data = JSON.stringify({
+        app: 'seriea-multipla', version: 2, exportedAt: now,
+        preferences: { theme, activeSeason, notifications: localStorage.getItem('la-multipla-notifications') === 'true', backgroundSync: syncStatus?.enabled ?? true, syncHours: syncStatus?.intervalHours ?? 3 },
+        slips,
+      }, null, 2);
+      await exportBackupFile(data, `la-multipla-backup-${now.slice(0, 10)}.json`);
+      localStorage.setItem('la-multipla-last-backup', now);
+      setLastBackup(now);
+      setBackupDays(0);
+      setMessage('Backup completo creato.');
+    } catch {
+      setMessage('Non sono riuscito a creare il backup.');
+    }
+  };
+
+  const exportCsv = () => {
+    const quote = (value: unknown) => `"${String(value ?? '').replaceAll('"', '""')}"`;
+    const header = ['Stagione', 'Giornata', 'Data', 'Stato', 'Esito multipla', 'Puntata', 'Quota giocata', 'Quota effettiva', 'Ritorno', 'Profit/Loss', 'Partita', 'Mercato', 'Quota selezione', 'Probabilità stimata', 'Quota equa', 'Value', 'Fiducia', 'Esito selezione', 'Note'];
+    const rows = slips.flatMap((slip) => slip.picks.map((pick) => [
+      slip.season, slip.matchday, slip.date, isPlayed(slip) ? 'Giocata' : 'Bozza', slipLabels[slip.result], isPlayed(slip) ? slip.stake : '', quotedOdd(slip).toFixed(2), effectiveOdd(slip).toFixed(2),
+      isPlayed(slip) && slip.result !== 'pending' ? slip.returnAmount.toFixed(2) : '', isPlayed(slip) && slip.result !== 'pending' ? (slip.returnAmount - slip.stake).toFixed(2) : '',
+      pick.match, pick.market, pick.odd.toFixed(2), pick.probability, (100 / pick.probability).toFixed(2), ((pick.odd * pick.probability / 100 - 1) * 100).toFixed(1), pick.confidence, pick.result, slip.notes || '',
+    ]));
+    const csv = '\ufeff' + [header, ...rows].map((row) => row.map(quote).join(';')).join('\r\n');
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    link.download = `la-multipla-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
+
+  const restore = async (file: File) => {
+    try {
+      const raw = JSON.parse(await file.text()) as { app?: string; slips?: Partial<Slip>[]; preferences?: Record<string, unknown> };
+      if (raw.app !== 'seriea-multipla' || !Array.isArray(raw.slips)) throw new Error('Backup non riconosciuto.');
+      await replaceAll(raw.slips.map(normalizeSlip));
+      if (raw.preferences?.theme && ['system', 'light', 'dark'].includes(String(raw.preferences.theme))) applyTheme(String(raw.preferences.theme) as Theme);
+      setUndo(null);
+      await load();
+      setMessage('Backup ripristinato.');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Backup non valido.');
+    }
+  };
+
+  const deleteSlip = async (slip: Slip) => {
+    if (!confirm(`Eliminare definitivamente la giornata ${slip.matchday}?`)) return;
+    await removeSlip(slip.id);
+    const savedMessage = `Giornata ${slip.matchday} eliminata.`;
+    setUndo({ previous: slip, currentId: slip.id, message: savedMessage });
+    await load();
+    setView('history');
+    setMessage(savedMessage);
+  };
+
+  const undoLast = async () => {
+    if (!undo) return;
+    if (undo.previous) {
+      await updateSlip(undo.currentId, undo.previous);
+      setChosen(undo.previous.id);
+    } else await removeSlip(undo.currentId);
+    setUndo(null);
+    await load();
+    setMessage('Operazione annullata.');
+  };
+
+  function applyTheme(value: Theme) {
+    setTheme(value);
+    localStorage.setItem('la-multipla-theme', value);
+    if (value === 'system') delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = value;
+  }
+
+  const toggleTheme = () => {
+    const dark = document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && matchMedia('(prefers-color-scheme: dark)').matches);
+    applyTheme(dark ? 'light' : 'dark');
+  };
+
+  const setPickResult = async (slip: Slip, pickId: string, result: PickResult) => {
+    await save({ ...slip, picks: slip.picks.map((pick) => pick.id === pickId ? { ...pick, result } : pick) }, slip, 'Esito selezione aggiornato.');
+    await haptic('light');
+  };
+
+  const settle = async (slip: Slip, result: SlipResult, manual?: number) => {
+    const fallback = result === 'won' ? slip.stake * effectiveOdd(slip) : result === 'void' ? slip.stake : 0;
+    const returnAmount = manual !== undefined && Number.isFinite(manual) && manual >= 0 ? manual : fallback;
+    const savedMessage = `Giornata ${slip.matchday}: ${slipLabels[result].toLowerCase()}, ritorno ${euro(returnAmount)}.`;
+    await save({ ...slip, result, returnAmount: +returnAmount.toFixed(2) }, slip, savedMessage);
+    await cancelResultReminder(slip);
+    await haptic('success');
+  };
+
+  const setPlacement = async (slip: Slip, playedOdd?: number) => {
+    const makePlayed = slip.placement === 'draft';
+    const updated = { ...slip, placement: makePlayed ? 'played' as const : 'draft' as const, playedOdd: makePlayed ? playedOdd || quotedOdd(slip) : slip.playedOdd };
+    await save(updated, slip, makePlayed ? `Giornata ${slip.matchday} confermata come giocata.` : `Giornata ${slip.matchday} riportata in bozza.`);
+    if (makePlayed) await scheduleResultReminder(updated);
+    else await cancelResultReminder(updated);
+    await haptic('success');
+  };
+
+  const setPlayedOdd = async (slip: Slip, odd: number) => save({ ...slip, playedOdd: odd }, slip, `Quota giocata aggiornata a ${odd.toFixed(2)}.`);
+
+  const share = async (slip: Slip) => {
+    try {
+      await shareSlipCard(slip);
+      setMessage('Riepilogo pronto per la condivisione.');
+    } catch (error) {
+      if (error instanceof Error && /cancel|annull/i.test(error.message)) return;
+      setMessage('Condivisione non riuscita.');
+    }
+  };
+
+  const changeBackgroundSync = async (enabled: boolean, hours = syncStatus?.intervalHours || 3) => {
+    setSyncStatus(await configureSync(enabled, hours));
+    setMessage(enabled ? 'Controllo in background attivato.' : 'Controllo in background disattivato.');
+  };
+
+  const changeNotifications = async (enabled: boolean) => {
+    if (!enabled) {
+      localStorage.setItem('la-multipla-notifications', 'false');
+      await setNativeNotificationsEnabled(false);
+      setNotifications('denied');
+      setMessage('Promemoria disattivati nell’app.');
+      return;
+    }
+    const permission = await requestNotificationPermission();
+    const granted = permission === 'granted';
+    localStorage.setItem('la-multipla-notifications', String(granted));
+    await setNativeNotificationsEnabled(granted);
+    setNotifications(permission);
+    setMessage(granted ? 'Notifiche e promemoria attivati.' : 'Android non ha concesso il permesso per le notifiche.');
+  };
+
+  const runCheck = async () => {
+    await runNativeSyncNow();
+    await checkGitHub(true);
+  };
+
+  const renderSeasonSelector = () => (
+    <label className="season-selector"><span>Stagione</span><select value={activeSeason} onChange={(event) => selectSeason(event.target.value)}>{(seasons.length ? seasons : [activeSeason || '2026/27']).map((season) => <option key={season}>{season}</option>)}</select></label>
+  );
+
+  return (
+    <main className="shell">
+      <header>
+        <button className="brand" onClick={() => setView('dash')} aria-label="Apri la dashboard"><img src="./icon-192.png" alt="" /><span><strong>La Multipla</strong><small>Serie A · stake fisso €3</small></span></button>
+        <div className="header-actions"><button className="round theme-toggle" onClick={toggleTheme} aria-label="Cambia modalità colore"><span className="moon">☾</span><span className="sun">☀</span></button><button className="round" onClick={() => { setText(''); setModal('import'); }} aria-label="Importa schedina">＋</button></div>
+      </header>
+
+      <section className="content">
+        {view === 'dash' && <>
+          <div className="page-intro"><div><div className="eye">PANORAMICA STAGIONE</div><h1>Il tuo campionato,<br /><em>una multipla alla volta.</em></h1></div>{renderSeasonSelector()}</div>
+          {!ready ? <div className="empty">Caricamento…</div> : <>
+            <CurrentSlipCard slip={currentSlip} onOpen={() => currentSlip && openSlip(currentSlip, 'current')} onImport={() => setModal('import')} />
+            {seasonSlips.length > 0 && <>
+              <div className="hero"><div className="hero-top"><small>PROFITTO REALIZZATO</small><span>{stats.played} concluse · {stats.pending} aperte{stats.drafts ? ` · ${stats.drafts} bozze` : ''}</span></div><strong className={stats.profit >= 0 ? 'pos' : 'neg'}>{stats.profit >= 0 ? '+' : ''}{euro(stats.profit)}</strong><div>{[['ROI', `${stats.roi.toFixed(1).replace('.', ',')}%`], ['Ritorni', euro(stats.returns)], ['A rischio', euro(stats.atRisk)]].map(([label, value]) => <span key={label}><small>{label}</small><b>{value}</b></span>)}</div></div>
+              <div className="metrics four"><span><small>Totale puntato</small><strong>{euro(stats.stake)}</strong></span><span><small>Quota media</small><strong>{stats.avgOdd.toFixed(2)}</strong></span><span><small>Media selezioni</small><strong>{stats.avgPicks.toFixed(1)}</strong></span><span><small>Value medio</small><strong className={stats.avgValue >= 0 ? 'pos-text' : 'neg-text'}>{stats.avgValue >= 0 ? '+' : ''}{stats.avgValue.toFixed(1).replace('.', ',')}%</strong></span></div>
+              <Title title="Curva del profitto" meta={activeSeason} /><TrendChart points={stats.trend} maxDrawdown={stats.maxDrawdown} onOpen={(id) => { const slip = slips.find((item) => item.id === id); if (slip) openSlip(slip); }} />
+              <Title title="Mappa del campionato" meta={`${stats.registered}/38 giocate`} /><SeasonMap slips={seasonSlips} onOpen={openSlip} />
+              <div className="rings"><Ring value={stats.win} label="Multiple" detail={`${stats.wonCount} vinte · ${stats.lostCount} perse`} /><Ring value={stats.hit} label="Selezioni" detail={`${stats.wonPicks}/${stats.wonPicks + stats.lostPicks} corrette`} /></div>
+              <div className="season-card"><div className="season-head"><span><small>AVANZAMENTO STAGIONE</small><strong>{stats.registered} di 38 giornate giocate</strong></span><b>{(stats.registered / 38 * 100).toFixed(1).replace('.', ',')}%</b></div><div className="progress"><i style={{ width: `${Math.min(100, stats.registered / 38 * 100)}%` }} /></div><div className="season-facts"><span><small>Esposizione massima</small><b>{euro(114)}</b></span><span><small>Miglior giornata</small><b className={stats.best >= 0 ? 'pos-text' : 'neg-text'}>{stats.played ? `${stats.best >= 0 ? '+' : ''}${euro(stats.best)}` : '—'}</b></span><span><small>Peggior giornata</small><b className={stats.worst >= 0 ? 'pos-text' : 'neg-text'}>{stats.played ? `${stats.worst >= 0 ? '+' : ''}${euro(stats.worst)}` : '—'}</b></span><span><small>Serie attuale</small><b>{stats.streak ? `${stats.streak} ${stats.streakResult === 'won' ? 'vinte' : 'perse'}` : '—'}</b></span></div></div>
+              {previousSeason && previousStats.played > 0 && <SeasonComparison current={stats} previous={previousStats} previousSeason={previousSeason} />}
+              {backupDue && <button className="backup-reminder" onClick={() => setModal('backup')}><span>↥</span><div><strong>{backupDays === null ? 'Proteggi il tuo storico' : 'È ora di un nuovo backup'}</strong><small>{backupDays === null ? 'Non hai ancora esportato una copia.' : `Ultimo backup ${backupDays} giorni fa.`}</small></div><b>Apri →</b></button>}
+              <details className="analysis-disclosure"><summary><span><small>ANALISI AVANZATE</small><strong>Mercati, fiducia e calibrazione</strong></span><b>＋</b></summary><PerformanceBreakdown picks={seasonSlips.filter(isPlayed).flatMap((slip) => slip.picks)} matchdays={stats.played} /><Calibration picks={seasonSlips.filter(isPlayed).flatMap((slip) => slip.picks)} /></details>
+            </>}
+          </>}
+        </>}
+
+        {view === 'history' && <><div className="page-intro"><div><div className="eye">ARCHIVIO</div><h1>Storico<br /><em>giornate.</em></h1></div>{renderSeasonSelector()}</div>{!seasonSlips.length ? <div className="empty">Nessuna schedina in questa stagione.</div> : <div className="list">{seasonSlips.map((slip) => <button key={slip.id} onClick={() => openSlip(slip)}><SlipCard slip={slip} /></button>)}</div>}</>}
+
+        {(view === 'current' || view === 'detail') && selected && <>
+          {view === 'detail' && <button className="back" onClick={() => setView('history')}>← Storico</button>}
+          <div className="detail-heading"><div><div className="eye">GIORNATA {selected.matchday} · {formatDate(selected.date)}</div><h1>La tua<br /><em>multipla.</em></h1></div><button className="share-button" onClick={() => share(selected)}><span>↗</span>Condividi</button></div>
+          <SlipCard slip={selected} /><PlacementPanel key={`${selected.id}-${selected.placement}-${selected.playedOdd}`} slip={selected} onToggle={(odd) => setPlacement(selected, odd)} onOdd={(odd) => setPlayedOdd(selected, odd)} /><button className="secondary wide edit-button" onClick={() => openEdit(selected)}>✎ Modifica schedina</button>
+          <Title title="Selezioni" meta={`${selected.picks.filter((pick) => pick.result !== 'pending').length}/${selected.picks.length} definite`} /><div className="picks">{selected.picks.map((pick) => <PickResultControl key={pick.id} pick={pick} disabled={!isPlayed(selected)} onChange={(result) => setPickResult(selected, pick.id, result)} />)}</div>
+          {!isPlayed(selected) && <p className="hint">Conferma prima la schedina per poter inserire gli esiti.</p>}{isPlayed(selected) && <Settlement key={`${selected.id}-${selected.result}-${selected.returnAmount}-${selected.playedOdd}-${selected.picks.map((pick) => pick.result).join('-')}`} slip={selected} onSettle={(result, amount) => settle(selected, result, amount)} />}<button className="danger" onClick={() => deleteSlip(selected)}>Elimina schedina</button>
+        </>}
+
+        {view === 'current' && !selected && <><div className="eye">SCHEDINA ATTUALE</div><h1>La prossima<br /><em>multipla.</em></h1><CurrentSlipCard onOpen={() => undefined} onImport={() => setModal('import')} /></>}
+
+        {view === 'settings' && <>
+          <div className="eye">CENTRO DI CONTROLLO</div><h1>Impostazioni<br /><em>e stato.</em></h1><div className="settings-stack">
+            <section className="settings-card"><div className="settings-title"><span className="settings-icon">↻</span><div><small>SINCRONIZZAZIONE</small><h2>Schedine da GitHub</h2></div><i className={syncStatus?.enabled ? 'online' : ''} /></div><div className="status-grid"><span><small>Ultimo controllo</small><b>{syncStatus?.lastCheck ? new Date(syncStatus.lastCheck).toLocaleString('it-IT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Mai'}</b></span><span><small>Ultimo file</small><b>{syncStatus?.lastFeedId || 'Nessuno'}</b></span></div><label className="switch-row"><span><strong>Controllo in background</strong><small>{isNative ? 'Funziona periodicamente anche ad app chiusa' : 'Disponibile nell’APK Android'}</small></span><input type="checkbox" checked={Boolean(syncStatus?.enabled)} disabled={!isNative} onChange={(event) => changeBackgroundSync(event.target.checked)} /><i /></label><label className="select-row"><span>Frequenza controllo</span><select value={syncStatus?.intervalHours || 3} disabled={!isNative || !syncStatus?.enabled} onChange={(event) => changeBackgroundSync(true, Number(event.target.value))}><option value="1">Ogni ora</option><option value="3">Ogni 3 ore</option><option value="6">Ogni 6 ore</option><option value="12">Ogni 12 ore</option></select></label><button className="secondary wide" disabled={checking} onClick={runCheck}>{checking ? 'Controllo in corso…' : 'Controlla ora'}</button></section>
+            <section className="settings-card"><div className="settings-title"><span className="settings-icon">♢</span><div><small>ANDROID</small><h2>Notifiche e promemoria</h2></div></div><label className="switch-row"><span><strong>Avvisi attivi</strong><small>Nuova schedina e risultati mancanti</small></span><input type="checkbox" checked={notifications === 'granted' && localStorage.getItem('la-multipla-notifications') === 'true'} disabled={!isNative} onChange={(event) => changeNotifications(event.target.checked)} /><i /></label>{!isNative && <p className="settings-note">Queste opzioni si attiveranno automaticamente nella versione APK.</p>}</section>
+            <section className="settings-card"><div className="settings-title"><span className="settings-icon">◐</span><div><small>ASPETTO</small><h2>Modalità colore</h2></div></div><div className="theme-options">{(['system', 'light', 'dark'] as Theme[]).map((value) => <button key={value} className={theme === value ? 'active' : ''} onClick={() => applyTheme(value)}>{value === 'system' ? 'Automatica' : value === 'light' ? 'Chiara' : 'Scura'}</button>)}</div></section>
+            <section className="settings-card"><div className="settings-title"><span className="settings-icon">↥</span><div><small>DATI LOCALI</small><h2>Backup e ripristino</h2></div>{backupDue && <b className="attention-dot">!</b>}</div><div className="last-backup"><small>ULTIMA COPIA</small><strong>{lastBackup ? new Date(lastBackup).toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' }) : 'Mai eseguita'}</strong></div><button className="primary wide" onClick={backup}>Esporta backup completo</button><button className="secondary wide" onClick={() => backupInput.current?.click()}>Importa backup</button><button className="secondary wide" onClick={exportCsv}>Esporta CSV per Excel</button><input hidden ref={backupInput} type="file" accept=".json,application/json" onChange={(event) => event.target.files?.[0] && restore(event.target.files[0])} /></section>
+            <section className="settings-card app-card"><div className="settings-title"><img src="./icon-192.png" alt="" /><div><small>LA MULTIPLA</small><h2>Versione {appVersion()}</h2></div></div>{updateInfo && compareVersions(updateInfo.version, APP_VERSION) > 0 ? <div className="update-banner"><span><small>AGGIORNAMENTO DISPONIBILE</small><strong>Versione {updateInfo.version}</strong><em>{updateInfo.notes || 'Nuove funzioni e miglioramenti.'}</em></span>{updateInfo.apkUrl && <button onClick={() => window.open(updateInfo.apkUrl, '_blank')}>Scarica</button>}</div> : <p className="settings-note">L’app è aggiornata. Le schedine da GitHub non richiedono un nuovo APK.</p>}<button className="link wide" onClick={() => setModal('schema')}>Visualizza schema JSON</button></section>
+          </div><small className="privacy">🔒 Tutto lo storico resta sul tuo dispositivo. Nessun account, backend o profilazione.</small>
+        </>}
+      </section>
+
+      <nav><button className={view === 'dash' ? 'active' : ''} onClick={() => setView('dash')}><b>⌂</b>Home</button><button className={view === 'current' ? 'active' : ''} onClick={() => { if (currentSlip) openSlip(currentSlip, 'current'); else setView('current'); }}><b>◇</b>Schedina</button><button className={view === 'history' || view === 'detail' ? 'active' : ''} onClick={() => setView('history')}><b>◷</b>Storico</button><button className={view === 'settings' ? 'active' : ''} onClick={() => { setView('settings'); refreshStatus(); }}><b>⚙</b>Altro</button></nav>
+      {message && <div className="toast"><span>{message}</span>{undo && message === undo.message && <button onClick={undoLast}>Annulla</button>}<button className="toast-close" onClick={() => setMessage('')} aria-label="Chiudi">×</button></div>}
+      {modal && <div className="overlay" onMouseDown={(event) => event.target === event.currentTarget && setModal(null)}><div className="modal"><button className="close" onClick={() => setModal(null)}>×</button>
+        {modal === 'import' && <><div className="eye">NUOVA GIORNATA</div><h2>Incolla la schedina</h2><p>Da 1 a 6 selezioni. Verrà salvata come bozza; lo stake è sempre 3 €.</p><textarea value={text} onChange={(event) => setText(event.target.value)} placeholder={EXAMPLE} /><button className="primary wide" onClick={importSlip}>Controlla e importa</button><button className="link wide" onClick={() => setModal('schema')}>Vedi lo schema accettato</button></>}
+        {modal === 'edit' && <><div className="eye">MODIFICA GIORNATA</div><h2>Correggi la schedina</h2><p>Puoi cambiare data, quota, mercato o selezioni. Gli esiti già inseriti restano associati per ordine.</p><textarea value={text} onChange={(event) => setText(event.target.value)} /><button className="primary wide" onClick={editSlip}>Salva modifiche</button></>}
+        {modal === 'schema' && <><div className="eye">FORMATO ACCETTATO</div><h2>Schema JSON</h2><p><code>probability</code> è una percentuale; <code>confidence</code> va da 1 a 5.</p><pre>{EXAMPLE}</pre><button className="primary wide" onClick={() => { navigator.clipboard.writeText(EXAMPLE); setMessage('Schema copiato.'); }}>Copia esempio</button></>}
+        {modal === 'backup' && <><div className="eye">I TUOI DATI</div><h2>Backup ed esportazione</h2><p>Il backup include tutte le stagioni e le preferenze principali.</p>{lastBackup && <div className="last-backup"><small>ULTIMA COPIA</small><strong>{new Date(lastBackup).toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' })}</strong></div>}<button className="primary wide" onClick={backup}>Esporta backup JSON</button><button className="secondary wide" onClick={exportCsv}>Esporta CSV per Excel</button><button className="secondary wide" onClick={() => backupInput.current?.click()}>Importa backup</button><small className="privacy">🔒 Nessun dato lascia il dispositivo.</small></>}
+      </div></div>}
+    </main>
+  );
+}

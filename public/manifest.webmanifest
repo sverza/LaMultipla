@@ -1,1 +1,24 @@
-{"name":"La Multipla · Serie A","short_name":"La Multipla","description":"Tracker personale per la multipla Serie A da 3 €","start_url":"./","scope":"./","display":"standalone","background_color":"#0e1815","theme_color":"#10241e","orientation":"portrait-primary","icons":[{"src":"./icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},{"src":"./icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}]}
+{
+  "name": "La Multipla · Serie A",
+  "short_name": "La Multipla",
+  "description": "Tracker personale per la multipla Serie A da 3 €",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0e1815",
+  "theme_color": "#10241e",
+  "orientation": "portrait-primary",
+  "categories": ["sports", "utilities"],
+  "icons": [
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Apri La Multipla",
+      "short_name": "Schedina",
+      "url": "./",
+      "icons": [{ "src": "./icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

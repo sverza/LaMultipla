@@ -36,3 +36,9 @@ next-env.d.ts
 /.wrangler/
 /outputs/
 /work/
+/.npm-cache/
+
+# Android signing: never publish these files
+/android/keystore.properties
+/android/app/keystore/*.jks
+/android/app/keystore/*.keystore
