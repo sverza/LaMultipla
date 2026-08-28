@@ -33,7 +33,7 @@ export type TrendPoint = {
   slipId: string;
 };
 
-export const APP_VERSION = '1.0.0';
+export const APP_VERSION = '1.0.1';
 export const STAKE = 3 as const;
 export const PICK_RESULTS: PickResult[] = ['pending', 'won', 'lost', 'void'];
 export const FEED_URL = 'https://sverza.github.io/LaMultipla/latest-slip.json';

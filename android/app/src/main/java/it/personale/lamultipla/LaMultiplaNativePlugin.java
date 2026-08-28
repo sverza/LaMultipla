@@ -28,6 +28,11 @@ import java.nio.charset.StandardCharsets;
 public class LaMultiplaNativePlugin extends Plugin {
     @PluginMethod
     public void getStatus(PluginCall call) {
+        try {
+            BackgroundJobService.ensurePeriodic(getContext());
+        } catch (Exception ignored) {
+            // Alcuni produttori limitano JobScheduler: l'app deve comunque avviarsi.
+        }
         call.resolve(status());
     }
 

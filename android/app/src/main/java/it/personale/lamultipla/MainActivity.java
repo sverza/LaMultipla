@@ -8,6 +8,5 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(LaMultiplaNativePlugin.class);
         super.onCreate(savedInstanceState);
-        BackgroundJobService.ensurePeriodic(this);
     }
 }

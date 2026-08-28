@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.0.1",
   "apkUrl": "https://github.com/sverza/LaMultipla/releases/latest",
-  "notes": "Prima versione Android di La Multipla."
+  "notes": "Correzione dell’avvio su Android."
 }
