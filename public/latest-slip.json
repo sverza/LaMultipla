@@ -1,31 +1,31 @@
 {
   "available": true,
-  "id": "2026-27-2",
+  "id": "2026-27-3",
   "slip": {
     "season": "2026/27",
-    "matchday": 2,
-    "date": "2026-08-28",
-    "notes": "Schedina finale 2ª giornata. Selezioni scelte per convergenza tra quota, contesto, forma iniziale e analisi esperte disponibili. Copertura MondoPengwin specifica della giornata non ancora reperibile/indicizzata al momento della finalizzazione.",
+    "matchday": 3,
+    "date": "2026-09-04",
+    "notes": "Schedina finale 3ª giornata. Tre selezioni senza forzare il limite di sei: Como favorito dopo il successo a Napoli contro un Genoa ancora senza punti né gol; Inter a punteggio pieno e forte a San Siro contro un Napoli con assenze importanti; Roma reduce da due 4-0 e favorita in casa contro un'Atalanta con assenze difensive. Quote Bet365 rilevate il 4 settembre 2026 e soggette a variazione: verificare nell'app Bet365 prima di confermare.",
     "selections": [
       {
-        "match": "Milan - Venezia",
-        "market": "1",
-        "odd": 1.36,
-        "probability": 76,
+        "match": "Genoa - Como",
+        "market": "2",
+        "odd": 1.8,
+        "probability": 58,
         "confidence": 4
       },
       {
-        "match": "Juventus - Parma",
-        "market": "Under 2.5",
-        "odd": 2.2,
+        "match": "Inter - Napoli",
+        "market": "1",
+        "odd": 1.61,
         "probability": 64,
         "confidence": 4
       },
       {
-        "match": "Lazio - Genoa",
+        "match": "Roma - Atalanta",
         "market": "1",
-        "odd": 1.96,
-        "probability": 59,
+        "odd": 1.7,
+        "probability": 60,
         "confidence": 4
       }
     ]
