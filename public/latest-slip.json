@@ -1,31 +1,38 @@
 {
   "available": true,
-  "id": "2026-27-3",
+  "id": "2026-27-3-v2",
   "slip": {
     "season": "2026/27",
     "matchday": 3,
     "date": "2026-09-04",
-    "notes": "Schedina finale 3ª giornata. Tre selezioni senza forzare il limite di sei: Como favorito dopo il successo a Napoli contro un Genoa ancora senza punti né gol; Inter a punteggio pieno e forte a San Siro contro un Napoli con assenze importanti; Roma reduce da due 4-0 e favorita in casa contro un'Atalanta con assenze difensive. Quote Bet365 rilevate il 4 settembre 2026 e soggette a variazione: verificare nell'app Bet365 prima di confermare.",
+    "notes": "Revisione ad ampio mercato della 3ª giornata: analizzati risultato, doppia chance, gol/no gol, under/over, multigol, handicap/rimborso, tempi, corner, cartellini e giocatori delle dieci partite. Scelte soltanto quattro opzioni ad alta probabilità e con dati sufficienti; esclusi i mercati più volatili o dipendenti dalle formazioni. Probabilità stimate, non garanzie. Quote Bet365 rilevate il 4 settembre 2026 alle 12:50 circa e soggette a variazione: verificare nell'app Bet365 prima di confermare.",
     "selections": [
       {
         "match": "Genoa - Como",
-        "market": "2",
-        "odd": 1.8,
-        "probability": 58,
+        "market": "Multigol partita 2-4",
+        "odd": 1.53,
+        "probability": 70,
         "confidence": 4
       },
       {
-        "match": "Inter - Napoli",
-        "market": "1",
-        "odd": 1.61,
-        "probability": 64,
+        "match": "Frosinone - Venezia",
+        "market": "Over 1.5 gol",
+        "odd": 1.25,
+        "probability": 80,
         "confidence": 4
       },
       {
-        "match": "Roma - Atalanta",
-        "market": "1",
-        "odd": 1.7,
-        "probability": 60,
+        "match": "Juventus - Milan",
+        "market": "Multigol partita 2-4",
+        "odd": 1.57,
+        "probability": 70,
+        "confidence": 4
+      },
+      {
+        "match": "Udinese - Lazio",
+        "market": "X2",
+        "odd": 1.4,
+        "probability": 72,
         "confidence": 4
       }
     ]
