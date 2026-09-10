@@ -1,38 +1,38 @@
 {
   "available": true,
-  "id": "2026-27-3-v2",
+  "id": "2026-27-4",
   "slip": {
     "season": "2026/27",
-    "matchday": 3,
-    "date": "2026-09-04",
-    "notes": "Revisione ad ampio mercato della 3ª giornata: analizzati risultato, doppia chance, gol/no gol, under/over, multigol, handicap/rimborso, tempi, corner, cartellini e giocatori delle dieci partite. Scelte soltanto quattro opzioni ad alta probabilità e con dati sufficienti; esclusi i mercati più volatili o dipendenti dalle formazioni. Probabilità stimate, non garanzie. Quote Bet365 rilevate il 4 settembre 2026 alle 12:50 circa e soggette a variazione: verificare nell'app Bet365 prima di confermare.",
+    "matchday": 4,
+    "date": "2026-09-11",
+    "notes": "Schedina finale 4ª giornata. Analizzate tutte le 10 partite e i principali mercati disponibili. Scelte basate su convergenza tra modelli, quote di mercato, forma iniziale, contesto e analisi qualitative reperibili. Copertura MondoPengwin/Pengwin specifica della giornata non reperita in modo verificabile al momento della finalizzazione; non sostituita con fonti di bassa qualità. Quote indicative soggette a variazione: verificare bet365 prima della conferma.",
     "selections": [
       {
-        "match": "Genoa - Como",
-        "market": "Multigol partita 2-4",
-        "odd": 1.53,
-        "probability": 70,
+        "match": "Venezia - Fiorentina",
+        "market": "Over 2.5",
+        "odd": 1.77,
+        "probability": 65,
+        "confidence": 3
+      },
+      {
+        "match": "Sassuolo - Juventus",
+        "market": "2",
+        "odd": 1.62,
+        "probability": 61,
         "confidence": 4
       },
       {
-        "match": "Frosinone - Venezia",
-        "market": "Over 1.5 gol",
-        "odd": 1.25,
-        "probability": 80,
+        "match": "Como - Parma",
+        "market": "1",
+        "odd": 1.26,
+        "probability": 73,
         "confidence": 4
       },
       {
-        "match": "Juventus - Milan",
-        "market": "Multigol partita 2-4",
-        "odd": 1.57,
-        "probability": 70,
-        "confidence": 4
-      },
-      {
-        "match": "Udinese - Lazio",
-        "market": "X2",
-        "odd": 1.4,
-        "probability": 72,
+        "match": "Inter - Udinese",
+        "market": "1",
+        "odd": 1.27,
+        "probability": 71,
         "confidence": 4
       }
     ]
