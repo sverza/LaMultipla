@@ -1,38 +1,31 @@
 {
   "available": true,
-  "id": "2026-27-4",
+  "id": "2026-27-5",
   "slip": {
     "season": "2026/27",
-    "matchday": 4,
-    "date": "2026-09-11",
-    "notes": "Schedina finale 4ª giornata. Analizzate tutte le 10 partite e i principali mercati disponibili. Scelte basate su convergenza tra modelli, quote di mercato, forma iniziale, contesto e analisi qualitative reperibili. Copertura MondoPengwin/Pengwin specifica della giornata non reperita in modo verificabile al momento della finalizzazione; non sostituita con fonti di bassa qualità. Quote indicative soggette a variazione: verificare bet365 prima della conferma.",
+    "matchday": 5,
+    "date": "2026-09-18",
+    "notes": "Schedina finale 5ª giornata. Scelte basate su convergenza tra contesto, forma iniziale, mercati e analisi qualitative reperibili. MondoPengwin/Pengwin non reperito in modo verificabile e completo al momento della finalizzazione; non sostituito con fonti di bassa qualità. Quote indicative da verificare su bet365 prima della conferma.",
     "selections": [
       {
-        "match": "Venezia - Fiorentina",
+        "match": "Monza - Sassuolo",
         "market": "Over 2.5",
-        "odd": 1.77,
-        "probability": 65,
+        "odd": 1.75,
+        "probability": 61,
         "confidence": 3
       },
       {
-        "match": "Sassuolo - Juventus",
-        "market": "2",
-        "odd": 1.62,
-        "probability": 61,
+        "match": "Roma - Inter",
+        "market": "Goal/Goal - Sì",
+        "odd": 1.53,
+        "probability": 69,
         "confidence": 4
       },
       {
-        "match": "Como - Parma",
-        "market": "1",
-        "odd": 1.26,
-        "probability": 73,
-        "confidence": 4
-      },
-      {
-        "match": "Inter - Udinese",
-        "market": "1",
-        "odd": 1.27,
-        "probability": 71,
+        "match": "Milan - Lecce",
+        "market": "Milan vincente + Over 1.5",
+        "odd": 1.74,
+        "probability": 64,
         "confidence": 4
       }
     ]
