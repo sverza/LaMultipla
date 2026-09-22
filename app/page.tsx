@@ -303,7 +303,7 @@ export default function Home() {
       return [
         slip.season, slip.matchday, slip.date, isPlayed(slip) ? 'Giocata' : 'Bozza', slipLabels[slip.result], isPlayed(slip) ? slip.stake : '', quotedOdd(slip).toFixed(2), effectiveOdd(slip).toFixed(2), slip.bonusAmount?.toFixed(2) || '',
         isPlayed(slip) && slip.result !== 'pending' ? slip.returnAmount.toFixed(2) : '', isPlayed(slip) && slip.result !== 'pending' ? (slip.returnAmount - slip.stake).toFixed(2) : '',
-        pick.match, pick.market, proposedOdd(pick).toFixed(2), pick.playedOdd ? actualPickOdd(pick).toFixed(2) : '', pick.minimumOdd?.toFixed(2) || '', pick.oddStatus, pick.probability, fairOdd(pick).toFixed(2), proposedEV(pick).toFixed(1), pick.playedOdd ? playedEV(pick).toFixed(1) : '', pick.closingOdd?.toFixed(2) || '', pick.closingSource || '', clv === undefined ? '' : clv.toFixed(1), pick.confidence, pick.reasons.join(', '), pick.result, slip.notes || '',
+        pick.match, pick.executionChanged && pick.playedMarket ? `${pick.market} → ${pick.playedMarket}` : pick.market, proposedOdd(pick).toFixed(2), pick.playedOdd ? actualPickOdd(pick).toFixed(2) : '', pick.minimumOdd?.toFixed(2) || '', pick.oddStatus, pick.probability, fairOdd(pick).toFixed(2), proposedEV(pick).toFixed(1), pick.playedOdd ? playedEV(pick).toFixed(1) : '', pick.closingOdd?.toFixed(2) || '', pick.closingSource || '', clv === undefined ? '' : clv.toFixed(1), pick.confidence, pick.reasons.join(', '), pick.result, slip.notes || '',
       ];
     }));
     const csv = '\ufeff' + [header, ...rows].map((row) => row.map(quote).join(';')).join('\r\n');
