@@ -6,6 +6,7 @@ import {
   Calibration,
   CurrentSlipCard,
   PerformanceBreakdown,
+  ModelStats,
   PickResultControl,
   PlacementPanel,
   Ring,
@@ -441,7 +442,7 @@ export default function Home() {
               <div className="season-card"><div className="season-head"><span><small>AVANZAMENTO STAGIONE</small><strong>{stats.registered} di 38 giornate giocate</strong></span><b>{(stats.registered / 38 * 100).toFixed(1).replace('.', ',')}%</b></div><div className="progress"><i style={{ width: `${Math.min(100, stats.registered / 38 * 100)}%` }} /></div><div className="season-facts"><span><small>Esposizione massima</small><b>{euro(114)}</b></span><span><small>Miglior giornata</small><b className={stats.best >= 0 ? 'pos-text' : 'neg-text'}>{stats.played ? `${stats.best >= 0 ? '+' : ''}${euro(stats.best)}` : '—'}</b></span><span><small>Peggior giornata</small><b className={stats.worst >= 0 ? 'pos-text' : 'neg-text'}>{stats.played ? `${stats.worst >= 0 ? '+' : ''}${euro(stats.worst)}` : '—'}</b></span><span><small>Serie attuale</small><b>{stats.streak ? `${stats.streak} ${stats.streakResult === 'won' ? 'vinte' : 'perse'}` : '—'}</b></span></div></div>
               {previousSeason && previousStats.played > 0 && <SeasonComparison current={stats} previous={previousStats} previousSeason={previousSeason} />}
               {backupDue && <button className="backup-reminder" onClick={() => setModal('backup')}><span>↥</span><div><strong>{backupDays === null ? 'Proteggi il tuo storico' : 'È ora di un nuovo backup'}</strong><small>{backupDays === null ? 'Non hai ancora esportato una copia.' : `Ultimo backup ${backupDays} giorni fa.`}</small></div><b>Apri →</b></button>}
-              <details className="analysis-disclosure"><summary><span><small>ANALISI AVANZATE</small><strong>Mercati, fiducia e calibrazione</strong></span><b>＋</b></summary><PerformanceBreakdown picks={seasonSlips.filter(isPlayed).flatMap((slip) => slip.picks)} matchdays={stats.played} /><Calibration picks={seasonSlips.filter(isPlayed).flatMap((slip) => slip.picks)} /></details>
+              <details className="analysis-disclosure"><summary><span><small>ANALISI AVANZATE</small><strong>EV, CLV, mercati, fiducia e calibrazione</strong></span><b>＋</b></summary><ModelStats slips={seasonSlips} /><PerformanceBreakdown picks={seasonSlips.filter(isPlayed).flatMap((slip) => slip.picks)} matchdays={stats.played} /><Calibration picks={seasonSlips.filter(isPlayed).flatMap((slip) => slip.picks)} /></details>
             </>}
           </>}
         </>}
