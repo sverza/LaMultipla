@@ -223,7 +223,7 @@ export function quotedOdd(slip: Slip) {
 export function effectiveOdd(slip: Slip) {
   const voidFactor = slip.picks
     .filter((pick) => pick.result === 'void')
-    .reduce((total, pick) => total * pick.odd, 1);
+    .reduce((total, pick) => total * actualPickOdd(pick), 1);
   return Math.max(1, quotedOdd(slip) / voidFactor);
 }
 
@@ -234,8 +234,14 @@ export function inferSlipResult(slip: Slip): PickResult {
   return 'won';
 }
 
-export function suggestedReturn(slip: Slip, result = inferSlipResult(slip)) {
+export function baseReturn(slip: Slip, result = inferSlipResult(slip)) {
   if (result === 'won') return +(slip.stake * effectiveOdd(slip)).toFixed(2);
+  if (result === 'void') return slip.stake;
+  return 0;
+}
+
+export function suggestedReturn(slip: Slip, result = inferSlipResult(slip)) {
+  if (result === 'won') return +(baseReturn(slip, result) + (slip.bonusAmount || 0)).toFixed(2);
   if (result === 'void') return slip.stake;
   return 0;
 }
