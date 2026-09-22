@@ -535,3 +535,15 @@ html[data-theme='dark'] .pick-card.lost .pick-main > b { background: #4a2925; co
 .played-pick.warning{border-color:#d89a27}
 .odd-warning{grid-column:1/-1;color:#b97800;font-weight:700}
 @media(max-width:520px){.played-pick{grid-template-columns:minmax(0,1fr) 82px}}
+
+
+/* v3 pick analysis */
+.pick-analysis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:10px 0 4px}
+.pick-analysis>span{display:grid;gap:2px;padding:9px 10px;border:1px solid var(--border);border-radius:12px;background:var(--surface)}
+.pick-analysis small{font-size:.65rem;letter-spacing:.06em;opacity:.65}
+.pick-analysis strong{font-size:.92rem}
+.pick-analysis em{font-size:.72rem;font-style:normal;opacity:.78}
+.closing-source{display:block;margin:6px 2px;opacity:.65}
+.pick-reasons{display:flex;flex-wrap:wrap;gap:6px;margin:7px 0}
+.pick-reasons span{font-size:.68rem;padding:4px 8px;border-radius:999px;border:1px solid var(--border);opacity:.8}
+@media(max-width:620px){.pick-analysis{grid-template-columns:repeat(2,minmax(0,1fr))}}
