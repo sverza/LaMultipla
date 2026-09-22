@@ -275,7 +275,7 @@ export default function Home() {
     try {
       const now = new Date().toISOString();
       const data = JSON.stringify({
-        app: 'seriea-multipla', version: 2, exportedAt: now,
+        app: 'seriea-multipla', version: 3, exportedAt: now,
         preferences: { theme, activeSeason, notifications: localStorage.getItem('la-multipla-notifications') === 'true', backgroundSync: syncStatus?.enabled ?? true, syncHours: syncStatus?.intervalHours ?? 3 },
         slips,
       }, null, 2);
