@@ -1,7 +1,7 @@
 export type PickResult = 'pending' | 'won' | 'lost' | 'void';
 export type SlipResult = PickResult | 'cashout';
 
-export type OddStatus = 'unknown' | 'above-minimum' | 'below-minimum';
+export type OddStatus = 'bet365_verified' | 'market_reference' | 'unverified' | 'unknown';
 
 export type Pick = {
   id: string;
@@ -90,7 +90,7 @@ export function normalizeSlip(raw: Partial<Slip>): Slip {
     const proposedOdd = Number(legacy.proposedOdd ?? legacy.odd) || 1;
     const playedOdd = legacy.playedOdd && Number(legacy.playedOdd) > 1 ? Number(legacy.playedOdd) : undefined;
     const minimumOdd = legacy.minimumOdd && Number(legacy.minimumOdd) > 1 ? Number(legacy.minimumOdd) : undefined;
-    const oddStatus: OddStatus = !playedOdd || !minimumOdd ? 'unknown' : playedOdd >= minimumOdd ? 'above-minimum' : 'below-minimum';
+    const oddStatus: OddStatus = ['bet365_verified', 'market_reference', 'unverified'].includes(String(legacy.oddStatus)) ? legacy.oddStatus as OddStatus : 'unknown';
     return {
       id: legacy.id || String(raw.id || 'slip') + '-pick-' + index,
       match: String(legacy.match || ''),
@@ -162,7 +162,9 @@ export function parseSlip(raw: unknown): Slip {
       odd,
       proposedOdd: odd,
       oddStatus: 'unknown' as OddStatus,
-      reasons: [],
+      minimumOdd: Number(selection.minimumOdd) > 1 ? Number(selection.minimumOdd) : undefined,
+      oddStatus: ['bet365_verified', 'market_reference', 'unverified'].includes(String(selection.oddStatus)) ? selection.oddStatus as OddStatus : 'unverified',
+      reasons: Array.isArray(selection.reasons) ? selection.reasons.map(String).filter(Boolean) : [],
       probability,
       confidence,
       result: 'pending' as PickResult,
