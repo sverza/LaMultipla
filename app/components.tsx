@@ -348,6 +348,53 @@ export function Settlement({ slip, onSettle }: {
   );
 }
 
+export function ModelStats({ slips }: { slips: Slip[] }) {
+  const stats = buildStats(slips);
+  const played = slips.filter(isPlayed);
+  const picks = played.flatMap((slip) => slip.picks);
+  const closed = picks.filter((pick) => pick.result === 'won' || pick.result === 'lost');
+  const evBands = [
+    { label: '< 0%', min: -Infinity, max: 0 },
+    { label: '0–5%', min: 0, max: 5 },
+    { label: '5–10%', min: 5, max: 10 },
+    { label: '10%+', min: 10, max: Infinity },
+  ].map((band) => {
+    const items = closed.filter((pick) => {
+      const value = pick.playedOdd ? playedEV(pick) : proposedEV(pick);
+      return value >= band.min && value < band.max;
+    });
+    const wins = items.filter((pick) => pick.result === 'won').length;
+    return { ...band, total: items.length, wins, hit: items.length ? wins / items.length * 100 : 0 };
+  });
+  const closingPicks = picks.filter((pick) => closingLineValue(pick) !== undefined);
+  const positiveClv = closingPicks.filter((pick) => (closingLineValue(pick) || 0) > 0).length;
+  return (
+    <>
+      <Title title="Qualità del modello" meta={`${closed.length} pick concluse`} />
+      <div className="model-kpis">
+        <span><small>EV PROPOSTO MEDIO</small><strong>{stats.avgValue >= 0 ? '+' : ''}{pct(stats.avgValue)}</strong><em>{picks.length} pick</em></span>
+        <span><small>EV GIOCATO MEDIO</small><strong>{stats.avgPlayedValue >= 0 ? '+' : ''}{pct(stats.avgPlayedValue)}</strong><em>quote reali quando presenti</em></span>
+        <span><small>CLV MEDIO</small><strong>{stats.avgClv === undefined ? '—' : `${stats.avgClv >= 0 ? '+' : ''}${pct(stats.avgClv)}`}</strong><em>{stats.clvSamples} closing disponibili</em></span>
+        <span><small>HIT RATE PICK</small><strong>{pct(stats.hit)}</strong><em>{stats.wonPicks}/{stats.wonPicks + stats.lostPicks}</em></span>
+      </div>
+      <div className="model-panels">
+        <div className="breakdown-card">
+          <div className="breakdown-head"><strong>Performance per EV</strong><small>Hit rate reale</small></div>
+          {evBands.map((band) => <div className="model-band" key={band.label}><span>{band.label}</span><small>{band.wins}/{band.total}</small><b>{band.total ? pct(band.hit) : '—'}</b></div>)}
+        </div>
+        <div className="breakdown-card">
+          <div className="breakdown-head"><strong>Closing line</strong><small>{closingPicks.length} campioni</small></div>
+          {!closingPicks.length ? <div className="analysis-empty compact">Nessuna closing affidabile registrata. Il dato comparirà senza ricostruzioni artificiali.</div> : <>
+            <div className="model-band"><span>CLV positivo</span><small>{positiveClv}/{closingPicks.length}</small><b>{pct(positiveClv / closingPicks.length * 100)}</b></div>
+            <div className="model-band"><span>CLV medio</span><small>played vs close</small><b>{stats.avgClv !== undefined ? `${stats.avgClv >= 0 ? '+' : ''}${pct(stats.avgClv)}` : '—'}</b></div>
+          </>}
+        </div>
+      </div>
+      <p className="sample-note">{stats.played < 8 ? 'Campione ancora piccolo: questi numeri descrivono i dati raccolti, non dimostrano ancora che il modello sia calibrato.' : 'Confronta EV, closing e risultati insieme: nessuna metrica isolata basta a valutare il modello.'}</p>
+    </>
+  );
+}
+
 export function PerformanceBreakdown({ picks, matchdays }: { picks: Pick[]; matchdays: number }) {
   const closed = picks.filter((pick) => pick.result === 'won' || pick.result === 'lost');
   const summarize = (getLabel: (pick: Pick) => string) => {
