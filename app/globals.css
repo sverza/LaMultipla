@@ -522,3 +522,16 @@ html[data-theme='dark'] .pick-card.lost .pick-main > b { background: #4a2925; co
   .pick-main { grid-template-columns: 31px 1fr; }
   .pick-main em { grid-column: 2; }
 }
+
+
+/* v3 played odds */
+.played-picks{display:grid;gap:10px;margin:14px 0}
+.played-pick{display:grid;grid-template-columns:minmax(0,1fr) 92px;gap:8px 12px;align-items:center;padding:12px;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
+.played-pick>span{min-width:0;display:grid;gap:3px}
+.played-pick>span strong{font-size:.92rem}
+.played-pick>span small{opacity:.72;line-height:1.35}
+.played-pick .odd-field.compact{margin:0}
+.played-pick .odd-field.compact input{min-width:0;width:100%}
+.played-pick.warning{border-color:#d89a27}
+.odd-warning{grid-column:1/-1;color:#b97800;font-weight:700}
+@media(max-width:520px){.played-pick{grid-template-columns:minmax(0,1fr) 82px}}
