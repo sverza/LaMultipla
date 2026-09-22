@@ -547,3 +547,18 @@ html[data-theme='dark'] .pick-card.lost .pick-main > b { background: #4a2925; co
 .pick-reasons{display:flex;flex-wrap:wrap;gap:6px;margin:7px 0}
 .pick-reasons span{font-size:.68rem;padding:4px 8px;border-radius:999px;border:1px solid var(--border);opacity:.8}
 @media(max-width:620px){.pick-analysis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+
+/* v3 model analytics */
+.model-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:12px 0}
+.model-kpis>span{display:grid;gap:3px;padding:12px;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
+.model-kpis small{font-size:.64rem;letter-spacing:.05em;opacity:.65}
+.model-kpis strong{font-size:1.05rem}
+.model-kpis em{font-size:.7rem;font-style:normal;opacity:.68}
+.model-panels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:10px 0}
+.model-band{display:grid;grid-template-columns:1fr auto 62px;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--border)}
+.model-band:last-child{border-bottom:0}
+.model-band small{opacity:.65}
+.model-band b{text-align:right}
+.analysis-empty.compact{margin:8px 0;padding:10px}
+@media(max-width:700px){.model-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.model-panels{grid-template-columns:1fr}}
