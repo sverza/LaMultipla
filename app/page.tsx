@@ -57,7 +57,7 @@ import {
   shareSlipCard,
   UpdateInfo,
 } from './lib/native';
-import { putSlip, readAll, removeSlip, replaceAll, updateSlip } from './lib/storage';
+import { migrateHistoricalV3Once, putSlip, readAll, removeSlip, replaceAll, updateSlip } from './lib/storage';
 
 type View = 'dash' | 'current' | 'history' | 'detail' | 'settings';
 type Modal = 'import' | 'edit' | 'schema' | 'backup' | null;
@@ -176,7 +176,7 @@ export default function Home() {
     else delete document.documentElement.dataset.theme;
 
     const initialLoad = window.setTimeout(() => {
-      void load().then(() => checkGitHub(false));
+      void migrateHistoricalV3Once().then(() => load()).then(() => checkGitHub(false));
       void refreshStatus();
     }, 0);
     if (!isNative && 'serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
