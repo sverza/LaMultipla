@@ -6,6 +6,7 @@ import {
   Calibration,
   CurrentSlipCard,
   PerformanceBreakdown,
+  ModelStats,
   PickResultControl,
   PlacementPanel,
   Ring,
@@ -20,12 +21,18 @@ import {
   APP_VERSION,
   buildStats,
   compareVersions,
+  actualPickOdd,
+  closingLineValue,
   effectiveOdd,
   euro,
+  fairOdd,
   formatDate,
   isPlayed,
   normalizeSlip,
   parseSlip,
+  playedEV,
+  proposedEV,
+  proposedOdd,
   PickResult,
   quotedOdd,
   Slip,
@@ -50,7 +57,7 @@ import {
   shareSlipCard,
   UpdateInfo,
 } from './lib/native';
-import { putSlip, readAll, removeSlip, replaceAll, updateSlip } from './lib/storage';
+import { migrateHistoricalV3Once, putSlip, readAll, removeSlip, replaceAll, updateSlip } from './lib/storage';
 
 type View = 'dash' | 'current' | 'history' | 'detail' | 'settings';
 type Modal = 'import' | 'edit' | 'schema' | 'backup' | null;
@@ -169,7 +176,7 @@ export default function Home() {
     else delete document.documentElement.dataset.theme;
 
     const initialLoad = window.setTimeout(() => {
-      void load().then(() => checkGitHub(false));
+      void migrateHistoricalV3Once().then(() => load()).then(() => checkGitHub(false));
       void refreshStatus();
     }, 0);
     if (!isNative && 'serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
@@ -274,7 +281,7 @@ export default function Home() {
     try {
       const now = new Date().toISOString();
       const data = JSON.stringify({
-        app: 'seriea-multipla', version: 2, exportedAt: now,
+        app: 'seriea-multipla', version: 3, exportedAt: now,
         preferences: { theme, activeSeason, notifications: localStorage.getItem('la-multipla-notifications') === 'true', backgroundSync: syncStatus?.enabled ?? true, syncHours: syncStatus?.intervalHours ?? 3 },
         slips,
       }, null, 2);
@@ -290,12 +297,15 @@ export default function Home() {
 
   const exportCsv = () => {
     const quote = (value: unknown) => `"${String(value ?? '').replaceAll('"', '""')}"`;
-    const header = ['Stagione', 'Giornata', 'Data', 'Stato', 'Esito multipla', 'Puntata', 'Quota giocata', 'Quota effettiva', 'Ritorno', 'Profit/Loss', 'Partita', 'Mercato', 'Quota selezione', 'Probabilità stimata', 'Quota equa', 'Value', 'Fiducia', 'Esito selezione', 'Note'];
-    const rows = slips.flatMap((slip) => slip.picks.map((pick) => [
-      slip.season, slip.matchday, slip.date, isPlayed(slip) ? 'Giocata' : 'Bozza', slipLabels[slip.result], isPlayed(slip) ? slip.stake : '', quotedOdd(slip).toFixed(2), effectiveOdd(slip).toFixed(2),
-      isPlayed(slip) && slip.result !== 'pending' ? slip.returnAmount.toFixed(2) : '', isPlayed(slip) && slip.result !== 'pending' ? (slip.returnAmount - slip.stake).toFixed(2) : '',
-      pick.match, pick.market, pick.odd.toFixed(2), pick.probability, (100 / pick.probability).toFixed(2), ((pick.odd * pick.probability / 100 - 1) * 100).toFixed(1), pick.confidence, pick.result, slip.notes || '',
-    ]));
+    const header = ['Stagione', 'Giornata', 'Data', 'Stato', 'Esito multipla', 'Puntata', 'Quota totale giocata', 'Quota effettiva', 'Bonus', 'Ritorno', 'Profit/Loss', 'Partita', 'Mercato', 'Quota proposta', 'Quota giocata pick', 'Quota minima', 'Stato quota', 'Probabilità stimata', 'Quota equa', 'EV proposto', 'EV giocato', 'Closing odd', 'Fonte closing', 'CLV', 'Fiducia', 'Motivazioni', 'Esito selezione', 'Note'];
+    const rows = slips.flatMap((slip) => slip.picks.map((pick) => {
+      const clv = closingLineValue(pick);
+      return [
+        slip.season, slip.matchday, slip.date, isPlayed(slip) ? 'Giocata' : 'Bozza', slipLabels[slip.result], isPlayed(slip) ? slip.stake : '', quotedOdd(slip).toFixed(2), effectiveOdd(slip).toFixed(2), slip.bonusAmount?.toFixed(2) || '',
+        isPlayed(slip) && slip.result !== 'pending' ? slip.returnAmount.toFixed(2) : '', isPlayed(slip) && slip.result !== 'pending' ? (slip.returnAmount - slip.stake).toFixed(2) : '',
+        pick.match, pick.executionChanged && pick.playedMarket ? `${pick.market} → ${pick.playedMarket}` : pick.market, proposedOdd(pick).toFixed(2), pick.playedOdd ? actualPickOdd(pick).toFixed(2) : '', pick.minimumOdd?.toFixed(2) || '', pick.oddStatus, pick.probability, fairOdd(pick).toFixed(2), proposedEV(pick).toFixed(1), pick.playedOdd ? playedEV(pick).toFixed(1) : '', pick.closingOdd?.toFixed(2) || '', pick.closingSource || '', clv === undefined ? '' : clv.toFixed(1), pick.confidence, pick.reasons.join(', '), pick.result, slip.notes || '',
+      ];
+    }));
     const csv = '\ufeff' + [header, ...rows].map((row) => row.map(quote).join(';')).join('\r\n');
     const link = document.createElement('a');
     link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
@@ -356,25 +366,29 @@ export default function Home() {
     await haptic('light');
   };
 
-  const settle = async (slip: Slip, result: SlipResult, manual?: number) => {
-    const fallback = result === 'won' ? slip.stake * effectiveOdd(slip) : result === 'void' ? slip.stake : 0;
+  const settle = async (slip: Slip, result: SlipResult, manual?: number, bonusAmount = 0) => {
+    const fallback = result === 'won' ? slip.stake * effectiveOdd(slip) + bonusAmount : result === 'void' ? slip.stake : 0;
     const returnAmount = manual !== undefined && Number.isFinite(manual) && manual >= 0 ? manual : fallback;
     const savedMessage = `Giornata ${slip.matchday}: ${slipLabels[result].toLowerCase()}, ritorno ${euro(returnAmount)}.`;
-    await save({ ...slip, result, returnAmount: +returnAmount.toFixed(2) }, slip, savedMessage);
+    await save({ ...slip, result, bonusAmount: bonusAmount > 0 ? +bonusAmount.toFixed(2) : undefined, returnAmount: +returnAmount.toFixed(2) }, slip, savedMessage);
     await cancelResultReminder(slip);
     await haptic('success');
   };
 
-  const setPlacement = async (slip: Slip, playedOdd?: number) => {
+  const setPlacement = async (slip: Slip, playedOdd?: number, pickOdds?: Record<string, number>) => {
     const makePlayed = slip.placement === 'draft';
-    const updated = { ...slip, placement: makePlayed ? 'played' as const : 'draft' as const, playedOdd: makePlayed ? playedOdd || quotedOdd(slip) : slip.playedOdd };
+    const picks = makePlayed && pickOdds ? slip.picks.map((pick) => ({ ...pick, playedOdd: pickOdds[pick.id] || pick.playedOdd })) : slip.picks;
+    const updated = { ...slip, picks, placement: makePlayed ? 'played' as const : 'draft' as const, playedOdd: makePlayed ? playedOdd || quotedOdd({ ...slip, picks }) : slip.playedOdd };
     await save(updated, slip, makePlayed ? `Giornata ${slip.matchday} confermata come giocata.` : `Giornata ${slip.matchday} riportata in bozza.`);
     if (makePlayed) await scheduleResultReminder(updated);
     else await cancelResultReminder(updated);
     await haptic('success');
   };
 
-  const setPlayedOdd = async (slip: Slip, odd: number) => save({ ...slip, playedOdd: odd }, slip, `Quota giocata aggiornata a ${odd.toFixed(2)}.`);
+  const setPlayedOdd = async (slip: Slip, odd: number, pickOdds?: Record<string, number>) => {
+    const picks = pickOdds ? slip.picks.map((pick) => ({ ...pick, playedOdd: pickOdds[pick.id] || pick.playedOdd })) : slip.picks;
+    await save({ ...slip, picks, playedOdd: odd }, slip, `Quote giocate aggiornate · totale ${odd.toFixed(2)}.`);
+  };
 
   const share = async (slip: Slip) => {
     try {
@@ -437,7 +451,7 @@ export default function Home() {
               <div className="season-card"><div className="season-head"><span><small>AVANZAMENTO STAGIONE</small><strong>{stats.registered} di 38 giornate giocate</strong></span><b>{(stats.registered / 38 * 100).toFixed(1).replace('.', ',')}%</b></div><div className="progress"><i style={{ width: `${Math.min(100, stats.registered / 38 * 100)}%` }} /></div><div className="season-facts"><span><small>Esposizione massima</small><b>{euro(114)}</b></span><span><small>Miglior giornata</small><b className={stats.best >= 0 ? 'pos-text' : 'neg-text'}>{stats.played ? `${stats.best >= 0 ? '+' : ''}${euro(stats.best)}` : '—'}</b></span><span><small>Peggior giornata</small><b className={stats.worst >= 0 ? 'pos-text' : 'neg-text'}>{stats.played ? `${stats.worst >= 0 ? '+' : ''}${euro(stats.worst)}` : '—'}</b></span><span><small>Serie attuale</small><b>{stats.streak ? `${stats.streak} ${stats.streakResult === 'won' ? 'vinte' : 'perse'}` : '—'}</b></span></div></div>
               {previousSeason && previousStats.played > 0 && <SeasonComparison current={stats} previous={previousStats} previousSeason={previousSeason} />}
               {backupDue && <button className="backup-reminder" onClick={() => setModal('backup')}><span>↥</span><div><strong>{backupDays === null ? 'Proteggi il tuo storico' : 'È ora di un nuovo backup'}</strong><small>{backupDays === null ? 'Non hai ancora esportato una copia.' : `Ultimo backup ${backupDays} giorni fa.`}</small></div><b>Apri →</b></button>}
-              <details className="analysis-disclosure"><summary><span><small>ANALISI AVANZATE</small><strong>Mercati, fiducia e calibrazione</strong></span><b>＋</b></summary><PerformanceBreakdown picks={seasonSlips.filter(isPlayed).flatMap((slip) => slip.picks)} matchdays={stats.played} /><Calibration picks={seasonSlips.filter(isPlayed).flatMap((slip) => slip.picks)} /></details>
+              <details className="analysis-disclosure"><summary><span><small>ANALISI AVANZATE</small><strong>EV, CLV, mercati, fiducia e calibrazione</strong></span><b>＋</b></summary><ModelStats slips={seasonSlips} /><PerformanceBreakdown picks={seasonSlips.filter(isPlayed).flatMap((slip) => slip.picks)} matchdays={stats.played} /><Calibration picks={seasonSlips.filter(isPlayed).flatMap((slip) => slip.picks)} /></details>
             </>}
           </>}
         </>}
@@ -447,9 +461,9 @@ export default function Home() {
         {(view === 'current' || view === 'detail') && selected && <>
           {view === 'detail' && <button className="back" onClick={() => setView('history')}>← Storico</button>}
           <div className="detail-heading"><div><div className="eye">GIORNATA {selected.matchday} · {formatDate(selected.date)}</div><h1>La tua<br /><em>multipla.</em></h1></div><button className="share-button" onClick={() => share(selected)}><span>↗</span>Condividi</button></div>
-          <SlipCard slip={selected} /><PlacementPanel key={`${selected.id}-${selected.placement}-${selected.playedOdd}`} slip={selected} onToggle={(odd) => setPlacement(selected, odd)} onOdd={(odd) => setPlayedOdd(selected, odd)} /><button className="secondary wide edit-button" onClick={() => openEdit(selected)}>✎ Modifica schedina</button>
+          <SlipCard slip={selected} /><PlacementPanel key={`${selected.id}-${selected.placement}-${selected.playedOdd}`} slip={selected} onToggle={(odd, pickOdds) => setPlacement(selected, odd, pickOdds)} onOdd={(odd, pickOdds) => setPlayedOdd(selected, odd, pickOdds)} /><button className="secondary wide edit-button" onClick={() => openEdit(selected)}>✎ Modifica schedina</button>
           <Title title="Selezioni" meta={`${selected.picks.filter((pick) => pick.result !== 'pending').length}/${selected.picks.length} definite`} /><div className="picks">{selected.picks.map((pick) => <PickResultControl key={pick.id} pick={pick} disabled={!isPlayed(selected)} onChange={(result) => setPickResult(selected, pick.id, result)} />)}</div>
-          {!isPlayed(selected) && <p className="hint">Conferma prima la schedina per poter inserire gli esiti.</p>}{isPlayed(selected) && <Settlement key={`${selected.id}-${selected.result}-${selected.returnAmount}-${selected.playedOdd}-${selected.picks.map((pick) => pick.result).join('-')}`} slip={selected} onSettle={(result, amount) => settle(selected, result, amount)} />}<button className="danger" onClick={() => deleteSlip(selected)}>Elimina schedina</button>
+          {!isPlayed(selected) && <p className="hint">Conferma prima la schedina per poter inserire gli esiti.</p>}{isPlayed(selected) && <Settlement key={`${selected.id}-${selected.result}-${selected.returnAmount}-${selected.playedOdd}-${selected.picks.map((pick) => pick.result).join('-')}`} slip={selected} onSettle={(result, amount, bonusAmount) => settle(selected, result, amount, bonusAmount)} />}<button className="danger" onClick={() => deleteSlip(selected)}>Elimina schedina</button>
         </>}
 
         {view === 'current' && !selected && <><div className="eye">SCHEDINA ATTUALE</div><h1>La prossima<br /><em>multipla.</em></h1><CurrentSlipCard onOpen={() => undefined} onImport={() => setModal('import')} /></>}

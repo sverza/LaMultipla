@@ -2,14 +2,22 @@
 
 import { useMemo, useState } from 'react';
 import {
+  actualPickOdd,
+  baseReturn,
+  closingLineValue,
   buildStats,
+  combinedPlayedOdd,
   effectiveOdd,
   euro,
+  fairOdd,
   formatDate,
   inferSlipResult,
   isPlayed,
   marketGroup,
   pct,
+  playedEV,
+  proposedEV,
+  proposedOdd,
   PICK_RESULTS,
   Pick,
   pickLabels,
@@ -203,27 +211,53 @@ export function Ring({ value, label, detail }: { value: number; label: string; d
 
 export function PlacementPanel({ slip, onToggle, onOdd }: {
   slip: Slip;
-  onToggle: (odd?: number) => void;
-  onOdd: (odd: number) => void;
+  onToggle: (odd?: number, pickOdds?: Record<string, number>) => void;
+  onOdd: (odd: number, pickOdds?: Record<string, number>) => void;
 }) {
   const suggested = slip.picks.reduce((total, pick) => total * pick.odd, 1);
-  const [odd, setOdd] = useState(quotedOdd(slip).toFixed(2).replace('.', ','));
+  const [pickOdds, setPickOdds] = useState<Record<string, string>>(() => Object.fromEntries(
+    slip.picks.map((pick) => [pick.id, actualPickOdd(pick).toFixed(2).replace('.', ',')])
+  ));
+  const numericPickOdds = Object.fromEntries(slip.picks.map((pick) => [pick.id, Number((pickOdds[pick.id] || '').replace(',', '.'))]));
+  const invalidPickOdds = slip.picks.some((pick) => !Number.isFinite(numericPickOdds[pick.id]) || numericPickOdds[pick.id] <= 1);
+  const calculated = invalidPickOdds ? 0 : slip.picks.reduce((total, pick) => total * numericPickOdds[pick.id], 1);
+  const [odd, setOdd] = useState((slip.playedOdd || calculated || quotedOdd(slip)).toFixed(2).replace('.', ','));
   const value = Number(odd.replace(',', '.'));
-  const invalid = !Number.isFinite(value) || value <= 1;
+  const invalid = invalidPickOdds || !Number.isFinite(value) || value <= 1;
+  const setPickOdd = (id: string, value: string) => {
+    const next = { ...pickOdds, [id]: value };
+    setPickOdds(next);
+    const numbers = slip.picks.map((pick) => Number((next[pick.id] || '').replace(',', '.')));
+    if (numbers.every((item) => Number.isFinite(item) && item > 1)) {
+      setOdd(numbers.reduce((total, item) => total * item, 1).toFixed(2).replace('.', ','));
+    }
+  };
   return (
     <div className={`placement-panel ${isPlayed(slip) ? 'played' : 'draft'}`}>
       <div className="placement-head">
-        <span><small>{isPlayed(slip) ? 'SCHEDINA GIOCATA' : 'BOZZA NON CONTEGGIATA'}</small><strong>{isPlayed(slip) ? 'Stake attivo: 3 €' : 'Conferma dopo averla giocata'}</strong></span>
+        <span><small>{isPlayed(slip) ? 'SCHEDINA GIOCATA' : 'BOZZA NON CONTEGGIATA'}</small><strong>{isPlayed(slip) ? 'Stake attivo: 3 €' : 'Inserisci le quote realmente prese'}</strong></span>
         <b>{isPlayed(slip) ? '✓' : '✦'}</b>
       </div>
-      <label><span>Quota totale realmente giocata</span><small>Suggerita: {suggested.toFixed(2)}</small></label>
+      <div className="played-picks">
+        {slip.picks.map((pick) => {
+          const actual = numericPickOdds[pick.id];
+          const below = pick.minimumOdd && Number.isFinite(actual) && actual < pick.minimumOdd;
+          return <div className={`played-pick ${below ? 'warning' : ''}`} key={pick.id}>
+            <span><strong>{pick.match}</strong><small>{pick.market} · proposta @{pick.odd.toFixed(2)}{pick.minimumOdd ? ` · minima @${pick.minimumOdd.toFixed(2)}` : ''}</small></span>
+            <div className="odd-field compact"><span>@</span><input inputMode="decimal" value={pickOdds[pick.id] || ''} onChange={(event) => setPickOdd(pick.id, event.target.value)} aria-invalid={!Number.isFinite(actual) || actual <= 1} /></div>
+            {below && <small className="odd-warning">⚠ Quota sotto la soglia di valore stimata</small>}
+          </div>;
+        })}
+      </div>
+      <label><span>Quota totale realmente giocata</span><small>Proposta: {suggested.toFixed(2)} · calcolata dalle quote: {calculated ? calculated.toFixed(2) : '—'}</small></label>
       <div className="odd-field"><span>@</span><input inputMode="decimal" value={odd} onChange={(event) => setOdd(event.target.value)} aria-invalid={invalid} /></div>
+      <p>La quota totale resta modificabile: se bet365 mostra un valore leggermente diverso, salva quello effettivo.</p>
       {isPlayed(slip) ? (
         <div className="placement-actions">
-          <button className="secondary" disabled={invalid} onClick={() => onOdd(value)}>Salva quota</button>
+          <button className="secondary" disabled={invalid} onClick={() => onOdd(value, numericPickOdds)}>Salva quote</button>
           <button className="link" onClick={() => onToggle()}>Riporta in bozza</button>
         </div>
-      ) : <button className="primary wide" disabled={invalid} onClick={() => onToggle(value)}>Conferma come giocata</button>}
+      ) : <button className="primary wide" disabled={invalid} onClick={() => onToggle(value, numericPickOdds)}>Conferma come giocata</button>}
     </div>
   );
 }
@@ -233,19 +267,28 @@ export function PickResultControl({ pick, disabled, onChange }: {
   disabled: boolean;
   onChange: (result: PickResult) => void;
 }) {
-  const fair = 100 / pick.probability;
-  const value = (pick.odd * pick.probability / 100 - 1) * 100;
+  const fair = fairOdd(pick);
+  const proposedValue = proposedEV(pick);
+  const actualValue = playedEV(pick);
+  const clv = closingLineValue(pick);
   return (
     <article className={`pick-card ${pick.result} ${disabled ? 'disabled' : ''}`}>
       <div className="pick-main">
         <b>{symbols[pick.result]}</b>
         <span>
           <strong>{pick.match}</strong>
-          <small>{pick.market} · quota {pick.odd.toFixed(2)}</small>
-          <small>Equa {fair.toFixed(2)} · Value {value >= 0 ? '+' : ''}{pct(value)} · {'●'.repeat(pick.confidence)}{'○'.repeat(5 - pick.confidence)}</small>
+          <small>{pick.executionChanged && pick.playedMarket ? `${pick.market} → giocata: ${pick.playedMarket}` : pick.market} · probabilità {pct(pick.probability)} · {'●'.repeat(pick.confidence)}{'○'.repeat(5 - pick.confidence)}</small>
         </span>
         <em>{pickLabels[pick.result]}</em>
       </div>
+      <div className="pick-analysis">
+        <span><small>PROPOSTA</small><strong>@{proposedOdd(pick).toFixed(2)}</strong><em>EV {proposedValue >= 0 ? '+' : ''}{pct(proposedValue)}</em></span>
+        <span><small>GIOCATA</small><strong>{pick.playedOdd ? `@${pick.playedOdd.toFixed(2)}` : '—'}</strong><em>{pick.playedOdd ? `EV ${actualValue >= 0 ? '+' : ''}${pct(actualValue)}` : 'non registrata'}</em></span>
+        <span><small>MINIMA</small><strong>{pick.minimumOdd ? `@${pick.minimumOdd.toFixed(2)}` : '—'}</strong><em>Fair @{fair.toFixed(2)}</em></span>
+        <span><small>CLOSING</small><strong>{pick.closingOdd ? `@${pick.closingOdd.toFixed(2)}` : '—'}</strong><em>{clv !== undefined ? `CLV ${clv >= 0 ? '+' : ''}${pct(clv)}` : 'non disponibile'}</em></span>
+      </div>
+      {pick.closingSource && <small className="closing-source">Fonte closing: {pick.closingSource}</small>}
+      {pick.reasons.length > 0 && <div className="pick-reasons">{pick.reasons.map((reason) => <span key={reason}>{reason}</span>)}</div>}
       <div className="pick-options" role="group" aria-label={`Esito ${pick.match}`}>
         {PICK_RESULTS.map((result) => (
           <button key={result} className={pick.result === result ? `active ${result}` : ''} disabled={disabled} onClick={() => onChange(result)}>{pickLabels[result]}</button>
@@ -257,18 +300,22 @@ export function PickResultControl({ pick, disabled, onChange }: {
 
 export function Settlement({ slip, onSettle }: {
   slip: Slip;
-  onSettle: (result: SlipResult, amount?: number) => void;
+  onSettle: (result: SlipResult, amount?: number, bonusAmount?: number) => void;
 }) {
   const inferred = inferSlipResult(slip);
   const expected = suggestedReturn(slip, inferred === 'pending' ? 'won' : inferred);
   const [amount, setAmount] = useState(slip.result === 'pending' ? '' : String(slip.returnAmount).replace('.', ','));
   const parsed = amount.trim() === '' ? undefined : Number(amount.replace(',', '.'));
-  const invalid = parsed !== undefined && (!Number.isFinite(parsed) || parsed < 0);
+  const [bonus, setBonus] = useState(slip.bonusAmount ? String(slip.bonusAmount).replace('.', ',') : '');
+  const parsedBonus = bonus.trim() === '' ? 0 : Number(bonus.replace(',', '.'));
+  const invalidBonus = !Number.isFinite(parsedBonus) || parsedBonus < 0;
+  const invalid = (parsed !== undefined && (!Number.isFinite(parsed) || parsed < 0)) || invalidBonus;
   const mismatch = inferred !== 'pending' && slip.result !== 'pending' && slip.result !== 'cashout' && inferred !== slip.result;
   const incomplete = inferred === 'pending' && slip.result !== 'pending' && slip.result !== 'cashout';
   const submit = (result: SlipResult) => {
     if (result === 'cashout' && parsed === undefined) return;
-    onSettle(result, parsed);
+    const fallbackAmount = result === 'won' && parsed === undefined ? +(baseReturn(slip, result) + parsedBonus).toFixed(2) : parsed;
+    onSettle(result, fallbackAmount, parsedBonus);
   };
 
   return (
@@ -277,7 +324,7 @@ export function Settlement({ slip, onSettle }: {
       {inferred !== 'pending' && (
         <div className={`result-suggestion ${mismatch ? 'warning' : ''}`}>
           <span><small>{mismatch ? 'ESITI NON COERENTI' : 'SUGGERIMENTO AUTOMATICO'}</small><strong>{slipLabels[inferred]} · ritorno {euro(suggestedReturn(slip, inferred))}</strong></span>
-          <button onClick={() => onSettle(inferred, suggestedReturn(slip, inferred))}>Applica</button>
+          <button onClick={() => onSettle(inferred, +(baseReturn(slip, inferred) + parsedBonus).toFixed(2), parsedBonus)}>Applica</button>
         </div>
       )}
       {incomplete && (
@@ -285,9 +332,12 @@ export function Settlement({ slip, onSettle }: {
           <span><small>ESITI INCOMPLETI</small><strong>La multipla è chiusa, ma alcune selezioni risultano ancora in attesa.</strong></span>
         </div>
       )}
-      <label htmlFor="actual-return"><span>Ritorno effettivo</span><small>Totale accreditato da bet365</small></label>
+      <label htmlFor="bonus-amount"><span>Bonus / maggiorazione</span><small>Importo extra riconosciuto dal bookmaker · opzionale</small></label>
+      <div className="return-field"><span>€</span><input id="bonus-amount" inputMode="decimal" value={bonus} onChange={(event) => setBonus(event.target.value)} placeholder="0,00" aria-invalid={invalidBonus} /></div>
+      <p>Ritorno base calcolato: <strong>{euro(baseReturn(slip, inferred === 'pending' ? 'won' : inferred))}</strong>{parsedBonus > 0 ? <> · con bonus: <strong>{euro(baseReturn(slip, inferred === 'pending' ? 'won' : inferred) + parsedBonus)}</strong></> : null}</p>
+      <label htmlFor="actual-return"><span>Ritorno effettivo</span><small>Totale realmente accreditato da bet365 · dato contabile autorevole</small></label>
       <div className="return-field"><span>€</span><input id="actual-return" inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder={expected.toFixed(2).replace('.', ',')} aria-invalid={invalid} /></div>
-      <p>Le selezioni nulle vengono escluse dalla quota effettiva ({effectiveOdd(slip).toFixed(2)}). Inserisci manualmente l’importo per cash out, bonus o casi particolari.</p>
+      <p>Le selezioni nulle vengono escluse dalla quota effettiva ({effectiveOdd(slip).toFixed(2)}). Il ritorno effettivo resta modificabile per arrotondamenti, cash out o casi particolari.</p>
       <div className="settle four-results">
         <button disabled={invalid} onClick={() => submit('lost')}>Persa</button>
         <button disabled={invalid} onClick={() => submit('void')}>Nulla</button>
@@ -295,6 +345,53 @@ export function Settlement({ slip, onSettle }: {
         <button disabled={invalid} className="primary" onClick={() => submit('won')}>Vinta</button>
       </div>
     </div>
+  );
+}
+
+export function ModelStats({ slips }: { slips: Slip[] }) {
+  const stats = buildStats(slips);
+  const played = slips.filter(isPlayed);
+  const picks = played.flatMap((slip) => slip.picks);
+  const closed = picks.filter((pick) => pick.result === 'won' || pick.result === 'lost');
+  const evBands = [
+    { label: '< 0%', min: -Infinity, max: 0 },
+    { label: '0–5%', min: 0, max: 5 },
+    { label: '5–10%', min: 5, max: 10 },
+    { label: '10%+', min: 10, max: Infinity },
+  ].map((band) => {
+    const items = closed.filter((pick) => {
+      const value = pick.playedOdd ? playedEV(pick) : proposedEV(pick);
+      return value >= band.min && value < band.max;
+    });
+    const wins = items.filter((pick) => pick.result === 'won').length;
+    return { ...band, total: items.length, wins, hit: items.length ? wins / items.length * 100 : 0 };
+  });
+  const closingPicks = picks.filter((pick) => closingLineValue(pick) !== undefined);
+  const positiveClv = closingPicks.filter((pick) => (closingLineValue(pick) || 0) > 0).length;
+  return (
+    <>
+      <Title title="Qualità del modello" meta={`${closed.length} pick concluse`} />
+      <div className="model-kpis">
+        <span><small>EV PROPOSTO MEDIO</small><strong>{stats.avgValue >= 0 ? '+' : ''}{pct(stats.avgValue)}</strong><em>{picks.length} pick</em></span>
+        <span><small>EV GIOCATO MEDIO</small><strong>{stats.avgPlayedValue >= 0 ? '+' : ''}{pct(stats.avgPlayedValue)}</strong><em>quote reali quando presenti</em></span>
+        <span><small>CLV MEDIO</small><strong>{stats.avgClv === undefined ? '—' : `${stats.avgClv >= 0 ? '+' : ''}${pct(stats.avgClv)}`}</strong><em>{stats.clvSamples} closing disponibili</em></span>
+        <span><small>HIT RATE PICK</small><strong>{pct(stats.hit)}</strong><em>{stats.wonPicks}/{stats.wonPicks + stats.lostPicks}</em></span>
+      </div>
+      <div className="model-panels">
+        <div className="breakdown-card">
+          <div className="breakdown-head"><strong>Performance per EV</strong><small>Hit rate reale</small></div>
+          {evBands.map((band) => <div className="model-band" key={band.label}><span>{band.label}</span><small>{band.wins}/{band.total}</small><b>{band.total ? pct(band.hit) : '—'}</b></div>)}
+        </div>
+        <div className="breakdown-card">
+          <div className="breakdown-head"><strong>Closing line</strong><small>{closingPicks.length} campioni</small></div>
+          {!closingPicks.length ? <div className="analysis-empty compact">Nessuna closing affidabile registrata. Il dato comparirà senza ricostruzioni artificiali.</div> : <>
+            <div className="model-band"><span>CLV positivo</span><small>{positiveClv}/{closingPicks.length}</small><b>{pct(positiveClv / closingPicks.length * 100)}</b></div>
+            <div className="model-band"><span>CLV medio</span><small>played vs close</small><b>{stats.avgClv !== undefined ? `${stats.avgClv >= 0 ? '+' : ''}${pct(stats.avgClv)}` : '—'}</b></div>
+          </>}
+        </div>
+      </div>
+      <p className="sample-note">{stats.played < 8 ? 'Campione ancora piccolo: questi numeri descrivono i dati raccolti, non dimostrano ancora che il modello sia calibrato.' : 'Confronta EV, closing e risultati insieme: nessuna metrica isolata basta a valutare il modello.'}</p>
+    </>
   );
 }
 
