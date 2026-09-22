@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Correzioni storiche verificate da ricevute bet365. Applicare solo a record esistenti con stesso slipId/pickId; i campi assenti restano sconosciuti.",
+  "slips": [
+    {
+      "slipId": "2026/27-2-2026-08-28",
+      "playedOdd": 6.38,
+      "bonusAmount": 0.96,
+      "returnAmount": 20.09,
+      "picks": [
+        {
+          "pickId": "4aedadbc-ca68-4257-b9a4-1a3240eb9a28",
+          "playedMarket": "Vince/avanti di 2 - Milan Sì",
+          "playedOdd": 1.45,
+          "executionChanged": true
+        },
+        {
+          "pickId": "c6b10dff-2da1-4a93-90ac-c49195b94a30",
+          "playedMarket": "Under 2.5",
+          "playedOdd": 2.20,
+          "executionChanged": false
+        },
+        {
+          "pickId": "346beb70-5741-4d29-9af3-0a73c805534d",
+          "playedMarket": "Vince/avanti di 2 - Lazio Sì",
+          "playedOdd": 2.00,
+          "executionChanged": true
+        }
+      ]
+    },
+    {
+      "slipId": "2026/27-3-2026-09-04",
+      "playedOdd": 4.21,
+      "returnAmount": 0,
+      "picks": [
+        {"pickId":"a0aaad3c-d06c-459f-8627-7e93d52ba378","playedOdd":1.53},
+        {"pickId":"d428a1b9-d165-404a-8db8-49de1048e6a0","playedOdd":1.25},
+        {"pickId":"f4e3d047-a0f9-4d4b-b9ea-5fb46b5a2e07","playedOdd":1.57},
+        {"pickId":"7e9a6e0a-a4fb-418b-995c-6fa865e72500","playedOdd":1.40}
+      ]
+    },
+    {
+      "slipId": "2026/27-4-2026-09-11",
+      "returnAmount": 0,
+      "picks": [
+        {"pickId":"d231dbaa-da3c-421b-b4f3-6f1299fee783","playedOdd":1.80},
+        {"pickId":"617c7e92-a82d-4165-b0b1-04c78d1477ab","playedOdd":1.61},
+        {"pickId":"d686ea66-0e67-473b-9feb-62e116b4d8f9","playedOdd":1.22},
+        {"pickId":"cbfa8b6b-0d90-4f68-a4e8-b93046ac4079","playedOdd":1.22}
+      ]
+    },
+    {
+      "slipId": "2026/27-5-2026-09-18",
+      "playedOdd": 3.89,
+      "returnAmount": 11.71,
+      "picks": [
+        {"pickId":"e5fe20f1-7073-4820-b625-414d1d018dae","playedOdd":1.80},
+        {"pickId":"e94b83fc-5503-402b-8d50-744d1284d471","playedOdd":1.50},
+        {
+          "pickId":"a585a1d9-6155-468d-8482-34c50a188cd8",
+          "playedMarket":"Bet Builder: Milan risultato finale + Più di 1 goal (Somma goal)",
+          "playedOdd":1.44
+        }
+      ]
+    }
+  ]
+}
