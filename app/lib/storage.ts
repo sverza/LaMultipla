@@ -1,4 +1,5 @@
 import { normalizeSlip, Slip } from './model';
+import historicalPatches from '../data/historical-v3-patches.json';
 
 const DATABASE = 'seriea-multipla';
 const STORE = 'slips';
@@ -65,4 +66,57 @@ export async function replaceAll(items: Slip[]) {
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error);
   });
+}
+
+
+const V3_MIGRATION_KEY = 'historical-v3-patches-v1';
+
+type HistoricalPatch = {
+  slipId: string;
+  playedOdd?: number;
+  bonusAmount?: number;
+  returnAmount?: number;
+  picks?: Array<{
+    pickId: string;
+    playedMarket?: string;
+    playedOdd?: number;
+    executionChanged?: boolean;
+  }>;
+};
+
+export async function migrateHistoricalV3Once() {
+  if (typeof localStorage === 'undefined' || localStorage.getItem(V3_MIGRATION_KEY) === 'done') return false;
+  const database = await openDatabase();
+  const existing = await new Promise<Partial<Slip>[]>((resolve, reject) => {
+    const request = database.transaction(STORE).objectStore(STORE).getAll();
+    request.onsuccess = () => resolve(request.result as Partial<Slip>[]);
+    request.onerror = () => reject(request.error);
+  });
+  const patches = (historicalPatches.slips || []) as HistoricalPatch[];
+  const patchMap = new Map(patches.map((patch) => [patch.slipId, patch]));
+  const updated = existing.map((raw) => {
+    const slip = normalizeSlip(raw);
+    const patch = patchMap.get(slip.id);
+    if (!patch) return slip;
+    const picks = slip.picks.map((pick) => {
+      const pickPatch = patch.picks?.find((item) => item.pickId === pick.id);
+      if (!pickPatch) return pick;
+      return {
+        ...pick,
+        playedOdd: pick.playedOdd ?? pickPatch.playedOdd,
+        playedMarket: pick.playedMarket ?? pickPatch.playedMarket,
+        executionChanged: pick.executionChanged || pickPatch.executionChanged || false,
+      };
+    });
+    return normalizeSlip({
+      ...slip,
+      picks,
+      playedOdd: slip.playedOdd ?? patch.playedOdd,
+      bonusAmount: slip.bonusAmount ?? patch.bonusAmount,
+      returnAmount: patch.returnAmount ?? slip.returnAmount,
+    });
+  });
+  await replaceAll(updated);
+  localStorage.setItem(V3_MIGRATION_KEY, 'done');
+  return true;
 }
