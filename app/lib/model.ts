@@ -161,7 +161,6 @@ export function parseSlip(raw: unknown): Slip {
       market: String(selection.market),
       odd,
       proposedOdd: odd,
-      oddStatus: 'unknown' as OddStatus,
       minimumOdd: Number(selection.minimumOdd) > 1 ? Number(selection.minimumOdd) : undefined,
       oddStatus: ['bet365_verified', 'market_reference', 'unverified'].includes(String(selection.oddStatus)) ? selection.oddStatus as OddStatus : 'unverified',
       reasons: Array.isArray(selection.reasons) ? selection.reasons.map(String).filter(Boolean) : [],
