@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from 'react';
 import {
+  actualPickOdd,
   buildStats,
+  combinedPlayedOdd,
   effectiveOdd,
   euro,
   formatDate,
@@ -203,27 +205,53 @@ export function Ring({ value, label, detail }: { value: number; label: string; d
 
 export function PlacementPanel({ slip, onToggle, onOdd }: {
   slip: Slip;
-  onToggle: (odd?: number) => void;
-  onOdd: (odd: number) => void;
+  onToggle: (odd?: number, pickOdds?: Record<string, number>) => void;
+  onOdd: (odd: number, pickOdds?: Record<string, number>) => void;
 }) {
   const suggested = slip.picks.reduce((total, pick) => total * pick.odd, 1);
-  const [odd, setOdd] = useState(quotedOdd(slip).toFixed(2).replace('.', ','));
+  const [pickOdds, setPickOdds] = useState<Record<string, string>>(() => Object.fromEntries(
+    slip.picks.map((pick) => [pick.id, actualPickOdd(pick).toFixed(2).replace('.', ',')])
+  ));
+  const numericPickOdds = Object.fromEntries(slip.picks.map((pick) => [pick.id, Number((pickOdds[pick.id] || '').replace(',', '.'))]));
+  const invalidPickOdds = slip.picks.some((pick) => !Number.isFinite(numericPickOdds[pick.id]) || numericPickOdds[pick.id] <= 1);
+  const calculated = invalidPickOdds ? 0 : slip.picks.reduce((total, pick) => total * numericPickOdds[pick.id], 1);
+  const [odd, setOdd] = useState((slip.playedOdd || calculated || quotedOdd(slip)).toFixed(2).replace('.', ','));
   const value = Number(odd.replace(',', '.'));
-  const invalid = !Number.isFinite(value) || value <= 1;
+  const invalid = invalidPickOdds || !Number.isFinite(value) || value <= 1;
+  const setPickOdd = (id: string, value: string) => {
+    const next = { ...pickOdds, [id]: value };
+    setPickOdds(next);
+    const numbers = slip.picks.map((pick) => Number((next[pick.id] || '').replace(',', '.')));
+    if (numbers.every((item) => Number.isFinite(item) && item > 1)) {
+      setOdd(numbers.reduce((total, item) => total * item, 1).toFixed(2).replace('.', ','));
+    }
+  };
   return (
     <div className={`placement-panel ${isPlayed(slip) ? 'played' : 'draft'}`}>
       <div className="placement-head">
-        <span><small>{isPlayed(slip) ? 'SCHEDINA GIOCATA' : 'BOZZA NON CONTEGGIATA'}</small><strong>{isPlayed(slip) ? 'Stake attivo: 3 €' : 'Conferma dopo averla giocata'}</strong></span>
+        <span><small>{isPlayed(slip) ? 'SCHEDINA GIOCATA' : 'BOZZA NON CONTEGGIATA'}</small><strong>{isPlayed(slip) ? 'Stake attivo: 3 €' : 'Inserisci le quote realmente prese'}</strong></span>
         <b>{isPlayed(slip) ? '✓' : '✦'}</b>
       </div>
-      <label><span>Quota totale realmente giocata</span><small>Suggerita: {suggested.toFixed(2)}</small></label>
+      <div className="played-picks">
+        {slip.picks.map((pick) => {
+          const actual = numericPickOdds[pick.id];
+          const below = pick.minimumOdd && Number.isFinite(actual) && actual < pick.minimumOdd;
+          return <div className={`played-pick ${below ? 'warning' : ''}`} key={pick.id}>
+            <span><strong>{pick.match}</strong><small>{pick.market} · proposta @{pick.odd.toFixed(2)}{pick.minimumOdd ? ` · minima @${pick.minimumOdd.toFixed(2)}` : ''}</small></span>
+            <div className="odd-field compact"><span>@</span><input inputMode="decimal" value={pickOdds[pick.id] || ''} onChange={(event) => setPickOdd(pick.id, event.target.value)} aria-invalid={!Number.isFinite(actual) || actual <= 1} /></div>
+            {below && <small className="odd-warning">⚠ Quota sotto la soglia di valore stimata</small>}
+          </div>;
+        })}
+      </div>
+      <label><span>Quota totale realmente giocata</span><small>Proposta: {suggested.toFixed(2)} · calcolata dalle quote: {calculated ? calculated.toFixed(2) : '—'}</small></label>
       <div className="odd-field"><span>@</span><input inputMode="decimal" value={odd} onChange={(event) => setOdd(event.target.value)} aria-invalid={invalid} /></div>
+      <p>La quota totale resta modificabile: se bet365 mostra un valore leggermente diverso, salva quello effettivo.</p>
       {isPlayed(slip) ? (
         <div className="placement-actions">
-          <button className="secondary" disabled={invalid} onClick={() => onOdd(value)}>Salva quota</button>
+          <button className="secondary" disabled={invalid} onClick={() => onOdd(value, numericPickOdds)}>Salva quote</button>
           <button className="link" onClick={() => onToggle()}>Riporta in bozza</button>
         </div>
-      ) : <button className="primary wide" disabled={invalid} onClick={() => onToggle(value)}>Conferma come giocata</button>}
+      ) : <button className="primary wide" disabled={invalid} onClick={() => onToggle(value, numericPickOdds)}>Conferma come giocata</button>}
     </div>
   );
 }
