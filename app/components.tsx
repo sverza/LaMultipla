@@ -277,7 +277,7 @@ export function PickResultControl({ pick, disabled, onChange }: {
         <b>{symbols[pick.result]}</b>
         <span>
           <strong>{pick.match}</strong>
-          <small>{pick.market} · probabilità {pct(pick.probability)} · {'●'.repeat(pick.confidence)}{'○'.repeat(5 - pick.confidence)}</small>
+          <small>{pick.executionChanged && pick.playedMarket ? `${pick.market} → giocata: ${pick.playedMarket}` : pick.market} · probabilità {pct(pick.probability)} · {'●'.repeat(pick.confidence)}{'○'.repeat(5 - pick.confidence)}</small>
         </span>
         <em>{pickLabels[pick.result]}</em>
       </div>
