@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import {
   actualPickOdd,
+  baseReturn,
   buildStats,
   combinedPlayedOdd,
   effectiveOdd,
@@ -285,18 +286,22 @@ export function PickResultControl({ pick, disabled, onChange }: {
 
 export function Settlement({ slip, onSettle }: {
   slip: Slip;
-  onSettle: (result: SlipResult, amount?: number) => void;
+  onSettle: (result: SlipResult, amount?: number, bonusAmount?: number) => void;
 }) {
   const inferred = inferSlipResult(slip);
   const expected = suggestedReturn(slip, inferred === 'pending' ? 'won' : inferred);
   const [amount, setAmount] = useState(slip.result === 'pending' ? '' : String(slip.returnAmount).replace('.', ','));
   const parsed = amount.trim() === '' ? undefined : Number(amount.replace(',', '.'));
-  const invalid = parsed !== undefined && (!Number.isFinite(parsed) || parsed < 0);
+  const [bonus, setBonus] = useState(slip.bonusAmount ? String(slip.bonusAmount).replace('.', ',') : '');
+  const parsedBonus = bonus.trim() === '' ? 0 : Number(bonus.replace(',', '.'));
+  const invalidBonus = !Number.isFinite(parsedBonus) || parsedBonus < 0;
+  const invalid = (parsed !== undefined && (!Number.isFinite(parsed) || parsed < 0)) || invalidBonus;
   const mismatch = inferred !== 'pending' && slip.result !== 'pending' && slip.result !== 'cashout' && inferred !== slip.result;
   const incomplete = inferred === 'pending' && slip.result !== 'pending' && slip.result !== 'cashout';
   const submit = (result: SlipResult) => {
     if (result === 'cashout' && parsed === undefined) return;
-    onSettle(result, parsed);
+    const fallbackAmount = result === 'won' && parsed === undefined ? +(baseReturn(slip, result) + parsedBonus).toFixed(2) : parsed;
+    onSettle(result, fallbackAmount, parsedBonus);
   };
 
   return (
@@ -305,7 +310,7 @@ export function Settlement({ slip, onSettle }: {
       {inferred !== 'pending' && (
         <div className={`result-suggestion ${mismatch ? 'warning' : ''}`}>
           <span><small>{mismatch ? 'ESITI NON COERENTI' : 'SUGGERIMENTO AUTOMATICO'}</small><strong>{slipLabels[inferred]} · ritorno {euro(suggestedReturn(slip, inferred))}</strong></span>
-          <button onClick={() => onSettle(inferred, suggestedReturn(slip, inferred))}>Applica</button>
+          <button onClick={() => onSettle(inferred, +(baseReturn(slip, inferred) + parsedBonus).toFixed(2), parsedBonus)}>Applica</button>
         </div>
       )}
       {incomplete && (
@@ -313,9 +318,12 @@ export function Settlement({ slip, onSettle }: {
           <span><small>ESITI INCOMPLETI</small><strong>La multipla è chiusa, ma alcune selezioni risultano ancora in attesa.</strong></span>
         </div>
       )}
-      <label htmlFor="actual-return"><span>Ritorno effettivo</span><small>Totale accreditato da bet365</small></label>
+      <label htmlFor="bonus-amount"><span>Bonus / maggiorazione</span><small>Importo extra riconosciuto dal bookmaker · opzionale</small></label>
+      <div className="return-field"><span>€</span><input id="bonus-amount" inputMode="decimal" value={bonus} onChange={(event) => setBonus(event.target.value)} placeholder="0,00" aria-invalid={invalidBonus} /></div>
+      <p>Ritorno base calcolato: <strong>{euro(baseReturn(slip, inferred === 'pending' ? 'won' : inferred))}</strong>{parsedBonus > 0 ? <> · con bonus: <strong>{euro(baseReturn(slip, inferred === 'pending' ? 'won' : inferred) + parsedBonus)}</strong></> : null}</p>
+      <label htmlFor="actual-return"><span>Ritorno effettivo</span><small>Totale realmente accreditato da bet365 · dato contabile autorevole</small></label>
       <div className="return-field"><span>€</span><input id="actual-return" inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder={expected.toFixed(2).replace('.', ',')} aria-invalid={invalid} /></div>
-      <p>Le selezioni nulle vengono escluse dalla quota effettiva ({effectiveOdd(slip).toFixed(2)}). Inserisci manualmente l’importo per cash out, bonus o casi particolari.</p>
+      <p>Le selezioni nulle vengono escluse dalla quota effettiva ({effectiveOdd(slip).toFixed(2)}). Il ritorno effettivo resta modificabile per arrotondamenti, cash out o casi particolari.</p>
       <div className="settle four-results">
         <button disabled={invalid} onClick={() => submit('lost')}>Persa</button>
         <button disabled={invalid} onClick={() => submit('void')}>Nulla</button>
