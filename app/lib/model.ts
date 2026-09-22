@@ -1,11 +1,21 @@
 export type PickResult = 'pending' | 'won' | 'lost' | 'void';
 export type SlipResult = PickResult | 'cashout';
 
+export type OddStatus = 'unknown' | 'above-minimum' | 'below-minimum';
+
 export type Pick = {
   id: string;
   match: string;
   market: string;
+  /** Quota proposta dal modello. `odd` resta per retrocompatibilità con backup/feed v2. */
   odd: number;
+  proposedOdd: number;
+  playedOdd?: number;
+  minimumOdd?: number;
+  oddStatus: OddStatus;
+  reasons: string[];
+  closingOdd?: number;
+  closingSource?: string;
   probability: number;
   confidence: number;
   result: PickResult;
@@ -19,6 +29,8 @@ export type Slip = {
   stake: 3;
   placement: 'draft' | 'played';
   playedOdd?: number;
+  /** Maggiorazione/bonus effettivamente riconosciuto dal bookmaker, separato dalle quote. */
+  bonusAmount?: number;
   result: SlipResult;
   returnAmount: number;
   notes?: string;
@@ -33,7 +45,7 @@ export type TrendPoint = {
   slipId: string;
 };
 
-export const APP_VERSION = '1.0.1';
+export const APP_VERSION = '1.1.0';
 export const STAKE = 3 as const;
 export const PICK_RESULTS: PickResult[] = ['pending', 'won', 'lost', 'void'];
 export const FEED_URL = 'https://sverza.github.io/LaMultipla/latest-slip.json';
@@ -73,15 +85,29 @@ export const isPlayed = (slip: Slip) => slip.placement === 'played';
 export function normalizeSlip(raw: Partial<Slip>): Slip {
   const validPickResults = new Set<PickResult>(PICK_RESULTS);
   const validSlipResults = new Set<SlipResult>([...PICK_RESULTS, 'cashout']);
-  const picks = Array.isArray(raw.picks) ? raw.picks.map((pick, index) => ({
-    id: pick.id || `${raw.id || 'slip'}-pick-${index}`,
-    match: String(pick.match || ''),
-    market: String(pick.market || ''),
-    odd: Number(pick.odd) || 1,
-    probability: Number(pick.probability) || 1,
-    confidence: Math.min(5, Math.max(1, Number(pick.confidence) || 1)),
-    result: validPickResults.has(pick.result) ? pick.result : 'pending',
-  })) : [];
+  const picks = Array.isArray(raw.picks) ? raw.picks.map((pick, index) => {
+    const legacy = pick as Partial<Pick>;
+    const proposedOdd = Number(legacy.proposedOdd ?? legacy.odd) || 1;
+    const playedOdd = legacy.playedOdd && Number(legacy.playedOdd) > 1 ? Number(legacy.playedOdd) : undefined;
+    const minimumOdd = legacy.minimumOdd && Number(legacy.minimumOdd) > 1 ? Number(legacy.minimumOdd) : undefined;
+    const oddStatus: OddStatus = !playedOdd || !minimumOdd ? 'unknown' : playedOdd >= minimumOdd ? 'above-minimum' : 'below-minimum';
+    return {
+      id: legacy.id || String(raw.id || 'slip') + '-pick-' + index,
+      match: String(legacy.match || ''),
+      market: String(legacy.market || ''),
+      odd: proposedOdd,
+      proposedOdd,
+      playedOdd,
+      minimumOdd,
+      oddStatus,
+      reasons: Array.isArray(legacy.reasons) ? legacy.reasons.map(String).filter(Boolean) : [],
+      closingOdd: legacy.closingOdd && Number(legacy.closingOdd) > 1 ? Number(legacy.closingOdd) : undefined,
+      closingSource: legacy.closingSource ? String(legacy.closingSource) : undefined,
+      probability: Number(legacy.probability) || 1,
+      confidence: Math.min(5, Math.max(1, Number(legacy.confidence) || 1)),
+      result: validPickResults.has(legacy.result as PickResult) ? legacy.result as PickResult : 'pending',
+    };
+  }) : [];
 
   return {
     id: String(raw.id || `${raw.season}-${raw.matchday}-${raw.date}`),
@@ -91,6 +117,7 @@ export function normalizeSlip(raw: Partial<Slip>): Slip {
     stake: STAKE,
     placement: raw.placement === 'draft' ? 'draft' : 'played',
     playedOdd: raw.playedOdd && raw.playedOdd > 1 ? Number(raw.playedOdd) : undefined,
+    bonusAmount: Math.max(0, Number(raw.bonusAmount) || 0) || undefined,
     result: raw.result && validSlipResults.has(raw.result) ? raw.result : 'pending',
     returnAmount: Math.max(0, Number(raw.returnAmount) || 0),
     notes: String(raw.notes || ''),
@@ -133,6 +160,9 @@ export function parseSlip(raw: unknown): Slip {
       match: String(selection.match),
       market: String(selection.market),
       odd,
+      proposedOdd: odd,
+      oddStatus: 'unknown' as OddStatus,
+      reasons: [],
       probability,
       confidence,
       result: 'pending' as PickResult,
@@ -153,10 +183,41 @@ export function parseSlip(raw: unknown): Slip {
   };
 }
 
+export function proposedOdd(pick: Pick) {
+  return pick.proposedOdd || pick.odd;
+}
+
+export function actualPickOdd(pick: Pick) {
+  return pick.playedOdd && pick.playedOdd > 1 ? pick.playedOdd : proposedOdd(pick);
+}
+
+export function fairOdd(pick: Pick) {
+  return pick.probability > 0 ? 100 / pick.probability : 0;
+}
+
+export function expectedValue(odd: number, probability: number) {
+  return (odd * probability / 100 - 1) * 100;
+}
+
+export function proposedEV(pick: Pick) {
+  return expectedValue(proposedOdd(pick), pick.probability);
+}
+
+export function playedEV(pick: Pick) {
+  return expectedValue(actualPickOdd(pick), pick.probability);
+}
+
+export function closingLineValue(pick: Pick) {
+  if (!pick.closingOdd || pick.closingOdd <= 1) return undefined;
+  return (actualPickOdd(pick) / pick.closingOdd - 1) * 100;
+}
+
+export function combinedPlayedOdd(slip: Slip) {
+  return slip.picks.reduce((total, pick) => total * actualPickOdd(pick), 1);
+}
+
 export function quotedOdd(slip: Slip) {
-  return slip.playedOdd && slip.playedOdd > 1
-    ? slip.playedOdd
-    : slip.picks.reduce((total, pick) => total * pick.odd, 1);
+  return slip.playedOdd && slip.playedOdd > 1 ? slip.playedOdd : slip.placement === 'played' ? combinedPlayedOdd(slip) : slip.picks.reduce((total, pick) => total * proposedOdd(pick), 1);
 }
 
 export function effectiveOdd(slip: Slip) {
@@ -205,7 +266,9 @@ export function buildStats(slips: Slip[]) {
   const wonCount = decisive.filter((slip) => slip.result === 'won').length;
   const lostCount = decisive.filter((slip) => slip.result === 'lost').length;
   const odds = placed.map(quotedOdd);
-  const values = picks.map((pick) => (pick.odd * pick.probability / 100 - 1) * 100);
+  const values = picks.map(proposedEV);
+  const playedValues = picks.map(playedEV);
+  const clvValues = picks.map(closingLineValue).filter((value): value is number => value !== undefined);
   const chronological = settled.slice().sort((a, b) => a.date.localeCompare(b.date) || a.matchday - b.matchday);
   let cumulative = 0;
   let peak = 0;
@@ -243,6 +306,9 @@ export function buildStats(slips: Slip[]) {
     avgOdd: odds.length ? odds.reduce((total, odd) => total + odd, 0) / odds.length : 0,
     avgPicks: placed.length ? picks.length / placed.length : 0,
     avgValue: values.length ? values.reduce((total, value) => total + value, 0) / values.length : 0,
+    avgPlayedValue: playedValues.length ? playedValues.reduce((total, value) => total + value, 0) / playedValues.length : 0,
+    avgClv: clvValues.length ? clvValues.reduce((total, value) => total + value, 0) / clvValues.length : undefined,
+    clvSamples: clvValues.length,
     best: chronological.length ? Math.max(...chronological.map((slip) => slip.returnAmount - STAKE)) : 0,
     worst: chronological.length ? Math.min(...chronological.map((slip) => slip.returnAmount - STAKE)) : 0,
     maxDrawdown,
