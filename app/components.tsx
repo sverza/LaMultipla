@@ -4,15 +4,20 @@ import { useMemo, useState } from 'react';
 import {
   actualPickOdd,
   baseReturn,
+  closingLineValue,
   buildStats,
   combinedPlayedOdd,
   effectiveOdd,
   euro,
+  fairOdd,
   formatDate,
   inferSlipResult,
   isPlayed,
   marketGroup,
   pct,
+  playedEV,
+  proposedEV,
+  proposedOdd,
   PICK_RESULTS,
   Pick,
   pickLabels,
@@ -262,19 +267,28 @@ export function PickResultControl({ pick, disabled, onChange }: {
   disabled: boolean;
   onChange: (result: PickResult) => void;
 }) {
-  const fair = 100 / pick.probability;
-  const value = (pick.odd * pick.probability / 100 - 1) * 100;
+  const fair = fairOdd(pick);
+  const proposedValue = proposedEV(pick);
+  const actualValue = playedEV(pick);
+  const clv = closingLineValue(pick);
   return (
     <article className={`pick-card ${pick.result} ${disabled ? 'disabled' : ''}`}>
       <div className="pick-main">
         <b>{symbols[pick.result]}</b>
         <span>
           <strong>{pick.match}</strong>
-          <small>{pick.market} · quota {pick.odd.toFixed(2)}</small>
-          <small>Equa {fair.toFixed(2)} · Value {value >= 0 ? '+' : ''}{pct(value)} · {'●'.repeat(pick.confidence)}{'○'.repeat(5 - pick.confidence)}</small>
+          <small>{pick.market} · probabilità {pct(pick.probability)} · {'●'.repeat(pick.confidence)}{'○'.repeat(5 - pick.confidence)}</small>
         </span>
         <em>{pickLabels[pick.result]}</em>
       </div>
+      <div className="pick-analysis">
+        <span><small>PROPOSTA</small><strong>@{proposedOdd(pick).toFixed(2)}</strong><em>EV {proposedValue >= 0 ? '+' : ''}{pct(proposedValue)}</em></span>
+        <span><small>GIOCATA</small><strong>{pick.playedOdd ? `@${pick.playedOdd.toFixed(2)}` : '—'}</strong><em>{pick.playedOdd ? `EV ${actualValue >= 0 ? '+' : ''}${pct(actualValue)}` : 'non registrata'}</em></span>
+        <span><small>MINIMA</small><strong>{pick.minimumOdd ? `@${pick.minimumOdd.toFixed(2)}` : '—'}</strong><em>Fair @{fair.toFixed(2)}</em></span>
+        <span><small>CLOSING</small><strong>{pick.closingOdd ? `@${pick.closingOdd.toFixed(2)}` : '—'}</strong><em>{clv !== undefined ? `CLV ${clv >= 0 ? '+' : ''}${pct(clv)}` : 'non disponibile'}</em></span>
+      </div>
+      {pick.closingSource && <small className="closing-source">Fonte closing: {pick.closingSource}</small>}
+      {pick.reasons.length > 0 && <div className="pick-reasons">{pick.reasons.map((reason) => <span key={reason}>{reason}</span>)}</div>}
       <div className="pick-options" role="group" aria-label={`Esito ${pick.match}`}>
         {PICK_RESULTS.map((result) => (
           <button key={result} className={pick.result === result ? `active ${result}` : ''} disabled={disabled} onClick={() => onChange(result)}>{pickLabels[result]}</button>
