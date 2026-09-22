@@ -365,16 +365,20 @@ export default function Home() {
     await haptic('success');
   };
 
-  const setPlacement = async (slip: Slip, playedOdd?: number) => {
+  const setPlacement = async (slip: Slip, playedOdd?: number, pickOdds?: Record<string, number>) => {
     const makePlayed = slip.placement === 'draft';
-    const updated = { ...slip, placement: makePlayed ? 'played' as const : 'draft' as const, playedOdd: makePlayed ? playedOdd || quotedOdd(slip) : slip.playedOdd };
+    const picks = makePlayed && pickOdds ? slip.picks.map((pick) => ({ ...pick, playedOdd: pickOdds[pick.id] || pick.playedOdd })) : slip.picks;
+    const updated = { ...slip, picks, placement: makePlayed ? 'played' as const : 'draft' as const, playedOdd: makePlayed ? playedOdd || quotedOdd({ ...slip, picks }) : slip.playedOdd };
     await save(updated, slip, makePlayed ? `Giornata ${slip.matchday} confermata come giocata.` : `Giornata ${slip.matchday} riportata in bozza.`);
     if (makePlayed) await scheduleResultReminder(updated);
     else await cancelResultReminder(updated);
     await haptic('success');
   };
 
-  const setPlayedOdd = async (slip: Slip, odd: number) => save({ ...slip, playedOdd: odd }, slip, `Quota giocata aggiornata a ${odd.toFixed(2)}.`);
+  const setPlayedOdd = async (slip: Slip, odd: number, pickOdds?: Record<string, number>) => {
+    const picks = pickOdds ? slip.picks.map((pick) => ({ ...pick, playedOdd: pickOdds[pick.id] || pick.playedOdd })) : slip.picks;
+    await save({ ...slip, picks, playedOdd: odd }, slip, `Quote giocate aggiornate · totale ${odd.toFixed(2)}.`);
+  };
 
   const share = async (slip: Slip) => {
     try {
@@ -447,7 +451,7 @@ export default function Home() {
         {(view === 'current' || view === 'detail') && selected && <>
           {view === 'detail' && <button className="back" onClick={() => setView('history')}>← Storico</button>}
           <div className="detail-heading"><div><div className="eye">GIORNATA {selected.matchday} · {formatDate(selected.date)}</div><h1>La tua<br /><em>multipla.</em></h1></div><button className="share-button" onClick={() => share(selected)}><span>↗</span>Condividi</button></div>
-          <SlipCard slip={selected} /><PlacementPanel key={`${selected.id}-${selected.placement}-${selected.playedOdd}`} slip={selected} onToggle={(odd) => setPlacement(selected, odd)} onOdd={(odd) => setPlayedOdd(selected, odd)} /><button className="secondary wide edit-button" onClick={() => openEdit(selected)}>✎ Modifica schedina</button>
+          <SlipCard slip={selected} /><PlacementPanel key={`${selected.id}-${selected.placement}-${selected.playedOdd}`} slip={selected} onToggle={(odd, pickOdds) => setPlacement(selected, odd, pickOdds)} onOdd={(odd, pickOdds) => setPlayedOdd(selected, odd, pickOdds)} /><button className="secondary wide edit-button" onClick={() => openEdit(selected)}>✎ Modifica schedina</button>
           <Title title="Selezioni" meta={`${selected.picks.filter((pick) => pick.result !== 'pending').length}/${selected.picks.length} definite`} /><div className="picks">{selected.picks.map((pick) => <PickResultControl key={pick.id} pick={pick} disabled={!isPlayed(selected)} onChange={(result) => setPickResult(selected, pick.id, result)} />)}</div>
           {!isPlayed(selected) && <p className="hint">Conferma prima la schedina per poter inserire gli esiti.</p>}{isPlayed(selected) && <Settlement key={`${selected.id}-${selected.result}-${selected.returnAmount}-${selected.playedOdd}-${selected.picks.map((pick) => pick.result).join('-')}`} slip={selected} onSettle={(result, amount) => settle(selected, result, amount)} />}<button className="danger" onClick={() => deleteSlip(selected)}>Elimina schedina</button>
         </>}
