@@ -21,12 +21,18 @@ import {
   APP_VERSION,
   buildStats,
   compareVersions,
+  actualPickOdd,
+  closingLineValue,
   effectiveOdd,
   euro,
+  fairOdd,
   formatDate,
   isPlayed,
   normalizeSlip,
   parseSlip,
+  playedEV,
+  proposedEV,
+  proposedOdd,
   PickResult,
   quotedOdd,
   Slip,
@@ -291,12 +297,15 @@ export default function Home() {
 
   const exportCsv = () => {
     const quote = (value: unknown) => `"${String(value ?? '').replaceAll('"', '""')}"`;
-    const header = ['Stagione', 'Giornata', 'Data', 'Stato', 'Esito multipla', 'Puntata', 'Quota giocata', 'Quota effettiva', 'Ritorno', 'Profit/Loss', 'Partita', 'Mercato', 'Quota selezione', 'Probabilità stimata', 'Quota equa', 'Value', 'Fiducia', 'Esito selezione', 'Note'];
-    const rows = slips.flatMap((slip) => slip.picks.map((pick) => [
-      slip.season, slip.matchday, slip.date, isPlayed(slip) ? 'Giocata' : 'Bozza', slipLabels[slip.result], isPlayed(slip) ? slip.stake : '', quotedOdd(slip).toFixed(2), effectiveOdd(slip).toFixed(2),
-      isPlayed(slip) && slip.result !== 'pending' ? slip.returnAmount.toFixed(2) : '', isPlayed(slip) && slip.result !== 'pending' ? (slip.returnAmount - slip.stake).toFixed(2) : '',
-      pick.match, pick.market, pick.odd.toFixed(2), pick.probability, (100 / pick.probability).toFixed(2), ((pick.odd * pick.probability / 100 - 1) * 100).toFixed(1), pick.confidence, pick.result, slip.notes || '',
-    ]));
+    const header = ['Stagione', 'Giornata', 'Data', 'Stato', 'Esito multipla', 'Puntata', 'Quota totale giocata', 'Quota effettiva', 'Bonus', 'Ritorno', 'Profit/Loss', 'Partita', 'Mercato', 'Quota proposta', 'Quota giocata pick', 'Quota minima', 'Stato quota', 'Probabilità stimata', 'Quota equa', 'EV proposto', 'EV giocato', 'Closing odd', 'Fonte closing', 'CLV', 'Fiducia', 'Motivazioni', 'Esito selezione', 'Note'];
+    const rows = slips.flatMap((slip) => slip.picks.map((pick) => {
+      const clv = closingLineValue(pick);
+      return [
+        slip.season, slip.matchday, slip.date, isPlayed(slip) ? 'Giocata' : 'Bozza', slipLabels[slip.result], isPlayed(slip) ? slip.stake : '', quotedOdd(slip).toFixed(2), effectiveOdd(slip).toFixed(2), slip.bonusAmount?.toFixed(2) || '',
+        isPlayed(slip) && slip.result !== 'pending' ? slip.returnAmount.toFixed(2) : '', isPlayed(slip) && slip.result !== 'pending' ? (slip.returnAmount - slip.stake).toFixed(2) : '',
+        pick.match, pick.market, proposedOdd(pick).toFixed(2), pick.playedOdd ? actualPickOdd(pick).toFixed(2) : '', pick.minimumOdd?.toFixed(2) || '', pick.oddStatus, pick.probability, fairOdd(pick).toFixed(2), proposedEV(pick).toFixed(1), pick.playedOdd ? playedEV(pick).toFixed(1) : '', pick.closingOdd?.toFixed(2) || '', pick.closingSource || '', clv === undefined ? '' : clv.toFixed(1), pick.confidence, pick.reasons.join(', '), pick.result, slip.notes || '',
+      ];
+    }));
     const csv = '\ufeff' + [header, ...rows].map((row) => row.map(quote).join(';')).join('\r\n');
     const link = document.createElement('a');
     link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
