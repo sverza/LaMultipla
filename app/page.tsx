@@ -356,11 +356,11 @@ export default function Home() {
     await haptic('light');
   };
 
-  const settle = async (slip: Slip, result: SlipResult, manual?: number) => {
-    const fallback = result === 'won' ? slip.stake * effectiveOdd(slip) : result === 'void' ? slip.stake : 0;
+  const settle = async (slip: Slip, result: SlipResult, manual?: number, bonusAmount = 0) => {
+    const fallback = result === 'won' ? slip.stake * effectiveOdd(slip) + bonusAmount : result === 'void' ? slip.stake : 0;
     const returnAmount = manual !== undefined && Number.isFinite(manual) && manual >= 0 ? manual : fallback;
     const savedMessage = `Giornata ${slip.matchday}: ${slipLabels[result].toLowerCase()}, ritorno ${euro(returnAmount)}.`;
-    await save({ ...slip, result, returnAmount: +returnAmount.toFixed(2) }, slip, savedMessage);
+    await save({ ...slip, result, bonusAmount: bonusAmount > 0 ? +bonusAmount.toFixed(2) : undefined, returnAmount: +returnAmount.toFixed(2) }, slip, savedMessage);
     await cancelResultReminder(slip);
     await haptic('success');
   };
@@ -453,7 +453,7 @@ export default function Home() {
           <div className="detail-heading"><div><div className="eye">GIORNATA {selected.matchday} · {formatDate(selected.date)}</div><h1>La tua<br /><em>multipla.</em></h1></div><button className="share-button" onClick={() => share(selected)}><span>↗</span>Condividi</button></div>
           <SlipCard slip={selected} /><PlacementPanel key={`${selected.id}-${selected.placement}-${selected.playedOdd}`} slip={selected} onToggle={(odd, pickOdds) => setPlacement(selected, odd, pickOdds)} onOdd={(odd, pickOdds) => setPlayedOdd(selected, odd, pickOdds)} /><button className="secondary wide edit-button" onClick={() => openEdit(selected)}>✎ Modifica schedina</button>
           <Title title="Selezioni" meta={`${selected.picks.filter((pick) => pick.result !== 'pending').length}/${selected.picks.length} definite`} /><div className="picks">{selected.picks.map((pick) => <PickResultControl key={pick.id} pick={pick} disabled={!isPlayed(selected)} onChange={(result) => setPickResult(selected, pick.id, result)} />)}</div>
-          {!isPlayed(selected) && <p className="hint">Conferma prima la schedina per poter inserire gli esiti.</p>}{isPlayed(selected) && <Settlement key={`${selected.id}-${selected.result}-${selected.returnAmount}-${selected.playedOdd}-${selected.picks.map((pick) => pick.result).join('-')}`} slip={selected} onSettle={(result, amount) => settle(selected, result, amount)} />}<button className="danger" onClick={() => deleteSlip(selected)}>Elimina schedina</button>
+          {!isPlayed(selected) && <p className="hint">Conferma prima la schedina per poter inserire gli esiti.</p>}{isPlayed(selected) && <Settlement key={`${selected.id}-${selected.result}-${selected.returnAmount}-${selected.playedOdd}-${selected.picks.map((pick) => pick.result).join('-')}`} slip={selected} onSettle={(result, amount, bonusAmount) => settle(selected, result, amount, bonusAmount)} />}<button className="danger" onClick={() => deleteSlip(selected)}>Elimina schedina</button>
         </>}
 
         {view === 'current' && !selected && <><div className="eye">SCHEDINA ATTUALE</div><h1>La prossima<br /><em>multipla.</em></h1><CurrentSlipCard onOpen={() => undefined} onImport={() => setModal('import')} /></>}
