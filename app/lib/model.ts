@@ -7,6 +7,9 @@ export type Pick = {
   id: string;
   match: string;
   market: string;
+  /** Mercato realmente giocato quando differisce dalla proposta storica. */
+  playedMarket?: string;
+  executionChanged?: boolean;
   /** Quota proposta dal modello. `odd` resta per retrocompatibilità con backup/feed v2. */
   odd: number;
   proposedOdd: number;
@@ -95,6 +98,8 @@ export function normalizeSlip(raw: Partial<Slip>): Slip {
       id: legacy.id || String(raw.id || 'slip') + '-pick-' + index,
       match: String(legacy.match || ''),
       market: String(legacy.market || ''),
+      playedMarket: legacy.playedMarket ? String(legacy.playedMarket) : undefined,
+      executionChanged: Boolean(legacy.executionChanged || (legacy.playedMarket && legacy.playedMarket !== legacy.market)),
       odd: proposedOdd,
       proposedOdd,
       playedOdd,
