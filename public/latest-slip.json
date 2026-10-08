@@ -1,32 +1,50 @@
 {
   "available": true,
-  "id": "2026-27-5",
+  "id": "2026-27-6",
   "slip": {
     "season": "2026/27",
-    "matchday": 5,
-    "date": "2026-09-18",
-    "notes": "Schedina finale 5ª giornata. Scelte basate su convergenza tra contesto, forma iniziale, mercati e analisi qualitative reperibili. MondoPengwin/Pengwin non reperito in modo verificabile e completo al momento della finalizzazione; non sostituito con fonti di bassa qualità. Quote indicative da verificare su bet365 prima della conferma.",
+    "matchday": 6,
+    "date": "2026-10-10",
+    "notes": "Schedina prudente 6a giornata (stake fisso EUR 3). Quote 1X2 osservate su bet365 il 08/10 e da ricontrollare prima della conferma. Esaminate le famiglie 1X2, doppia chance/DNB, handicap, totali gol, Goal/No Goal, multigol, tempi, combo, corner, cartellini e mercati giocatore: la lavagna pubblica bet365 ha reso verificabili qui soltanto le quote 1X2; i mercati speciali non vengono quindi forzati né quotati. Selezioni su gare differenti per limitare la correlazione. Stime probabilistiche prudenziali, non garanzie di vincita.",
     "selections": [
       {
-        "match": "Monza - Sassuolo",
-        "market": "Over 2.5",
-        "odd": 1.75,
-        "probability": 61,
-        "confidence": 3
+        "match": "Inter - Parma",
+        "market": "1 (Inter vincente)",
+        "odd": 1.14,
+        "minimumOdd": 1.12,
+        "oddStatus": "bet365_verified",
+        "probability": 83,
+        "confidence": 4,
+        "reasons": [
+          "Inter: 13 punti in 5 gare e tre vittorie casalinghe consecutive secondo i dati pre-partita.",
+          "Parma in difficoltà fuori casa e con Almqvist indisponibile; quota Bet365 1X2 verificata il 08/10."
+        ]
       },
       {
-        "match": "Roma - Inter",
-        "market": "Goal/Goal - Sì",
-        "odd": 1.53,
-        "probability": 69,
-        "confidence": 4
+        "match": "Sassuolo - Milan",
+        "market": "2 (Milan vincente)",
+        "odd": 1.8,
+        "minimumOdd": 1.75,
+        "oddStatus": "bet365_verified",
+        "probability": 57,
+        "confidence": 3,
+        "reasons": [
+          "Sassuolo con diverse assenze e dubbi difensivi segnalati nel bollettino pre-gara.",
+          "Il mercato 1X2 Bet365 rende il Milan favorito; selezione a fiducia media per la variabilità della trasferta."
+        ]
       },
       {
-        "match": "Milan - Lecce",
-        "market": "Milan vincente + Over 1.5",
-        "odd": 1.74,
-        "probability": 64,
-        "confidence": 4
+        "match": "Atalanta - Venezia",
+        "market": "1 (Atalanta vincente)",
+        "odd": 1.57,
+        "minimumOdd": 1.53,
+        "oddStatus": "bet365_verified",
+        "probability": 62,
+        "confidence": 3,
+        "reasons": [
+          "Venezia arriva con numerose indisponibilità, inclusi Busio e Adorante; Atalanta resta favorita in casa.",
+          "Rischio assenze Atalanta considerato nella probabilità e nella fiducia non massima."
+        ]
       }
     ]
   }
