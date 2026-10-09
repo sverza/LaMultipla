@@ -52,7 +52,9 @@ Per isolare l'endpoint senza effettuare acquisizioni, il wrapper supporta:
 .\scripts\oddspapi.ps1 -RoundPath .local\oddspapi\round.json -AccountOnly
 ```
 
-Il controllo esegue **una sola chiamata non conteggiata a `/account`**, senza retry. Con esito valido salva soltanto la whitelist in `account-status.json` e stampa contatori e permesso player props; non salva la risposta account o la chiave. In caso di errore, `last-failure.json` registra status, formato della risposta e, se desumibile dal JSON, una categoria statica (`authentication`, `quota_or_rate_limit`, `server_error`, `unspecified`). Non registra il corpo o il messaggio del fornitore. HTTP 500 e HTTP 200 con JSON non valido sono distinti. Spazi esterni o ritorni a capo nella chiave vengono rifiutati prima di trasmetterla: va ricopiata nel prompt locale.
+Il controllo esegue **una sola chiamata non conteggiata a `/account`**, senza retry. Con esito valido salva soltanto la whitelist in `account-status.json` e stampa contatori e permesso player props; non salva la risposta account o la chiave. In caso di errore, `last-failure.json` registra status, formato della risposta e, se desumibile dal JSON, una categoria statica (`authentication`, `quota_or_rate_limit`, `server_error`, `unspecified`). Non registra il corpo originale: `errorDetails` contiene soltanto descrizioni di errore da campi riconosciuti, anche annidati, limitate a sei messaggi da 400 caratteri. Chiave nota (anche codificata), URL, valori di credenziali e token lunghi sono oscurati prima della scrittura. HTTP 500 e HTTP 200 con JSON non valido sono distinti. Spazi esterni o ritorni a capo nella chiave vengono rifiutati prima di trasmetterla: va ricopiata nel prompt locale.
+
+Il successivo controllo account-only comunicato dall'utente ha confermato HTTP 500 con risposta JSON e categoria `unspecified`, ancora senza acquisizioni conteggiate. La classificazione da sola non chiariva la causa: è stata aggiunta l'estrazione redatta delle descrizioni, senza cambiare autenticazione, endpoint o identità del client.
 
 Se `/account` continua a fallire, non si salta il controllo Free/quota per chiamare direttamente i prezzi. Una pagina di stato operativa non garantisce che ogni endpoint funzioni per ogni account.
 
@@ -127,7 +129,7 @@ Fonti tecniche ufficiali consultate: [quote batch](https://oddspapi.io/en/docs/g
 
 ## Esito delle verifiche di sviluppo
 
-- 31 test automatici iniziali superati, anche su Node 22.13.0: normalizzazione, client con rete simulata e flusso CLI offline completo. Sono stati aggiunti 3 test per la diagnostica account isolata, la protezione delle risposte d'errore e la distinzione HTTP/JSON. I test isolano i file in directory temporanee e non usano la chiave o la directory dati reale dell'utente.
+- 31 test automatici iniziali superati, anche su Node 22.13.0: normalizzazione, client con rete simulata e flusso CLI offline completo. Sono stati aggiunti 3 test per la diagnostica account isolata e 3 per l'estrazione redatta delle descrizioni d'errore, per un totale di 37. I test isolano i file in directory temporanee e non usano la chiave o la directory dati reale dell'utente.
 - `npm run lint`: nessun errore; un warning preesistente per `combinedPlayedOdd` inutilizzato in `app/components.tsx`.
 - Build Next.js/TypeScript/statica riuscita su Node 24 e su Node 22.13.0. Nessun riferimento al client OddsPapi o alla sua chiave nei JavaScript/JSON esportati.
 - `git diff --check` superato; feed della sesta giornata e migrazioni storiche invariati; `.local/oddspapi/` ignorata da Git.

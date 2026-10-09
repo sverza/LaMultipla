@@ -1,6 +1,7 @@
 import { SafeError } from './safe-error.mjs';
 import path from 'node:path';
 import { optionalJson, saveJson } from './private-store.mjs';
+import { errorDetails } from './error-diagnostics.mjs';
 
 const BILLABLE = new Set(['/markets', '/odds-by-tournaments', '/odds']);
 const DAY = 86400000;
@@ -75,13 +76,13 @@ export class ApiClient {
       const response = await this.fetchImpl(url, { redirect: 'error', signal: AbortSignal.timeout(25000), headers: { accept: 'application/json' } });
       audit.status = response.status;
       if (!response.ok) {
-        // Only classify errors: never store/print raw bodies, messages or credentials.
+        // Store only bounded, redacted error descriptions, never the raw body.
         audit.responseBodyFormat = response.headers?.get?.('content-type')?.includes('text/html') ? 'html' : 'unknown';
         try {
           const body = await response.json();
           audit.responseBodyFormat = 'json';
-          const message = [body?.code, body?.message, body?.error, body?.details]
-            .filter(v => typeof v === 'string').join(' ').replaceAll(this.key, '').toLowerCase();
+          audit.errorDetails = errorDetails(body, this.key);
+          const message = audit.errorDetails.join(' ').toLowerCase();
           audit.errorCategory = /invalid.{0,20}(?:api.?key|credential)|unauthori[sz]ed|authentication/.test(message) ? 'authentication'
             : /quota|request.limit|rate.limit/.test(message) ? 'quota_or_rate_limit'
               : /internal.server|server.error/.test(message) ? 'server_error' : 'unspecified';
