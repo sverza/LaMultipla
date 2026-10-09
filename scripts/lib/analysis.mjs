@@ -1,5 +1,6 @@
 import { SafeError } from './safe-error.mjs';
 import { fingerprint } from './odds-report.mjs';
+import { effectiveAvailability } from './availability.mjs';
 
 const nonempty = value => typeof value === 'string' && value.trim().length > 0;
 const date = value => typeof value === 'string' && /T.*(?:Z|[+-]\d\d:\d\d)$/.test(value) && Number.isFinite(Date.parse(value));
@@ -33,6 +34,8 @@ export function analyzeReport(report, assessment = {}, { now = new Date(), maxOb
       || !Number.isFinite(model.calibration?.value) || !Number.isInteger(model.calibration?.sampleSize) || model.calibration.sampleSize < 1) {
     globalIssues.push('independent_model_and_validation_evidence_required');
   }
+  if (model?.id === 'lamultipla-goals-v1' && model.operationallyApproved !== true)
+    globalIssues.push('independent_model_requires_operational_review');
   const estimates = new Map(), duplicateIds = new Set();
   for (const item of Array.isArray(assessment.estimates) ? assessment.estimates : []) {
     if (estimates.has(item.quoteId)) duplicateIds.add(item.quoteId);
@@ -43,13 +46,12 @@ export function analyzeReport(report, assessment = {}, { now = new Date(), maxOb
     if (!e) reasons.push('no_independent_estimate');
     if (!model?.validatedMarketTypes?.includes(q.marketType)) reasons.push('model_not_validated_for_market_type');
     if (duplicateIds.has(q.quoteId)) reasons.push('conflicting_estimates');
-    if (q.active !== true || q.availability === 'blocked' || q.price === null || q.suspended !== false
+    const availability = effectiveAvailability(report, q, e?.manualVerification, clock, maxObservationAgeMinutes);
+    if ((q.active !== true && !availability.override) || (q.availability === 'blocked' && !availability.override)
+        || availability.negative || q.bookmaker !== 'bet365.it' || q.tournamentId !== 23 || !Number.isFinite(q.price) || q.price <= 1 || q.suspended !== false
         || q.bookmakerIsActive !== true || ![0, 1].includes(q.statusId)
         || !date(q.kickoffUtc) || Date.parse(q.kickoffUtc) <= clock) reasons.push('selection_not_usable');
-    const v = e?.manualVerification;
-    if (!v || v.domain !== 'bet365.it' || v.quoteId !== q.quoteId || v.observedPrice !== q.price
-        || !date(v.verifiedAtUtc) || Date.parse(v.verifiedAtUtc) > clock
-        || clock - Date.parse(v.verifiedAtUtc) > maxObservationAgeMinutes * 60000) reasons.push('exact_quote_manual_verification_required');
+    if (!availability.verified) reasons.push('exact_quote_manual_verification_required');
     if (q.issues?.some(issue => ['market_identity_incomplete', 'invalid_line', 'player_identity_incomplete',
       'event_identity_incomplete', 'duplicate_fixture_conflict', 'unexpected_player_in_standard_market'].includes(issue))) reasons.push('unresolved_identity');
     if (!e?.settlementVerified || !nonempty(e?.settlementRules)) reasons.push('settlement_rules_not_verified');
@@ -62,13 +64,17 @@ export function analyzeReport(report, assessment = {}, { now = new Date(), maxOb
     if (ev === null) reasons.push('settlement_probabilities_invalid_or_missing');
     if (ev !== null && ev <= 0) reasons.push('no_positive_expected_value');
     return { quoteId: q.quoteId, fixtureId: q.fixtureId, marketType: q.marketType,
-      expectedValuePerUnit: ev, inversePrice: q.price > 1 ? 1 / q.price : null,
+      assessmentPresent: Boolean(e), noBetCause: reasons.some(r => r !== 'no_positive_expected_value')
+        ? 'INSUFFICIENT_EVIDENCE' : reasons.length ? 'NO_VALUE' : null,
+      availability, expectedValuePerUnit: ev, inversePrice: q.price > 1 ? 1 / q.price : null,
       reasons: [...new Set(reasons)], eligibleForHumanReview: reasons.length === 0 };
   });
   const shortlist = screening.filter(s => s.eligibleForHumanReview).sort((a, b) => b.expectedValuePerUnit - a.expectedValuePerUnit);
   return { schema: 'lamultipla-private-analysis-v1', analyzedAtUtc: new Date(clock).toISOString(),
     reportSha256: fingerprint(report), assessmentSha256: fingerprint(assessment),
     decision: shortlist.length ? 'REVIEW_REQUIRED' : 'NO_BET',
+    noBetCause: shortlist.length ? null : screening.some(s => s.assessmentPresent) && screening.filter(s => s.assessmentPresent).every(s => s.noBetCause === 'NO_VALUE')
+      ? 'NO_VALUE' : 'INSUFFICIENT_EVIDENCE',
     rules: { maxStakeEUR: 3, maxSlipsPerMatchday: 1, maxSelections: 6,
       noAutomaticSlip: true, noAutomaticPublication: true, jointProbabilityNotComputed: true,
       probabilitiesAreModelInputsNotPriceDerived: true, calibrationEvidenceIsNotAutomaticallyCertified: true },

@@ -199,3 +199,13 @@ Fonti tecniche ufficiali consultate: [quote batch](https://oddspapi.io/en/docs/g
 - Nessuna chiamata API live dall'ambiente Work, nuova schedina, attività programmata, merge o deploy effettuato dallo sviluppo. L'acquisizione reale e il passaggio completo all'analisi privata sono stati eseguiti sul PC Windows dell'utente e documentati sopra. Il suo `git status --short` finale non ha prodotto output: nessuna modifica tracciata nel checkout durante il collaudo.
 
 **Valutazione:** collaudo completo riuscito sul PC Windows; flusso privato assistito tecnicamente approvato con limitazioni. Modello indipendente, diritti di pubblicazione e integrazione in produzione restano da completare/approvare. Il prossimo passo è il protocollo del modello, senza ripetere l'acquisizione appena verificata o modificare schedine e storico.
+
+## Disponibilità su due livelli (revisione successiva al collaudo)
+
+Il report conserva i flag originali. Lo screening aggiunge `availability.provider` e uno stato distinto: `provider_active_unverified`, `reserved_observation`, `manually_available`, `manually_available_provider_inactive` o `manually_unavailable`. Una conferma negativa blocca anche una quota attiva. Nessuna conferma cambia `active`, `marketActive`, `changedAt` o la classificazione del report originale.
+
+Il pacchetto di revisione contiene ora un template `lamultipla-bet365-verification-v2`. Compilare **soltanto dopo il controllo reale**: `availability="available"` o `"unavailable"`, prezzo osservato, timestamp UTC, identificativo del revisore e descrizione dell'evidenza. Origine `manual_bet365_it`, dominio italiano, hash del report e identità completa (evento, bookmakerFixtureId, mercato, periodo, linea, giocatore ed esito) devono coincidere. Prezzi differenti richiedono nuova acquisizione/revisione: non si riscrive il prezzo importato.
+
+La verifica positiva esatta può superare `active=false`, anche con un timestamp di ultima variazione vecchio. Rimangono obbligatori report e verifica freschi (30 minuti), evento futuro prematch, bookmaker attivo e non sospeso, identità, prezzo valido, liquidazione, contesto e probabilità indipendenti validate. Non supera sospensioni del bookmaker o difetti d'identità. Una quota inattiva non confermata rimane osservazione con riserva. Le vecchie attestazioni senza identità completa restano compatibili solo con quote già attive. Audit: snapshot provider, attestazione completa e relativo SHA256 nello screening; legame anche a report e assessment.
+
+`NO_BET` include ora `noBetCause`: `INSUFFICIENT_EVIDENCE` quando mancano controlli/evidenze; `NO_VALUE` solo quando tutte le selezioni con assessment hanno superato gli altri controlli e manca esclusivamente EV positivo. Nessuna proposta automatica.

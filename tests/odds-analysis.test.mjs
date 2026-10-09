@@ -62,3 +62,50 @@ test('stale observations and duplicate assessments cannot be promoted', () => {
   assert.equal(analyze(r, a).decision, 'NO_BET');
   assert.equal(analyzeReport(r, assessment(r), { now: '2026-10-09T22:30:00Z' }).decision, 'NO_BET');
 });
+
+test('inactive exact manual confirmation passes without changing original provider flags', async () => {
+  const { verificationTemplate } = await import('../scripts/lib/availability.mjs');
+  const r = report(), q = r.selections[0]; q.active = false; q.availability = 'blocked';
+  q.changedAt = '2026-09-01T00:00:00Z'; q.issues.push('old_change_requires_verification');
+  const a = assessment(r);
+  a.estimates[0].manualVerification = { ...verificationTemplate(r, q), availability: 'available',
+    observedPrice: q.price, verifiedAtUtc: observedAt, reviewer: 'synthetic', evidence: 'synthetic observation' };
+  const before = structuredClone(r), result = analyze(r, a);
+  assert.equal(result.decision, 'REVIEW_REQUIRED'); assert.deepEqual(r, before);
+  assert.equal(result.shortlist[0].availability.state, 'manually_available_provider_inactive');
+  assert.equal(result.shortlist[0].availability.provider.active, false);
+  for (const field of ['fixtureId', 'bookmakerFixtureId', 'marketId', 'period', 'line', 'playerKey', 'playerName', 'outcomeId', 'outcome']) {
+    const bad = structuredClone(a); bad.estimates[0].manualVerification.identity[field] = 'wrong';
+    assert.equal(analyze(r, bad).decision, 'NO_BET', field);
+  }
+  for (const change of [v => { v.reportSha256 = 'wrong'; }, v => { v.availability = 'unavailable'; },
+    v => { v.domain = 'bet365.com'; }, v => { v.origin = 'api'; }, v => { v.observedPrice += 0.01; },
+    v => { v.verifiedAtUtc = '2026-09-01T00:00:00Z'; }, v => { v.reviewer = ''; }]) {
+    const bad = structuredClone(a); change(bad.estimates[0].manualVerification); assert.equal(analyze(r, bad).decision, 'NO_BET');
+  }
+  for (const change of [q => { q.suspended = true; }, q => { q.bookmakerIsActive = false; },
+    q => { q.statusId = 2; }, q => { q.price = null; }, q => { q.issues.push('invalid_line'); }]) {
+    const bad = structuredClone(r); change(bad.selections[0]); const b = structuredClone(a); b.reportSha256 = fingerprint(bad);
+    b.estimates[0].manualVerification.reportSha256 = fingerprint(bad);
+    assert.equal(analyze(bad, b).decision, 'NO_BET');
+  }
+});
+test('negative manual observation blocks an otherwise active selection', async () => {
+  const { verificationTemplate } = await import('../scripts/lib/availability.mjs');
+  const r = report(), q = r.selections[0], a = assessment(r);
+  a.estimates[0].manualVerification = { ...verificationTemplate(r, q), availability: 'unavailable',
+    observedPrice: q.price, verifiedAtUtc: observedAt, reviewer: 'synthetic', evidence: 'synthetic' };
+  assert.equal(analyze(r, a).decision, 'NO_BET');
+});
+
+test('NO_VALUE differs from incomplete evidence on the selections actually assessed',()=>{
+  const r=report(),a=assessment(r);a.estimates[0].probabilities={win:.1,halfWin:0,push:0,halfLoss:0,loss:.9};
+  assert.equal(analyze(r,a).noBetCause,'NO_VALUE');
+  delete a.estimates[0].settlementRules;assert.equal(analyze(r,a).noBetCause,'INSUFFICIENT_EVIDENCE');
+});
+
+test('actual experimental goals model remains gated pending operational evidence review',()=>{
+  const r=report(),a=assessment(r);a.model.id='lamultipla-goals-v1';a.model.operationallyApproved=false;
+  assert.ok(analyze(r,a).globalIssues.includes('independent_model_requires_operational_review'));
+  assert.equal(analyze(r,a).decision,'NO_BET');
+});
