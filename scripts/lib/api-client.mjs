@@ -31,6 +31,9 @@ export function accountStatus(raw, now = new Date()) {
 export class ApiClient {
   constructor({ key, directory, fetchImpl = fetch, clock = () => new Date(), pause = ms => new Promise(resolve => setTimeout(resolve, ms)) }) {
     if (!key) throw new SafeError('Impostare ODDSPAPI_API_KEY solo nell’ambiente locale');
+    if (typeof key === 'string' && /[\u0000-\u001f\u007f]/.test(key)) {
+      throw new SafeError('La chiave contiene caratteri di controllo: possibile incolla non riuscito nel prompt protetto. Usare il metodo di incolla verificato localmente; nessuna richiesta inviata');
+    }
     if (typeof key !== 'string' || key.trim() !== key || /[\r\n]/.test(key)) {
       throw new SafeError('La chiave contiene spazi esterni o ritorni a capo: copiarla nuovamente nel prompt protetto');
     }

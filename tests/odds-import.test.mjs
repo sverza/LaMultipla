@@ -93,6 +93,20 @@ test('free-only account check refuses paid, expiring, unsupported or ambiguous s
     assert.throws(() => accountStatus(account(0, override)));
   }
 });
+test('secure-prompt control characters are rejected before any request or quota write', async t => {
+  const dir = await directory(t);
+  let calls = 0;
+  for (let code = 0; code <= 127; code += 1) {
+    if (code >= 32 && code !== 127) continue;
+    const key = String.fromCharCode(code);
+    await assert.rejects(importQuotes({ round, accountOnly: true,
+      ...clientOptions(dir, async () => { calls += 1; assert.fail('must not send malformed credentials'); }), key }),
+    /caratteri di controllo/);
+  }
+  assert.equal(calls, 0);
+  await assert.rejects(fs.stat(path.join(dir, 'quota.json')), { code: 'ENOENT' });
+  await assert.rejects(fs.stat(path.join(dir, 'import.lock')), { code: 'ENOENT' });
+});
 test('reserve uses authoritative shared account count, not just this PC’s attempts', async t => {
   const dir = await directory(t), calls = [];
   const c = new ApiClient(clientOptions(dir, mockApi({ '/account': account(200) }, calls)));
