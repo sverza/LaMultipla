@@ -1,5 +1,7 @@
 # OddsPapi: acquisizione privata e analisi
 
+**Collaudo Windows del 10 ottobre 2026 completato:** account, acquisizione reale, conferma della giornata, pacchetto di revisione, verifica manuale e analisi privata eseguiti sul PC dell'utente. Valutazione tecnica **APPROVATO CON LIMITAZIONI** per il flusso privato assistito; nessuna approvazione a merge, deploy o pubblicazione. La copertura e i flag del feed richiedono verifica; manca ancora il modello probabilistico indipendente. I risultati dettagliati sono nella sezione "Esito del collaudo operativo".
+
 ## Decisione architetturale
 
 Il repository e GitHub Pages sono pubblici. L'acquisizione avviene **sul PC Windows** dell'utente, dove i test comunicati del 9 ottobre 2026 hanno ottenuto HTTP 200. Work aveva ottenuto 403/1010; non viene riprovato né aggirato il blocco. Non si configura alcun polling remoto, secret GitHub, workflow di acquisizione o backend a pagamento. GitHub verifica esclusivamente il codice con dati sintetici.
@@ -10,7 +12,7 @@ La PWA è attualmente un tracker con EV e storico; **non contiene un modello sta
 
 ## Primo utilizzo Windows
 
-1. Scaricare/aggiornare il branch `feature/oddspapi-private-import`; eseguire `npm ci`, `npm test`, `npm run lint`, `npm run build`.
+1. Scaricare/aggiornare il branch `feature/oddspapi-private-import`, con Git e Node >=22.13 disponibili. I tre CLI privati usano moduli integrati di Node: per eseguirli non occorrono `npm ci` o una build dell'app. `npm ci`, `npm test`, `npm run lint`, `npm run build` sono le verifiche di sviluppo, da ripetere quando richiesto da modifiche al codice, non a ogni acquisizione.
 2. Creare `.local/oddspapi/round.json` con stagione, giornata e intervallo UTC. `toUtc` è esclusivo. Per la scoperta iniziale omettere `fixtureIds`:
 
 ```json
@@ -58,7 +60,7 @@ Il controllo esegue **una sola chiamata non conteggiata a `/account`**, senza re
 
 Il successivo controllo account-only comunicato dall'utente ha confermato HTTP 500 con risposta JSON e categoria `unspecified`, ancora senza acquisizioni conteggiate. La classificazione da sola non chiariva la causa: è stata aggiunta l'estrazione redatta delle descrizioni, senza cambiare autenticazione, endpoint o identità del client.
 
-I controlli successivi hanno restituito `Authentication error occurred`, `INTERNAL_ERROR` e `An error occurred while fetching user data`. Una richiesta indipendente .NET a `/account` e una a `/bookmakers` hanno ottenuto anch'esse HTTP 500. Il pannello, secondo l'utente, è rimasto a 5/250: la richiesta `/bookmakers` è documentata come conteggiata, ma il consumo osservato non è aumentato. Tutti questi controlli condividevano la lettura della chiave tramite `Read-Host -AsSecureString`. Il test locale con `1234567890` ha poi ricevuto dieci caratteri con un metodo di incolla e uno solo con l'altro; l'utente precisa di aver scambiato i metodi rispetto alle etichette dei prompt. È confermato un problema locale di inserimento, da correggere usando il metodo che restituisce dieci caratteri. La sua responsabilità per i 500 e il funzionamento dell'account restano da confermare con una nuova risposta API valida: nessun prezzo è stato acquisito da questi tentativi.
+I controlli successivi hanno restituito `Authentication error occurred`, `INTERNAL_ERROR` e `An error occurred while fetching user data`. Una richiesta indipendente .NET a `/account` e una a `/bookmakers` hanno ottenuto anch'esse HTTP 500. Il pannello, secondo l'utente, è rimasto a 5/250: la richiesta `/bookmakers` è documentata come conteggiata, ma il consumo osservato non è aumentato. Tutti questi controlli condividevano la lettura della chiave tramite `Read-Host -AsSecureString`. Il test locale con `1234567890` ha poi ricevuto dieci caratteri con un metodo di incolla e uno solo con l'altro; l'utente precisa di aver scambiato i metodi rispetto alle etichette dei prompt. Usando il metodo che riceve tutti i caratteri, il successivo controllo account ha ottenuto HTTP 200, seguito dall'acquisizione reale riuscita. Questo ha risolto il blocco di autenticazione nel percorso collaudato. Il client ora rifiuta i caratteri di controllo prima della rete; non assume che qualsiasi 500 futuro abbia questa stessa causa.
 
 Se `/account` continua a fallire, non si salta il controllo Free/quota per chiamare direttamente i prezzi. Una pagina di stato operativa non garantisce che ogni endpoint funzioni per ogni account.
 
@@ -67,7 +69,7 @@ Se `/account` continua a fallire, non si salta il controllo Free/quota per chiam
 - Ogni acquisizione live consulta `/account` (documentato non conteggiato). Verifica un abbonamento attivo con `price=null/0`, `auto_renew=false`, `valid_until=null`, quota 250 e autorizzazione a `bet365.it` e sport 10. Se il formato/piano cambia, interrompe l'acquisizione. La risposta account contiene la chiave: **non viene salvata**, solo una whitelist dei contatori e permessi.
 - Catalogo `/markets?language=en` in cache per 7 giorni: una richiesta conteggiata al rinnovo.
 - Batch `/odds-by-tournaments?tournamentIds=23&bookmakers=bet365.it&language=en&verbosity=3`: una richiesta per tutte le partite restituite, poi filtro locale sul manifest. Nessun moltiplicatore per quote, mercati o eventi secondo la documentazione corrente.
-- Nessuna chiamata individuale automatica per colmare 1X2: l'esempio comunicato dall'utente ha restituito un prezzo inattivo e vecchio. Un eventuale approfondimento individuale richiede una scelta mirata e un budget separato, non è attivato dal programma.
+- Nessuna chiamata individuale automatica per colmare 1X2: un prezzo marcato inattivo non viene promosso. Il confronto manuale ha confermato anche un caso giocabile nell'app ma inattivo nel feed; un `changedAt` vecchio descrive l'ultima variazione, non dimostra un prezzo sbagliato. Un eventuale approfondimento individuale richiede una scelta mirata e un budget separato, non è attivato dal programma.
 - Tetto prudenziale **200 tentativi conteggiati negli ultimi 31 giorni**, e `request_count` account + tentativi dell'esecuzione <200 prima di inviare. Il limite locale è conservativo, non assume un reset il primo del mese; il contatore provider è condiviso anche con altri client. Si mantiene una riserva di almeno 50 sul piano 250, salvo consumi esterni concorrenti che il PC non può conoscere in tempo reale. Massimo 15 richieste conteggiate per esecuzione; normalmente 1–2.
 - Contatore scritto prima della trasmissione, inclusi timeout/HTTP errori. Lock contro concorrenza nello stesso checkout, scritture atomiche, contatori corrotti bloccanti, cooldown di almeno 1,1 secondi tra chiamate. **Non eseguire contemporaneamente da altri checkout o client**. 403/429/5xx/timeout/non-JSON fermano il run, senza retry/proxy/alterazione di identità.
 - `last-failure.json` conserva endpoint, parametri senza chiave, timestamp e stato HTTP. Un errore non aggiorna `latest.json`; il report precedente rimane datato e non diventa attuale. Dopo un crash, controllare che Node sia terminato prima di rimuovere `import.lock`; non resettare `quota.json` per aggirare la riserva.
@@ -123,11 +125,68 @@ La selezione finale richiede un'analisi congiunta delle dipendenze, valutazione 
 
 Il commit `72667e319f5005fc2b60989fede48ec21a4d9777` dell'8 ottobre 2026 pubblica la bozza della sesta giornata. La cronologia disponibile del feed non contiene un successivo ritiro. Il contesto Work recuperato riporta invece una successiva discussione NO BET e una proposta da considerare errore metodologico. Non sono informazioni sufficienti a stabilire autonomamente la decisione definitiva o una giocata reale. `public/latest-slip.json`, migrazioni e risultati storici restano invariati; nessuna rettifica è applicata.
 
+## Esito del collaudo operativo
+
+Evidenze: output dei comandi eseguiti dall'utente in `C:\LaMultipla`, Node 24.19.0, codice al commit `3d42847`. Nessuna chiamata live effettuata da Work; JSON raw, prezzi, chiave e pacchetti privati non sono copiati nel repository pubblico.
+
+### A. Esito
+
+**RIUSCITO per l'intera pipeline privata**, dalla lettura della chiave al report di analisi. La disponibilità effettiva di ogni quota e l'idoneità statistica di una selezione restano verifiche distinte.
+
+### B. Acquisizione e consumo
+
+- Account Free validato dal preflight: limite 250, consumo prima dell'acquisizione 5, player props consentiti. La whitelist esclude la chiave e verifica accesso al calcio e al bookmaker italiano.
+- `/account`, `/markets?language=en` e `/odds-by-tournaments?tournamentIds=23&bookmakers=bet365.it&language=en&verbosity=3`: tutti HTTP 200 nel run riuscito.
+- Osservazione: `2026-10-09T22:49:40.959Z`, cioè 10 ottobre 2026 alle 00:49:40.959 Europe/Rome. Questo è il momento della risposta osservata; `changedAt` resta l'ultima modifica dichiarata dal provider, non una frequenza di sincronizzazione verificata.
+- Registro locale: due tentativi conteggiati, soltanto catalogo e batch. Il controllo account, la rielaborazione, la revisione e l'analisi non hanno consumato quota. Consumo complessivo atteso 7/250 e residuo stimato 243: non è stata comunicata una lettura del contatore provider successiva al run, quindi non lo si certifica come nuovo saldo API.
+- 20 eventi restituiti, 10 nell'intervallo, 14.414 record, 14.397 prezzi validi, 13.068 selezioni attive e 1.346 inattive. Tutte le selezioni bloccate di questo run sono inattive; 17 record hanno anche un prezzo non valido e 1.286 un vecchio timestamp di variazione.
+- Confermati i dieci ID del turno dopo confronto delle coppie di squadre con [Insights ufficiali Serie A 2026/27, giornata 6](https://en.legaseriea.it/serie-a/news/insights-matchday-6). Gli orari del feed non sono stati certificati tutti separatamente. La rielaborazione offline mantiene risposta raw e momento originale: `roundVerified=true`, 12.226 `candidate`, 842 `review`, 1.346 `blocked`, zero richieste. Le 842 revisioni dipendono esclusivamente dalle regole Bookings non verificate.
+
+### C. Copertura osservata
+
+I numeri seguenti sono selezioni con prezzo valido e `active=true` nelle dieci gare, anche su periodi e linee diversi. Non misurano lavagne complete né disponibilità nell'app di ogni record.
+
+| Famiglia richiesta | Evidenza nella risposta reale |
+|---|---|
+| 1X2 | 69 selezioni tra i periodi; 1X2 fulltime completo secondo i flag solo in 4/10 gare |
+| Doppia chance / rimborso in caso di parità | 17 / 13 selezioni attive |
+| Under/Over gol | 360 selezioni attive |
+| Multigol | Nessuna famiglia Multigol identificata nella copertura osservata; copertura generale non dimostrata |
+| Gol squadra | 138 selezioni team 1 e 147 team 2; presenti anche gol esatti per squadra |
+| Handicap asiatico | 12 selezioni attive; etichetta `Asian Handicap`, periodo fulltime, osservate anche linee a quarti |
+| Totali asiatici | Non verificati specificamente; un catalogo generico di totali non basta a confermarli |
+| Corner | Totali, totali squadra e 1X2 corner presenti |
+| Cartellini / falli | Bookings da verificare per liquidazione; player cards e falli commessi dal giocatore presenti. Totali falli di squadra/partita non verificati |
+| Tiri / marcatori / statistiche giocatore | Tiri, tiri in porta, marcatori anytime/primo/ultimo, gol, assist, tackle e parate presenti |
+| Combinazioni / Bet Builder Max | Nessuna copertura specifica identificata nel run; nessun prezzo combinato costruito |
+
+Lo slug `bet365.it`, l'autorizzazione account e il filtro della risposta sono confermati. I campioni conservano gli ID evento del bookmaker; `fixtureUrl` è null negli esempi esaminati. Non sono stati ottenuti un catalogo bookmaker autenticato riuscito o una verifica live degli alias/cloni in questo collaudo: il confronto dei prezzi offre una conferma limitata al campione, non una certificazione dell'intero feed.
+
+### D. Confronto manuale
+
+L'utente ha confrontato su bet365 Italia sei selezioni fulltime di Genoa-Fiorentina e Inter-Parma: entrambe segnano, Over gol e Over corner, conservati con linea, quota e ID nel pacchetto privato. Alle 01:00 Europe/Rome del 10 ottobre, **6/6 coincidevano** con l'acquisizione delle 00:49:40. La verifica è stata registrata a `2026-10-09T23:00:00Z`, con precisione al minuto indicata dall'utente.
+
+Ulteriore riscontro: l'esito 1 di Inter-Parma era giocabile nell'app al prezzo contenuto nel record API, che però risultava `active=false` e con ultima variazione del 30 settembre. Il parser conserva correttamente i dati; il flag non rappresenta la disponibilità nell'app in questo caso. Il programma continua a bloccare il record, senza trasformare una verifica umana in una presunta selezione API attiva. Il timestamp vecchio, da solo, non dimostra che il prezzo sia errato.
+
+### E. Analisi e diritti
+
+Creato un pacchetto delle sei selezioni e una copia privata con le verifiche manuali, senza inventare probabilità o contesto. Analisi eseguita il 9 ottobre alle `23:04:10.994Z`: `NO_BET`, 14.414 record esaminati, sei schede di assessment, zero selezioni idonee alla revisione finale, EV null. `withEstimates=6` conta le schede, non sei stime probabilistiche valide.
+
+Nessun errore di collegamento dell'assessment al report o di verifica manuale esatta sulle sei selezioni. Le ragioni globali sono esclusivamente dipendenze non revisionate e assenza di evidenze del modello indipendente. Le ragioni per selezione riguardano validazione del mercato, regole di liquidazione, contesto, momento della stima e probabilità mancanti. Il risultato verifica il blocco operativo; non misura la qualità di un modello che ancora non esiste.
+
+Il collaudo tecnico non concede diritti ulteriori: conservazione indefinita e visualizzazione/pubblicazione nell'app restano da chiarire secondo le condizioni del fornitore. Nessun catalogo o prezzo reale è redistribuito dal repository o dalla PWA. Il wrapper con prompt è stato eseguito sul PC; `-SaveKey`/DPAPI, esecuzione non assistita, durata e affidabilità su più acquisizioni non sono ancora collaudati.
+
+### F. Decisione e G. Prossimo passo
+
+**APPROVATO CON LIMITAZIONI come valutazione tecnica del flusso privato assistito a costo zero.** È riproducibile sul PC con account Free, batch, manifest del turno e controllo umano dei prezzi. Rimangono parzialità dell'1X2 secondo i flag, discordanza del flag di disponibilità, Bookings, mercati non dimostrati e diritti non chiariti. Nessuna approvazione a integrazione permanente o pubblicazione; serve la decisione esplicita dell'utente.
+
+Prossimo passo unico: definire il protocollo del modello probabilistico indipendente, con dati gratuiti di cui verificare i diritti, valutazione temporale fuori campione, calibrazione e confronto con una baseline. Iniziare dai mercati gol derivabili dalla distribuzione dei risultati (1X2, Under/Over e BTTS); estendere ad altre famiglie solo dopo validazione dedicata. Non derivare le probabilità dalle quote OddsPapi.
+
 ## Diritti, prove e limiti residui
 
 Si usa l'API documentata del proprio account, senza scraping, API private o aggiramenti. La scelta privata evita di redistribuire il catalogo su repository/PWA. **Non equivale a una concessione dei diritti**: conservazione storica indefinita e pubblicazione di quote/selezioni nell'app restano soggette alle condizioni del fornitore e alle incertezze già documentate; non si abilita redistribuzione automatica e non si contatta il fornitore in questa fase.
 
-I test nel repository usano esclusivamente fixture sintetiche dichiarate tali: struttura documentata v4, vari mercati/giocatori/linee/periodi, quote mancanti, flag discordanti, duplicati, parzialità, contatori e rete simulata, isolamento delle credenziali, EV con rimborsi e NO BET. Non dimostrano nuova copertura live né l'accessibilità di GitHub Actions all'API. La copertura reale e le sei corrispondenze sono state comunicate dall'utente; non abbiamo i JSON di quelle acquisizioni per riprodurne qui il parsing. Nessuna chiamata live viene eseguita da questo sviluppo. Il wrapper DPAPI è predisposto per Windows e deve ancora essere eseguito sul PC Windows dell'utente.
+I test nel repository usano esclusivamente fixture sintetiche dichiarate tali: struttura documentata v4, vari mercati/giocatori/linee/periodi, quote mancanti, flag discordanti, duplicati, parzialità, contatori e rete simulata, isolamento delle credenziali, EV con rimborsi e NO BET. Non dimostrano nuova copertura live né l'accessibilità di GitHub Actions all'API. Il collaudo reale del PC è verificato tramite gli output e il confronto manuale comunicati dall'utente; i JSON completi restano sul PC e non sono stati riprodotti in Work. Nessuna chiamata live viene eseguita da questo sviluppo. L'input protetto del wrapper è collaudato; il salvataggio DPAPI resta da provare.
 
 Fonti tecniche ufficiali consultate: [quote batch](https://oddspapi.io/en/docs/get-odds-by-tournaments), [quote singole](https://oddspapi.io/us/docs/get-odds), [catalogo](https://oddspapi.io/us/docs/get-markets), [account](https://oddspapi.io/en/docs/get-account), [richieste e quota](https://oddspapi.io/en/docs/requests-and-quota). Nessuna supposizione sul catalogo sostituisce la copertura per evento.
 
@@ -137,6 +196,6 @@ Fonti tecniche ufficiali consultate: [quote batch](https://oddspapi.io/en/docs/g
 - `npm run lint`: nessun errore; un warning preesistente per `combinedPlayedOdd` inutilizzato in `app/components.tsx`.
 - Build Next.js/TypeScript/statica riuscita su Node 24 e su Node 22.13.0. Nessun riferimento al client OddsPapi o alla sua chiave nei JavaScript/JSON esportati.
 - `git diff --check` superato; feed della sesta giornata e migrazioni storiche invariati; `.local/oddspapi/` ignorata da Git.
-- Nessuna chiamata API live dall'ambiente Work, nuova schedina, attività programmata, merge o deploy effettuato dallo sviluppo. Il successivo tentativo Windows dell'utente su `/account` è documentato sopra; non ha acquisito quote.
+- Nessuna chiamata API live dall'ambiente Work, nuova schedina, attività programmata, merge o deploy effettuato dallo sviluppo. L'acquisizione reale e il passaggio completo all'analisi privata sono stati eseguiti sul PC Windows dell'utente e documentati sopra. Il suo `git status --short` finale non ha prodotto output: nessuna modifica tracciata nel checkout durante il collaudo.
 
-**Valutazione:** implementazione pronta per revisione e primo collaudo locale con la risposta reale; integrazione in produzione non ancora approvata. Prossimo passo unico: eseguire il wrapper sul PC Windows seguendo la procedura sopra e verificare il report privato risultante. Servono 1–2 richieste conteggiate, non una nuova ricerca dei fornitori.
+**Valutazione:** collaudo completo riuscito sul PC Windows; flusso privato assistito tecnicamente approvato con limitazioni. Modello indipendente, diritti di pubblicazione e integrazione in produzione restano da completare/approvare. Il prossimo passo è il protocollo del modello, senza ripetere l'acquisizione appena verificata o modificare schedine e storico.
