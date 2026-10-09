@@ -1,6 +1,7 @@
 param(
   [Parameter(Mandatory=$true)][string]$RoundPath,
-  [switch]$SaveKey
+  [switch]$SaveKey,
+  [switch]$AccountOnly
 )
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path $PSScriptRoot -Parent
@@ -23,7 +24,9 @@ try {
     $pointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($protectedKey)
     $env:ODDSPAPI_API_KEY = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer)
   }
-  & node (Join-Path $PSScriptRoot 'oddspapi.mjs') --round $RoundPath
+  $nodeArguments = @((Join-Path $PSScriptRoot 'oddspapi.mjs'), '--round', $RoundPath)
+  if ($AccountOnly) { $nodeArguments += '--account-only' }
+  & node @nodeArguments
   if ($LASTEXITCODE -ne 0) { throw 'Importazione non riuscita; nessun nuovo tentativo automatico.' }
 } finally {
   $env:ODDSPAPI_API_KEY = $previousKey

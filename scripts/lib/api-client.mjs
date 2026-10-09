@@ -30,6 +30,9 @@ export function accountStatus(raw, now = new Date()) {
 export class ApiClient {
   constructor({ key, directory, fetchImpl = fetch, clock = () => new Date(), pause = ms => new Promise(resolve => setTimeout(resolve, ms)) }) {
     if (!key) throw new SafeError('Impostare ODDSPAPI_API_KEY solo nell’ambiente locale');
+    if (typeof key !== 'string' || key.trim() !== key || /[\r\n]/.test(key)) {
+      throw new SafeError('La chiave contiene spazi esterni o ritorni a capo: copiarla nuovamente nel prompt protetto');
+    }
     this.key = key; this.directory = directory; this.fetchImpl = fetchImpl; this.clock = clock; this.pause = pause;
     this.requests = []; this.used = 0; this.lastAt = null; this.stopped = false;
   }
@@ -71,12 +74,28 @@ export class ApiClient {
     try {
       const response = await this.fetchImpl(url, { redirect: 'error', signal: AbortSignal.timeout(25000), headers: { accept: 'application/json' } });
       audit.status = response.status;
-      if (!response.ok) throw new SafeError('HTTP');
-      return await response.json();
+      if (!response.ok) {
+        // Only classify errors: never store/print raw bodies, messages or credentials.
+        audit.responseBodyFormat = response.headers?.get?.('content-type')?.includes('text/html') ? 'html' : 'unknown';
+        try {
+          const body = await response.json();
+          audit.responseBodyFormat = 'json';
+          const message = [body?.code, body?.message, body?.error, body?.details]
+            .filter(v => typeof v === 'string').join(' ').replaceAll(this.key, '').toLowerCase();
+          audit.errorCategory = /invalid.{0,20}(?:api.?key|credential)|unauthori[sz]ed|authentication/.test(message) ? 'authentication'
+            : /quota|request.limit|rate.limit/.test(message) ? 'quota_or_rate_limit'
+              : /internal.server|server.error/.test(message) ? 'server_error' : 'unspecified';
+        } catch { /* Metadata alone is sufficient; parsing errors must not expose body fragments. */ }
+        throw new SafeError('HTTP');
+      }
+      try { return await response.json(); }
+      catch { audit.responseBodyFormat = 'invalid_json'; throw new SafeError('JSON'); }
     } catch {
       this.stopped = true;
       // No URL, response body, nested cause, or key in the error/log.
-      const error = new Error(audit.status ? `OddsPapi HTTP ${audit.status} o risposta non JSON; nessun retry/bypass` : 'OddsPapi rete/timeout/blocco; nessun retry/bypass');
+      const reason = audit.responseBodyFormat === 'invalid_json' ? 'risposta non JSON'
+        : audit.status ? `HTTP ${audit.status}` : 'rete/timeout/blocco';
+      const error = new Error(`OddsPapi ${reason}; nessun retry/bypass`);
       error.safeMessage = error.message;
       throw error;
     }

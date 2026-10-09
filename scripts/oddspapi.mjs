@@ -10,16 +10,24 @@ import { buildReport, catalogArray, validateRound, fingerprint } from './lib/odd
 export { buildReport } from './lib/odds-report.mjs';
 
 export async function importQuotes({ round, fixtures, markets, observedAt, directory = PRIVATE_DIR, key,
-  fetchImpl, clock = () => new Date(), pause } = {}) {
+  fetchImpl, clock = () => new Date(), pause, accountOnly = false } = {}) {
   validateRound(round);
   if (Boolean(fixtures) !== Boolean(markets)) throw new SafeError('Offline: fornire sia fixtures sia markets');
   if (!fixtures && observedAt) throw new SafeError('Non si può retrodatare un’acquisizione live');
+  if (accountOnly && fixtures) throw new SafeError('Controllo account disponibile solo in modalità API');
   return withLock(directory, async () => {
     let rawFixtures = fixtures, catalog = markets, client;
     try {
       if (!fixtures) {
         client = new ApiClient({ key, directory, fetchImpl, clock, pause });
         await client.checkAccount();
+        if (accountOnly) {
+          const status = { schema: 'lamultipla-private-account-check-v1', account: client.account,
+            billableAttempts: 0, requests: client.requests };
+          const filename = path.join(directory, 'account-status.json');
+          await saveJson(filename, status);
+          return { account: client.account, filename };
+        }
         const cache = await optionalJson(path.join(directory, 'catalog-cache.json'));
         if (cache && (cache.schema !== 1 || !Number.isFinite(Date.parse(cache.fetchedAtUtc)) || !cache.catalog)) throw new SafeError('Cache catalogo non valida');
         const age = cache ? clock().getTime() - Date.parse(cache.fetchedAtUtc) : Infinity;
@@ -58,19 +66,26 @@ export async function importQuotes({ round, fixtures, markets, observedAt, direc
 async function main() {
   const { values } = parseArgs({ options: {
     help: { type: 'boolean' }, round: { type: 'string' }, fixtures: { type: 'string' },
-    markets: { type: 'string' }, 'observed-at': { type: 'string' }
+    markets: { type: 'string' }, 'observed-at': { type: 'string' }, 'account-only': { type: 'boolean' }
   }, strict: true, allowPositionals: false });
   if (values.help) {
     console.log('node scripts/oddspapi.mjs --round .local/oddspapi/round.json [--fixtures file --markets file --observed-at UTC]');
     console.log('Live: ODDSPAPI_API_KEY nell’ambiente. 2 chiamate conteggiate iniziali, poi 1 con cache valida; account non conteggiato.');
     console.log('Dati solo sotto .local/oddspapi; nessuna schedina o pubblicazione.');
+    console.log('--account-only: una sola chiamata non conteggiata a /account, senza catalogo o quote.');
     return;
   }
   if (!values.round) throw new SafeError('Fornire --round con il manifest privato della giornata');
-  const { report, filename } = await importQuotes({ round: await loadJson(values.round),
+  const { report, account, filename } = await importQuotes({ round: await loadJson(values.round),
     fixtures: values.fixtures ? await loadJson(values.fixtures) : undefined,
     markets: values.markets ? await loadJson(values.markets) : undefined,
-    observedAt: values['observed-at'], key: process.env.ODDSPAPI_API_KEY });
+    observedAt: values['observed-at'], key: process.env.ODDSPAPI_API_KEY, accountOnly: values['account-only'] });
+  if (account) {
+    console.log('Stato account privato:', filename);
+    console.log(JSON.stringify({ requestLimit: account.requestLimit, requestCount: account.requestCount,
+      remaining: account.remaining, playerProps: account.playerProps, billableAttempts: 0 }));
+    return;
+  }
   console.log('Report privato:', filename);
   console.log(JSON.stringify({ roundVerified: report.round.verified, ...report.summary, billableAttempts: report.acquisition.billableAttempts }));
 }

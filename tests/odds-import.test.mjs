@@ -45,6 +45,47 @@ test('offline import consumes zero requests and refuses incomplete input or retr
   await assert.rejects(importQuotes({ directory: dir, round, fixtures: sample() }));
   await assert.rejects(importQuotes({ directory: dir, round, observedAt }));
 });
+
+test('account-only check calls no billable endpoints and saves no API key', async t => {
+  const dir = await directory(t), calls = [];
+  const result = await importQuotes({ round, accountOnly: true,
+    ...clientOptions(dir, mockApi({ '/account': account(18) }, calls)) });
+  assert.deepEqual(calls, ['/account']);
+  assert.equal(result.report, undefined);
+  assert.equal(result.account.requestCount, 18);
+  assert.equal(result.account.remaining, 232);
+  const saved = await fs.readFile(result.filename, 'utf8');
+  assert.ok(!saved.includes('synthetic-secret-never-save'));
+  assert.equal(JSON.parse(saved).billableAttempts, 0);
+  await assert.rejects(fs.stat(path.join(dir, 'quota.json')), { code: 'ENOENT' });
+  await assert.rejects(fs.stat(path.join(dir, 'catalog-cache.json')), { code: 'ENOENT' });
+  await assert.rejects(fs.stat(path.join(dir, 'import.lock')), { code: 'ENOENT' });
+});
+
+test('account HTTP 500 diagnostic classifies provider error without persisting secret-containing body', async t => {
+  const dir = await directory(t); let count = 0;
+  const fetchImpl = async () => { count += 1; return { ok: false, status: 500,
+    headers: new Headers({ 'content-type': 'application/json' }),
+    json: async () => ({ message: 'Internal server error synthetic-secret-never-save', api_key: 'synthetic-secret-never-save' }) }; };
+  await assert.rejects(importQuotes({ round, accountOnly: true, ...clientOptions(dir, fetchImpl) }), /HTTP 500/);
+  const saved = await fs.readFile(path.join(dir, 'last-failure.json'), 'utf8');
+  assert.ok(!saved.includes('synthetic-secret-never-save'));
+  const audit = JSON.parse(saved);
+  assert.equal(audit.billableAttempts, 0);
+  assert.equal(audit.requests[0].responseBodyFormat, 'json');
+  assert.equal(audit.requests[0].errorCategory, 'server_error');
+  assert.equal(count, 1);
+});
+
+test('HTTP success with invalid JSON is distinguished from server error; padded key makes no request', async t => {
+  const dir = await directory(t);
+  const c = new ApiClient(clientOptions(dir, async () => ({ ok: true, status: 200, json: async () => { throw new Error('secret body fragment'); } })));
+  await assert.rejects(c.checkAccount(), /risposta non JSON/);
+  assert.equal(c.requests[0].responseBodyFormat, 'invalid_json');
+  assert.equal(c.requests[0].status, 200);
+  assert.equal(c.used, 0);
+  assert.throws(() => new ApiClient({ ...clientOptions(dir, async () => { assert.fail('must not call'); }), key: ' padded-key ' }), /spazi esterni/);
+});
 test('free-only account check refuses paid, expiring, unsupported or ambiguous subscriptions', () => {
   assert.equal(accountStatus(account(7)).remaining, 243);
   for (const override of [{ price: 1 }, { auto_renew: true }, { valid_until: '2026-10-10T00:00:00Z' },

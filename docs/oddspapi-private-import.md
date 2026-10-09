@@ -42,6 +42,22 @@ Senza IDs, con gare mancanti o conflitti, `round.verified=false`: si conserva il
 
 ## Strategia di consumo e aggiornamento
 
+### Diagnostica del collaudo reale
+
+Nel primo tentativo comunicato dal PC Windows (10 ottobre 2026, 00:15 circa Europe/Rome), il wrapper è arrivato a `GET /account`, che ha restituito HTTP 500. L'audit locale riportava `billableAttempts=0`; nessun catalogo, contatore di chiamate conteggiate o prezzo era stato acquisito e il lock era rimosso. Questo non è ancora un test della copertura del feed. Il consumo complessivo precedente dell'account non era leggibile, perché la richiesta account era fallita.
+
+Per isolare l'endpoint senza effettuare acquisizioni, il wrapper supporta:
+
+```powershell
+.\scripts\oddspapi.ps1 -RoundPath .local\oddspapi\round.json -AccountOnly
+```
+
+Il controllo esegue **una sola chiamata non conteggiata a `/account`**, senza retry. Con esito valido salva soltanto la whitelist in `account-status.json` e stampa contatori e permesso player props; non salva la risposta account o la chiave. In caso di errore, `last-failure.json` registra status, formato della risposta e, se desumibile dal JSON, una categoria statica (`authentication`, `quota_or_rate_limit`, `server_error`, `unspecified`). Non registra il corpo o il messaggio del fornitore. HTTP 500 e HTTP 200 con JSON non valido sono distinti. Spazi esterni o ritorni a capo nella chiave vengono rifiutati prima di trasmetterla: va ricopiata nel prompt locale.
+
+Se `/account` continua a fallire, non si salta il controllo Free/quota per chiamare direttamente i prezzi. Una pagina di stato operativa non garantisce che ogni endpoint funzioni per ogni account.
+
+### Budget dell'acquisizione
+
 - Ogni acquisizione live consulta `/account` (documentato non conteggiato). Verifica un abbonamento attivo con `price=null/0`, `auto_renew=false`, `valid_until=null`, quota 250 e autorizzazione a `bet365.it` e sport 10. Se il formato/piano cambia, interrompe l'acquisizione. La risposta account contiene la chiave: **non viene salvata**, solo una whitelist dei contatori e permessi.
 - Catalogo `/markets?language=en` in cache per 7 giorni: una richiesta conteggiata al rinnovo.
 - Batch `/odds-by-tournaments?tournamentIds=23&bookmakers=bet365.it&language=en&verbosity=3`: una richiesta per tutte le partite restituite, poi filtro locale sul manifest. Nessun moltiplicatore per quote, mercati o eventi secondo la documentazione corrente.
@@ -111,10 +127,10 @@ Fonti tecniche ufficiali consultate: [quote batch](https://oddspapi.io/en/docs/g
 
 ## Esito delle verifiche di sviluppo
 
-- 31 test automatici superati, anche su Node 22.13.0: normalizzazione, client con rete simulata e flusso CLI offline completo. I test isolano i file in directory temporanee e non usano la chiave o la directory dati reale dell'utente.
+- 31 test automatici iniziali superati, anche su Node 22.13.0: normalizzazione, client con rete simulata e flusso CLI offline completo. Sono stati aggiunti 3 test per la diagnostica account isolata, la protezione delle risposte d'errore e la distinzione HTTP/JSON. I test isolano i file in directory temporanee e non usano la chiave o la directory dati reale dell'utente.
 - `npm run lint`: nessun errore; un warning preesistente per `combinedPlayedOdd` inutilizzato in `app/components.tsx`.
 - Build Next.js/TypeScript/statica riuscita su Node 24 e su Node 22.13.0. Nessun riferimento al client OddsPapi o alla sua chiave nei JavaScript/JSON esportati.
 - `git diff --check` superato; feed della sesta giornata e migrazioni storiche invariati; `.local/oddspapi/` ignorata da Git.
-- Nessuna chiamata API live, nuova schedina, attività programmata, merge o deploy effettuato dallo sviluppo.
+- Nessuna chiamata API live dall'ambiente Work, nuova schedina, attività programmata, merge o deploy effettuato dallo sviluppo. Il successivo tentativo Windows dell'utente su `/account` è documentato sopra; non ha acquisito quote.
 
 **Valutazione:** implementazione pronta per revisione e primo collaudo locale con la risposta reale; integrazione in produzione non ancora approvata. Prossimo passo unico: eseguire il wrapper sul PC Windows seguendo la procedura sopra e verificare il report privato risultante. Servono 1–2 richieste conteggiate, non una nuova ricerca dei fornitori.
