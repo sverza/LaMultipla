@@ -6,13 +6,17 @@
     "node": ">=22.13.0"
   },
   "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "odds:import": "node scripts/oddspapi.mjs",
+    "odds:analyze": "node scripts/oddspapi-analysis.mjs",
+    "odds:review": "node scripts/oddspapi-review.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "android:add": "npx cap add android",
     "android:sync": "npx cap sync android",
     "android:open": "npx cap open android",
-    "lint": "eslint app next.config.ts capacitor.config.ts --ignore-pattern dist --ignore-pattern .next --ignore-pattern out --ignore-pattern android"
+    "lint": "eslint app scripts tests next.config.ts capacitor.config.ts --ignore-pattern dist --ignore-pattern .next --ignore-pattern out --ignore-pattern android"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",

@@ -35,8 +35,15 @@ Controlli prima di pubblicare:
 
 ```text
 npm run lint
+npm test
 npm run build
 ```
+
+## Quote OddsPapi per l'analisi
+
+L'importatore Node acquisisce privatamente sul PC le quote pre-match `bet365.it` di Serie A, con cache, controllo del piano Free e riserva sulla quota. I prezzi vengono passati a uno screening che richiede stime indipendenti, contesto e verifica manuale finale; può concludere NO BET e non pubblica schedine. Il tracker non contiene ancora un modello statistico calibrato.
+
+Istruzioni Windows, contratto di analisi e limiti: [importatore privato OddsPapi](docs/oddspapi-private-import.md). Non inserire chiavi o risposte API in `public/`, nel sorgente o negli artifact di GitHub.
 
 ## Consegna automatica della schedina
 
