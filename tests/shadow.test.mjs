@@ -10,7 +10,7 @@ import {sealJournal,CONFIG} from '../scripts/lib/prospective/freeze.mjs';
 import {createDecision,persistDecision,assertNoDecision,decisionPath,freezeForwardForecast,validateCycleSchedule} from '../scripts/lib/shadow/pipeline.mjs';
 import {screenOpportunities} from '../scripts/lib/shadow/opportunities.mjs';
 import {frechet,selectCombination} from '../scripts/lib/shadow/combinations.mjs';
-import {valueMetrics,classifyValue} from '../scripts/lib/shadow/policy.mjs';
+import {POLICY,POLICY_V1,valueMetrics,classifyValue} from '../scripts/lib/shadow/policy.mjs';
 import {evaluateShadow,shadowProgress} from '../scripts/lib/shadow/evaluate.mjs';
 import {validateCurrentDataset} from '../scripts/lib/shadow/registry.mjs';
 import {refreshDataset} from '../scripts/lib/shadow/data.mjs';
@@ -19,7 +19,7 @@ import {account} from './fixtures/oddspapi.mjs';
 import {readSnapshot} from '../scripts/lib/prospective/store.mjs';
 
 // All events/prices/probabilities in this test are SYNTHETIC; no actual betting evidence.
-const now='2026-10-10T06:45:00.000Z',observed='2026-10-10T06:44:00.000Z';
+const now='2026-10-10T10:15:00.000Z',observed='2026-10-10T10:14:00.000Z';
 const study={schema:'lamultipla-goals-study-v1',synthetic:true,validationCompletedAtUtc:'2026-10-09T23:00:00Z',acceptance:{oneXTwo:{retrospectiveAccepted:true}}};
 function fixture(){
   const raw=sample();for(const f of raw)for(const m of Object.values(f.bookmakerOdds['bet365.it'].markets))for(const o of Object.values(m.outcomes))for(const s of Object.values(o.players))s.changedAt=observed;
@@ -28,13 +28,51 @@ function fixture(){
   const manifest={season:round.season,matchday:round.matchday,events};
   const forecasts=events.map(e=>({...e,central:[.65,.2,.15],intervals95:[[.6,.7],[.15,.25],[.1,.2]],uncertainty:{replicates:40,failures:0,sufficient:true},baselines:{empirical:[.4,.3,.3],leaguePoisson:[.4,.3,.3]}}));
   const journal=sealJournal({model:{converged:true,config:CONFIG,cutoffUtc:'2026-10-01T00:00:00.000Z'},forecasts},manifest,
-    {studySha256:fingerprint(study),datasetAcquiredAtUtc:'2026-10-09T23:00:00.000Z'},'2026-10-10T06:43:00.000Z');
+    {studySha256:fingerprint(study),datasetAcquiredAtUtc:'2026-10-09T23:00:00.000Z'},'2026-10-10T10:13:00.000Z');
   return {raw,report,journal,study};
 }
 function verify(report,q,availability='available') {
   return {...verificationTemplate(report,q),availability,observedPrice:q.price,verifiedAtUtc:now,reviewer:'synthetic tester',evidence:'SYNTHETIC only'};
 }
 const reseal=e=>{const {entrySha256,...content}=e;e.entrySha256=fingerprint(content);return entrySha256;};
+test('v2 uses fresh later quotes without changing a frozen forecast or certifying a contemporaneous baseline',()=>{
+  const input=fixture();input.journal.generatedAtUtc='2026-10-10T06:22:04.963Z';
+  for(const e of input.journal.entries){e.generatedAtUtc=input.journal.generatedAtUtc;reseal(e);}
+  const original=fingerprint(input.journal),assessment={estimates:input.report.selections.map(q=>({quoteId:q.quoteId,manualVerification:verify(input.report,q)}))};
+  const screen=screenOpportunities({...input,assessment,now});assert.equal(screen.candidates.length,10);
+  assert.equal(screen.baselines[0].status,'COMPLETE');assert.equal(screen.baselines[0].compatible,false);
+  assert.equal(screen.baselines[0].manualPlayabilityVerified,true);assert.equal(screen.baselines[0].forecastMinusMarket,null);
+  assert.ok(screen.candidates.every(s=>s.forecastQuoteLagMinutes>30));assert.equal(fingerprint(input.journal),original);
+  const decision=createDecision({...input,assessment,now}),results={schema:'lamultipla-result-observations-v1',source:'openfootball/football.json',license:'CC0-1.0',sourceCommit:'a'.repeat(40),acquiredAtUtc:'2026-10-13T00:00:00Z',
+    rows:input.journal.entries.map(e=>({season:'2026-27',home:e.home,away:e.away,date:'2026-10-10',availableAtUtc:'2026-10-12T00:00:00Z',goals:[1,0]}))};
+  assert.equal(evaluateShadow(decision,input.journal,results,{now:'2026-10-13T00:01:00Z'}).forecastEvaluation.marketComparison.n,0);
+  const e=input.journal.entries[0],market={fixtureId:e.fixtureId,journalId:input.journal.id,entrySha256:e.entrySha256,bookmaker:'bet365.it',compatible:true,probabilities:[.5,.3,.2],capturedAtUtc:'2026-10-10T06:25:50Z'};
+  assert.equal(evaluateShadow(decision,input.journal,results,{now:'2026-10-13T00:01:00Z',markets:[market]}).forecastEvaluation.marketComparison.n,1);
+  assert.equal(fingerprint(input.journal),original);
+});
+test('v2 retains stale, preforecast and prepolicy exclusions and never renews forecast timestamps',()=>{
+  const expired=fixture();expired.journal.generatedAtUtc='2026-10-09T10:14:59Z';
+  for(const e of expired.journal.entries){e.generatedAtUtc=expired.journal.generatedAtUtc;reseal(e);}
+  assert.ok(screenOpportunities({...expired,now}).globalIssues.includes('forecast_expired_or_future'));
+  const future=fixture();future.journal.generatedAtUtc='2026-10-10T10:14:30Z';
+  for(const e of future.journal.entries){e.generatedAtUtc=future.journal.generatedAtUtc;reseal(e);}
+  assert.ok(screenOpportunities({...future,now}).screening.every(s=>s.reasons.includes('incompatible_quote_forecast_time')));
+  const old=fixture();old.journal.generatedAtUtc='2026-10-10T09:55:00Z';
+  for(const e of old.journal.entries){e.generatedAtUtc=old.journal.generatedAtUtc;reseal(e);}
+  old.report.fetchedAtUtc='2026-10-10T10:09:00Z';for(const q of old.report.selections){q.observedAtUtc=old.report.fetchedAtUtc;q.changedAt=q.observedAtUtc;}
+  assert.ok(screenOpportunities({...old,now}).screening.every(s=>s.reasons.includes('quote_precedes_policy_registration')));
+  const stale=fixture();assert.ok(screenOpportunities({...stale,now:'2026-10-10T10:45:00Z'}).globalIssues.includes('report_expired_or_future'));
+  assert.equal(POLICY_V1.version,'shadow-value-v1');assert.equal(POLICY_V1.maxForecastQuoteLagMinutes,30);
+  assert.equal(POLICY.version,'shadow-value-v2');assert.equal(POLICY.maxMarketBenchmarkLagMinutes,30);
+});
+test('late manual verification cannot certify the timing of an earlier provider board',()=>{
+  const input=fixture();input.journal.generatedAtUtc='2026-10-10T09:45:00Z';
+  for(const e of input.journal.entries){e.generatedAtUtc=input.journal.generatedAtUtc;reseal(e);}
+  const assessment={estimates:input.report.selections.map(q=>({quoteId:q.quoteId,manualVerification:{...verify(input.report,q),verifiedAtUtc:'2026-10-10T10:16:00Z'}}))};
+  const screen=screenOpportunities({...input,assessment,now:'2026-10-10T10:16:30Z'});
+  assert.equal(screen.baselines[0].compatible,false);assert.equal(screen.baselines[0].manualPlayabilityVerified,true);
+  assert.equal(screen.candidates.length,10);
+});
 test('shadow links exact independent forecast, removes complete-board margin and ignores assessment probabilities',()=>{
   const input=fixture(),copy=fingerprint(input),result=screenOpportunities({...input,assessment:{estimates:[{quoteId:input.report.selections[0].quoteId,probabilities:{win:1}}]},now});
   assert.equal(result.candidates.length,10);assert.equal(result.baselines.length,10);assert.equal(result.baselines[0].status,'COMPLETE');
@@ -58,7 +96,7 @@ test('inactive override is exact, negative verification blocks and all provider 
   q.marketActive=false;assessment.estimates[0].manualVerification=verify(input.report,q);assert.equal(screenOpportunities({...input,assessment,now}).screening[0].classification,'INSUFFICIENT_DATA');
 });
 test('identity, timestamps, duplicate quotes and already-started events cannot pass screening',()=>{
-  for(const change of [q=>q.fixture[0]='Wrong',q=>q.line=.5,q=>q.playerKey='2',q=>q.period='1st-half',q=>q.kickoffUtc='2026-10-10T13:01:00Z',q=>q.observedAtUtc='2026-10-09T06:44:00Z',q=>q.changedAt='2026-10-10T06:46:00Z',q=>q.statusId=1]) {
+  for(const change of [q=>q.fixture[0]='Wrong',q=>q.line=.5,q=>q.playerKey='2',q=>q.period='1st-half',q=>q.kickoffUtc='2026-10-10T13:01:00Z',q=>q.observedAtUtc='2026-10-09T06:44:00Z',q=>q.changedAt='2026-10-10T10:16:00Z',q=>q.statusId=1]) {
     const input=fixture(),q=input.report.selections[0];change(q);const r=screenOpportunities({...input,now});assert.ok(!r.candidates.some(s=>s.quoteId===q.quoteId));
   }
   const input=fixture();input.report.selections.push(structuredClone(input.report.selections[0]));assert.ok(screenOpportunities({...input,now}).screening[0].reasons.includes('duplicate_or_conflicting_quote'));
@@ -68,7 +106,7 @@ test('identity, timestamps, duplicate quotes and already-started events cannot p
 test('incomplete boards never invent missing prices and temporal provenance is mandatory',()=>{
   const input=fixture();input.report.selections=input.report.selections.filter(q=>q.outcome!=='2'||q.fixtureId!=='synthetic-0');
   assert.equal(screenOpportunities({...input,now}).baselines[0].probabilities,null);
-  input.journal.provenance.datasetAcquiredAtUtc='2026-10-10T07:00:00Z';assert.equal(screenOpportunities({...input,now}).candidates.length,0);
+  input.journal.provenance.datasetAcquiredAtUtc='2026-10-10T11:00:00Z';assert.equal(screenOpportunities({...input,now}).candidates.length,0);
   const forged=fixture();forged.journal.entries[0].probabilities=[1,0,0];assert.equal(screenOpportunities({...forged,now}).candidates.length,0);
 });
 test('selector handles arbitrary dependence without probability multiplication or artificial offer',()=>{
@@ -157,7 +195,7 @@ test('complete mocked cycle imports with existing quota guard, freezes real algo
       rows.push({key:`${season}:${home}:${away}`,season,date,home,away,goals:[1+(i%3),(i+day)%2],availableAtUtc:new Date(Date.parse(date)+48*3600000).toISOString()});
     }
     const dataset={schema:'lamultipla-results-dataset-v1',source:'openfootball/football.json',synthetic:true,license:'CC0-1.0',licenseSha256:'36ffd9dc085d529a7e60e1276d73ae5a030b020313e6c5408593a6ae2af39673',
-      commit:'a'.repeat(40),acquiredAtUtc:'2026-10-10T06:40:00Z',cutoffUtc:'2026-10-10T06:40:00Z',files:[{path:'2025-26/it.1.json',sha256:'a'.repeat(64)}],rows};
+      commit:'a'.repeat(40),acquiredAtUtc:'2026-10-10T10:12:00Z',cutoffUtc:'2026-10-10T10:12:00Z',files:[{path:'2025-26/it.1.json',sha256:'a'.repeat(64)}],rows};
     const registry={study,dataset,identity:{synthetic:true}},forward=await freezeForwardForecast({report:imported.report,schedule,registry,root,clock:()=>new Date(now)});
     assert.equal(forward.journal.counts.prospective,10);assert.equal(forward.reused,false);assert.equal(forward.journal.fit.config.rho,-.1);
     const hash=fingerprint(forward.journal),reused=await freezeForwardForecast({report:imported.report,schedule,registry,root,clock:()=>new Date(now)});assert.equal(reused.reused,true);assert.equal(fingerprint(reused.journal),hash);

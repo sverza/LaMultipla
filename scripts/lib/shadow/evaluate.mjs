@@ -4,9 +4,9 @@ import {fingerprint} from '../odds-report.mjs';
 
 export function evaluateShadow(decision,journal,results,{now=new Date(),markets=[]}={}) {
   if(decision?.schema!=='lamultipla-shadow-decision-v1'||decision.journalSha256!==fingerprint(journal))throw new Error('Decision/journal mismatch');
-  const frozenBoards=decision.opportunities.baselines.filter(b=>b.status==='COMPLETE'&&b.manualPlayabilityVerified).map(b=>({
+  const frozenBoards=decision.opportunities.baselines.filter(b=>b.status==='COMPLETE'&&b.manualPlayabilityVerified&&(b.compatible===true||(b.compatible==null&&decision.policy?.version==='shadow-value-v1'))).map(b=>({
     fixtureId:b.fixtureId,journalId:journal.id,entrySha256:journal.entries.find(e=>e.fixtureId===b.fixtureId)?.entrySha256,
-    bookmaker:'bet365.it',compatible:true,probabilities:b.probabilities,capturedAtUtc:decision.generatedAtUtc,origin:'verified_decision_board'}));
+    bookmaker:'bet365.it',compatible:true,probabilities:b.probabilities,capturedAtUtc:b.capturedAtUtc??decision.generatedAtUtc,origin:'verified_decision_board'}));
   const compatible=[...markets,...frozenBoards].filter(m=>m.bookmaker==='bet365.it'&&m.compatible===true&&m.journalId===journal.id);
   compatible.sort((a,b)=>{const generated=journal.entries.find(e=>e.fixtureId===a.fixtureId)?.generatedAtUtc;
     if(a.fixtureId!==b.fixtureId)return a.fixtureId.localeCompare(b.fixtureId);

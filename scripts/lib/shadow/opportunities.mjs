@@ -50,7 +50,8 @@ export function screenOpportunities({journal,report,study,assessment={},now=new 
     if(q.bookmaker!=='bet365.it'||q.tournamentId!==23||q.suspended!==false||q.bookmakerIsActive!==true||q.marketActive!==true||q.statusId!==0
       ||!Number.isFinite(q.price)||q.price<=1||availability.negative||(q.active!==true&&!availability.override))reasons.push('quote_unavailable_or_reserved');
     if(!finiteDate(q.observedAtUtc)||q.observedAtUtc!==report.fetchedAtUtc||Date.parse(q.observedAtUtc)>clock||clock-Date.parse(q.observedAtUtc)>POLICY.maxQuoteAgeMinutes*60000
-      ||!finiteDate(e?.generatedAtUtc)||Math.abs(Date.parse(q.observedAtUtc)-Date.parse(e.generatedAtUtc))>POLICY.maxForecastQuoteLagMinutes*60000)reasons.push('incompatible_quote_forecast_time');
+      ||!finiteDate(e?.generatedAtUtc)||Date.parse(q.observedAtUtc)<Date.parse(e.generatedAtUtc))reasons.push('incompatible_quote_forecast_time');
+    if(finiteDate(q.observedAtUtc)&&Date.parse(q.observedAtUtc)<Date.parse(POLICY.registeredAtUtc))reasons.push('quote_precedes_policy_registration');
     if(!finiteDate(q.kickoffUtc)||clock>=Date.parse(q.kickoffUtc)-POLICY.freezeBufferMinutes*60000||Date.parse(journal?.trainingCutoffUtc)>=Date.parse(q.kickoffUtc))reasons.push('kickoff_started_or_cutoff_invalid');
     if(finiteDate(q.changedAt)&&Date.parse(q.changedAt)>Date.parse(q.observedAtUtc))reasons.push('provider_change_in_future');
     if((!finiteDate(q.changedAt)||Date.parse(q.observedAtUtc)-Date.parse(q.changedAt)>POLICY.maxChangeAgeHours*3600000)&&!availability.verified)reasons.push('old_or_missing_change_requires_manual_check');
@@ -62,7 +63,8 @@ export function screenOpportunities({journal,report,study,assessment={},now=new 
     const classification=reasons.length?'INSUFFICIENT_DATA':classifyValue(value);
     screening.push({quoteId:q.quoteId,fixtureId:q.fixtureId,fixture:q.fixture,kickoffUtc:q.kickoffUtc,marketId:q.marketId,marketType:q.marketType,
       marketName:q.marketName,period:q.period,line:q.line,playerKey:q.playerKey,outcome:q.outcome,price:q.price,
-      observedAtUtc:q.observedAtUtc,entrySha256:e?.entrySha256??null,availability,value,classification,reasons:unique(reasons),
+      observedAtUtc:q.observedAtUtc,forecastGeneratedAtUtc:e?.generatedAtUtc??null,
+      forecastQuoteLagMinutes:e&&finiteDate(q.observedAtUtc)?(Date.parse(q.observedAtUtc)-Date.parse(e.generatedAtUtc))/60000:null,entrySha256:e?.entrySha256??null,availability,value,classification,reasons:unique(reasons),
       operationalBlockers:['experimental_model_not_operationally_approved','settlement_and_context_require_operational_review',
         ...(!availability.verified?['bet365_playability_not_manually_confirmed']:[])],operationallyApproved:false});
   }
@@ -74,9 +76,15 @@ export function screenOpportunities({journal,report,study,assessment={},now=new 
       const complete=rows.length===3&&ordered.every(a=>a.length===1&&!a[0].reasons.length);
       if(!complete){baselines.push({fixtureId:e.fixtureId,marketId,status:'INCOMPLETE_OR_UNUSABLE',probabilities:null});continue;}
       const board=ordered.map(a=>a[0]),inverse=board.map(s=>1/s.price),sum=inverse.reduce((a,b)=>a+b,0);
+      const observations=board.map(s=>s.observedAtUtc),verificationTimes=board.map(s=>s.availability.verification?.verifiedAtUtc).filter(Boolean);
+      const times=[...observations,...verificationTimes].map(Date.parse),generated=Date.parse(e.generatedAtUtc);
+      const compatible=times.every(t=>Number.isFinite(t)&&Math.abs(t-generated)<=POLICY.maxMarketBenchmarkLagMinutes*60000)
+        &&Math.max(...times)-Math.min(...times)<=5*60000;
       baselines.push({fixtureId:e.fixtureId,marketId,status:'COMPLETE',method:'multiplicative_inverse_odds_normalization',
         prices:board.map(s=>s.price),probabilities:inverse.map(v=>v/sum),overround:sum-1,quoteIds:board.map(s=>s.quoteId),
-        manualPlayabilityVerified:board.every(s=>s.availability.verified&&s.availability.verification?.schema==='lamultipla-bet365-verification-v2'),forecastMinusMarket:e.probabilities.map((v,k)=>v-inverse[k]/sum)});
+        compatible,forecastGeneratedAtUtc:e.generatedAtUtc,observedAtUtc:observations,verificationTimes,
+        maxForecastQuoteLagMinutes:Math.max(...times.map(t=>Math.abs(t-generated)/60000)),capturedAtUtc:new Date(Math.max(...times)).toISOString(),
+        benchmarkReasons:compatible?[]:['market_not_contemporaneous_with_forecast'],manualPlayabilityVerified:board.every(s=>s.availability.verified&&s.availability.verification?.schema==='lamultipla-bet365-verification-v2'),forecastMinusMarket:compatible?e.probabilities.map((v,k)=>v-inverse[k]/sum):null});
     }
   }
   const candidates=screening.filter(s=>s.classification==='SHADOW_CANDIDATE').sort(rankValue);

@@ -11,6 +11,7 @@ import {refreshDataset} from './lib/shadow/data.mjs';
 import {assertNoDecision,decisionPath,freezeForwardForecast,createDecision,persistDecision,validateCycleSchedule} from './lib/shadow/pipeline.mjs';
 import {evaluateShadow,shadowProgress} from './lib/shadow/evaluate.mjs';
 import {importQuotes} from './oddspapi.mjs';
+import {POLICY} from './lib/shadow/policy.mjs';
 
 const {values}=parseArgs({options:{help:{type:'boolean'},cycle:{type:'boolean'},'live-odds':{type:'boolean'},'refresh-data':{type:'boolean'},
   preview:{type:'boolean'},journal:{type:'string'},study:{type:'string'},report:{type:'string'},assessment:{type:'string'},
@@ -25,7 +26,7 @@ async function engineIdentity(){
   const paths=(await sourceFiles('scripts')).sort();
   const text=await Promise.all(paths.map(p=>fs.readFile(path.join(ROOT,p),'utf8')));
   return {engineCodePaths:paths,engineCodeSha256:sha256(text.map((t,i)=>paths[i]+'\n'+t.replace(/\r\n/g,'\n')).join('\n')),
-    protocolSha256:sha256((await fs.readFile(path.join(ROOT,'docs/protocollo-shadow-v1.md'),'utf8')).replace(/\r\n/g,'\n'))};
+    protocolSha256:sha256((await fs.readFile(path.join(ROOT,POLICY.protocolPath),'utf8')).replace(/\r\n/g,'\n'))};
 }
 async function main(){
   if(values.help){console.log('Local: --journal FILE --study FILE --report FILE [--assessment FILE] [--preview]');
@@ -84,7 +85,9 @@ async function main(){
       combinations:decision.selector.counts.combinations,proposal:decision.selector.selected?.id??null,actualStakeEUR:0,
       billableAttemptsThisRun:values['live-odds']?report.acquisition?.billableAttempts??0:0,
       remainingLowerBoundAfterAcquisition:values['live-odds']?report.acquisition?.remainingLowerBound??null:null,
-      final:!values.preview,operationallyApproved:false}));
+      globalIssues:decision.opportunities.globalIssues,
+      exclusionReasons:Object.fromEntries([...new Set(decision.opportunities.screening.flatMap(s=>s.reasons))].map(reason=>[reason,decision.opportunities.screening.filter(s=>s.reasons.includes(reason)).length])),
+      policyVersion:decision.policy.version,final:!values.preview,operationallyApproved:false}));
   });
 }
 main().catch(error=>{console.error('Shadow interrotto:',error.code==='EEXIST'?'Snapshot già esistente: nessuna sovrascrittura':error.safeMessage??error.message);process.exitCode=1;});
