@@ -35,7 +35,12 @@ export function createDecision({journal,report,study,assessment={},maxLegs=4,com
     noBetCause:selector.cause,experimental:true,operationallyApproved:false,actualStakeEUR:0,noPublication:true};
 }
 export async function freezeForwardForecast({report,schedule,registry,dataset=registry.dataset,root,clock=()=>new Date()}) {
-  const manifest=manifestFromReport(report,schedule),filename=path.join(root,'.local/model/prospective/journals',journalId(manifest)+'.json');
+  const manifest=report?manifestFromReport(report,schedule):{
+    schema:'lamultipla-round-manifest-v1',season:schedule.season,matchday:schedule.matchday,scheduleSource:schedule.scheduleSource,
+    identityBasis:'confirmed_schedule_pending_quote_report_check',events:schedule.events.map(e=>({fixtureId:e.fixtureId,home:canonicalTeam(e.home),away:canonicalTeam(e.away),kickoffUtc:e.kickoffUtc,season:schedule.season,matchday:schedule.matchday}))};
+  if(!report)validateCycleSchedule({season:schedule.season,matchday:schedule.matchday,fixtureIds:manifest.events.map(e=>e.fixtureId),
+    fromUtc:manifest.events.map(e=>e.kickoffUtc).sort()[0],toUtc:new Date(Math.max(...manifest.events.map(e=>Date.parse(e.kickoffUtc)))+1).toISOString()},schedule,clock());
+  const filename=path.join(root,'.local/model/prospective/journals',journalId(manifest)+'.json');
   try {const journal=await readSnapshot(filename);
     if(digest(journal.manifest.events)!==digest(manifest.events))throw new Error('Existing frozen forecast/schedule conflict');
     return {journal,filename,reused:true};

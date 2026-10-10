@@ -1,0 +1,25 @@
+# Motore gol v2: protocollo di implementazione e nuova coorte
+
+Registrato il 10 ottobre 2026, prima dei nuovi fit. Attua il disegno della roadmap precedente con una precisazione temporale: selezione halfLife/ridge sul solo 2022/23; temperatura sul solo 2023/24, successivo e distinto. Questi sono development dichiarati, già osservati nel progetto v1, NON una nuova validazione indipendente. Il test v1 2024/25–2025/26 e le osservazioni 2026/27 già viste non entrano nella selezione o calibrazione v2. La giornata 6 è esclusa dalla nuova coorte e non viene rigenerata.
+
+Fonte: snapshot CC0 openfootball già fissato a commit e hash. Finestra training quattro anni, disponibilità assunta data+48h; cutoff mensile precedente al target; almeno20 presenze per squadra. Nessuna quota o risultato successivo al cutoff nelle stime. Una fonte storica corretta dopo le partite non prova disponibilità point-in-time: limite dichiarato di development.
+
+## Candidati e selezione
+
+B: Dixon–Coles con likelihood completa penalizzata; intensità attacco/difesa/home e rho stimati congiuntamente. Rho limitato a [-0.2,+0.2], tutte le quattro correzioni positive. C: Poisson bivariato con intensità condivisa globale non negativa; non rappresenta covarianza negativa. Stessa griglia halfLife365/730, ridge5/20. Ottimizzatore L-BFGS deterministico, massimo600 iterazioni, gradiente massimo<=0.0001; backtracking Armijo. Mancata convergenza esclude il fit, mai probabilità di ripiego. Modello v1 originale halfLife365/ridge5/rho=-0.1 mantenuto come riferimento invariato.
+
+Scegliere la configurazione con maggiore copertura nel tuning2022/23, poi minore log-loss della distribuzione completa dei gol; spareggio ordine griglia. Temperatura della distribuzione [0.8,1,1.2], scelta con il log-score completo sul 2023/24 e stessa copertura; rinormalizzare l'intera griglia, mai calibrazioni binarie separate. Confronto development finale su eventi comuni, includendo v1/empirica/Poisson lega. Non ottimizzare per EV, ROI o soglie del selettore. Nessun retest sul test consumato. Bootstrap previsioni:40 blocchi settimanali, seed20261010, fallimenti<=10%; intervalli marginali, non simultanei.
+
+## Coorte prospettica e gate
+
+Prima attivazione possibile: nuove giornate dopo la registrazione dell'artefatto v2 e il 13/10/2026, mai round6. Congelare versione, dataset, codice/protocollo, parametri/temperatura, cutoff, tempi, fixtureID e distribuzioni; output esclusivo, senza sovrascrittura. Nessuna autorizzazione al gioco. Tutti i mercati nuovi possono fare analisi shadow, ma non entrano nel selettore operativo né acquisiscono validazione perché derivabili dalla griglia.
+
+Primo esame confermativo dopo almeno500 risultati prospettici della stessa versione, non 500 previsioni per mercato ottenute duplicando incontri. Copertura>=90% degli eventi pianificati, risultati>=95% dei pianificati giunti al termine; i pending non diventano successi. BTTS e Over2.5 sono i due mercati primari per B/C: CI appaiato settimanale98.75% (Bonferroni quattro confronti) della differenza log-loss rispetto a v1 interamente<0; CI95 interamente<0 contro empirica e Poisson lega; Brier non peggiore oltre0.005 e ECE<=0.08. Bootstrap1000, seed20261010. Intermedi descrittivi, niente arresto anticipato o promozione automatica. Nuovi tentativi dopo un test richiedono nuova versione/coorte.
+
+Precisazione registrata il10/10/2026 dopo il development e **prima di ogni forecast v2 reale**: la finestra confermativa è costituita dalle prime60 giornate consecutive congelate della coorte (600 eventi pianificati), chiusa48h dopo l'ultimo kickoff. Rimane necessario almeno500 eventi appaiati e i gate di copertura; una giornata mancante impedisce il gate. Le giornate successive aggiornano solo metriche descrittive e non cambiano la finestra del test. Questo evita controlli ripetuti di significatività a campione crescente. Non cambia parametri, risultati di sviluppo o soglie per farli passare. Le correzioni della fonte restano conflitti che sospendono la coorte.
+
+Altri mercati: totali0.5/1.5/3.5/4.5, team totals, doppia chance, DNB e Asian quarter-line sono derivazioni matematiche sperimentali. Richiedono propri gate per famiglia/linea e regole di liquidazione verificate; non ereditano automaticamente validazione da1X2 o Over2.5. Corner/cards/players restano non supportati senza dataset compatibile e modello dedicato. Eventi nello stesso incontro: liquidazioni congiunte dalla stessa griglia; mai prodotto marginali. Tra incontri diversi: nessuna indipendenza presunta, mantengono limiti Fréchet e joint puntuale non disponibile.
+
+## Monitoraggio
+
+Ogni nuovo journal e ogni valutazione sono content-addressed e verificati. Risultati acquisiti dopo le partite, fonte/commit/hash conservati; revisioni posteriori sono conflitti e non riscrivono forecast. Serie aggregate separate per versione/study hash; un fixtureID una sola volta. Report di copertura, esclusioni, log-loss/Brier/calibrazione per stagione, intervalli appaiati e distribuzione dei gol (momenti, covarianza, frequenze0–0/1–1). Nessun aggiornamento delle schedine. Nessuna attività programmata attivata dal codice o dalla PR.

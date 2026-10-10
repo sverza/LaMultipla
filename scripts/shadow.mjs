@@ -12,11 +12,16 @@ import {assertNoDecision,decisionPath,freezeForwardForecast,createDecision,persi
 import {evaluateShadow,shadowProgress} from './lib/shadow/evaluate.mjs';
 import {importQuotes} from './oddspapi.mjs';
 import {POLICY} from './lib/shadow/policy.mjs';
+import {experimentalScreen} from './lib/engine/screen.mjs';
+import {requireRegisteredCode} from './lib/engine/registry.mjs';
+import {freezeEngine,validateJournal} from './lib/engine/forecast.mjs';
+import {manifestFromReport} from './lib/prospective/freeze.mjs';
 
 const {values}=parseArgs({options:{help:{type:'boolean'},cycle:{type:'boolean'},'live-odds':{type:'boolean'},'refresh-data':{type:'boolean'},
   preview:{type:'boolean'},journal:{type:'string'},study:{type:'string'},report:{type:'string'},assessment:{type:'string'},
   dataset:{type:'string'},schedule:{type:'string'},round:{type:'string'},'max-legs':{type:'string'},'combined-prices':{type:'string'},
-  inspect:{type:'string'},evaluate:{type:'string'},results:{type:'string'},progress:{type:'boolean'}},strict:true});
+  inspect:{type:'string'},evaluate:{type:'string'},results:{type:'string'},progress:{type:'boolean'},
+  'extension-journal':{type:'string'},'extension-study':{type:'string'}},strict:true});
 const directory=path.join(ROOT,'.local/shadow');
 const clock=()=>new Date();
 const files=async folder=>{try{return(await fs.readdir(folder)).filter(n=>n.endsWith('.json')).map(n=>path.join(folder,n));}catch(e){if(e.code==='ENOENT')return [];throw e;}};
@@ -51,9 +56,12 @@ async function main(){
     }
     if(!values.study)throw new Error('--study required');
     const registry=await readRegistry(ROOT,values.study,loadJson),assessment=values.assessment?await loadJson(values.assessment):{};
+    if(values['extension-journal']&&!values['extension-study']||values['extension-study']&&!values['extension-journal']&&!values.cycle)throw new Error('Experimental study required; local mode also requires its journal');
+    const extension=values['extension-study']?{journal:values['extension-journal']?await readSnapshot(values['extension-journal']):null,study:await readSnapshot(values['extension-study'])}:null;
+    if(extension)await requireRegisteredCode(ROOT,extension.study); // before acquisition
     const input=values['combined-prices']?await loadJson(values['combined-prices']):[];
     const combinedPrices=input.payload?.verifications??input.verifications??input;if(!Array.isArray(combinedPrices))throw new Error('Combined price verification array required');
-    let report,journal,reportPath=values.report,journalPath=values.journal,dataset=registry.dataset;
+    let report,journal,preparedForecast,reportPath=values.report,journalPath=values.journal,dataset=registry.dataset;
     if(values.cycle){
       if(!values.round||!values.schedule||Boolean(values.report)===Boolean(values['live-odds'])||values.journal)throw new Error('Cycle requires round/schedule and exactly one odds source');
       const schedule=await loadJson(values.schedule),rawRound=await loadJson(values.round);
@@ -66,9 +74,18 @@ async function main(){
         dataset=await refreshDataset({now:clock(),clock});validateCurrentDataset(dataset,clock());
         const filename=path.join(directory,'datasets',digest(dataset)+'.json');await writeExclusive(filename,dataset);console.log('Nuovo dataset privato:',filename);
       }
-      if(values['live-odds']){const imported=await importQuotes({round,key:process.env.ODDSPAPI_API_KEY});report=imported.report;reportPath=imported.filename;}
+      if(extension){if(!extension.journal)extension.journal=(await freezeEngine({root:ROOT,study:extension.study,dataset,schedule,clock})).journal;
+        validateJournal(extension.journal,extension.study);
+        if(extension.journal.manifest.season!==round.season||extension.journal.manifest.matchday!==round.matchday||clock()-Date.parse(extension.journal.generatedAtUtc)>24*3600000||Date.parse(extension.journal.generatedAtUtc)>clock())throw new Error('Experimental forecast round/age invalid before acquisition');}
+      if(values['live-odds']){
+        // New forecasts are independent of prices and must precede their acquisition.
+        preparedForecast=await freezeForwardForecast({schedule,registry,dataset,root:ROOT,clock});journal=preparedForecast.journal;journalPath=preparedForecast.filename;
+        if(clock()-Date.parse(journal.generatedAtUtc)>24*3600000||Date.parse(journal.generatedAtUtc)>clock())throw new Error('Frozen v1 forecast expired/future; no quote acquisition');
+        const imported=await importQuotes({round,key:process.env.ODDSPAPI_API_KEY});report=imported.report;reportPath=imported.filename;
+        manifestFromReport(report,schedule); // binding checked before any decision; never rewrite forecast
+      }
       else report=await loadJson(values.report);
-      const forecast=await freezeForwardForecast({report,schedule,registry,dataset,root:ROOT,clock});journal=forecast.journal;journalPath=forecast.filename;
+      const forecast=preparedForecast??await freezeForwardForecast({report,schedule,registry,dataset,root:ROOT,clock});journal=forecast.journal;journalPath=forecast.filename;
       console.log(forecast.reused?'Forecast congelato riutilizzato:':'Nuovo forecast congelato:',journalPath);
     }else{
       if(!values.journal||!values.report||values['live-odds']||values['refresh-data']||values.dataset)throw new Error('Local mode requires journal/report; no network options');
@@ -79,6 +96,7 @@ async function main(){
       provenance:{...await engineIdentity(),repositoryCommit:registry.identity.repositoryCommit,repositoryDirty:registry.identity.repositoryDirty,journalPath,reportPath,
         quoteAcquisition:report.acquisition??null,mode:values.cycle?'cycle':'local',
         sourceData:report.source.mode==='synthetic_test'?'synthetic_test':'local_original_artifacts'}});
+    if(extension)decision.experimentalMarkets=experimentalScreen({...extension,report,assessment,now:clock()});
     const frozen=await persistDecision(decision,directory,{preview:values.preview});
     console.log(values.preview?'Anteprima shadow privata:':'Decisione shadow congelata:',frozen.filename);
     console.log(JSON.stringify({sha256:frozen.sha256,decision:decision.decision,cause:decision.noBetCause,...decision.opportunities.counts,
@@ -88,6 +106,7 @@ async function main(){
       globalIssues:decision.opportunities.globalIssues,
       exclusionReasons:Object.fromEntries([...new Set(decision.opportunities.screening.flatMap(s=>s.reasons))].map(reason=>[reason,decision.opportunities.screening.filter(s=>s.reasons.includes(reason)).length])),
       policyVersion:decision.policy.version,final:!values.preview,operationallyApproved:false}));
+    if(decision.experimentalMarkets)console.log(JSON.stringify({experimentalMarkets:decision.experimentalMarkets.counts,eligibleForSelector:false}));
   });
 }
 main().catch(error=>{console.error('Shadow interrotto:',error.code==='EEXIST'?'Snapshot già esistente: nessuna sovrascrittura':error.safeMessage??error.message);process.exitCode=1;});
