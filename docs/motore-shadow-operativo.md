@@ -1,5 +1,6 @@
 # Motore delle opportunità e ciclo shadow
 
+> Coordinamento aggiornato, 10 ottobre 2026: [protocollo generale v1](protocollo-generale-v1.md). Le istruzioni storiche restano per riproduzione; il pilot giornata 6 è protetto da nuove analisi. Le decisioni nuove richiedono anche attestazione di liquidazione; uso operativo/pubblicazione restano disabilitati.
 ## Risultato implementato
 
 `scripts/shadow.mjs` collega gli artefatti originali: studio validato e codice v1, journal1X2 congelato, reportOddsPapi v2, verifiche manuali opzionali. Il ciclo completo produce screening e decisione immutabile con hash, policy/code/protocol hash e origine. Resta sempre experimental=true, operationallyApproved=false, actualStakeEUR=0. Nessuna scrittura in app/schedine/storico, nessun merge/deploy. Directory `.local/shadow`, ignorata da Git; previsioni nella directory prospettica esistente, riusate senza modificarle se già congelate.

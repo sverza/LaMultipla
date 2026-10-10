@@ -1,5 +1,6 @@
 # OddsPapi: acquisizione privata e analisi
 
+> Coordinamento aggiornato, 10 ottobre 2026: [protocollo generale v1](protocollo-generale-v1.md). Le istruzioni storiche restano per riproduzione; il pilot giornata 6 è protetto da nuove analisi. Le decisioni nuove richiedono anche attestazione di liquidazione; uso operativo/pubblicazione restano disabilitati.
 **Collaudo Windows del 10 ottobre 2026 completato:** account, acquisizione reale, conferma della giornata, pacchetto di revisione, verifica manuale e analisi privata eseguiti sul PC dell'utente. Valutazione tecnica **APPROVATO CON LIMITAZIONI** per il flusso privato assistito; nessuna approvazione a merge, deploy o pubblicazione. La copertura e i flag del feed richiedono verifica; manca ancora il modello probabilistico indipendente. I risultati dettagliati sono nella sezione "Esito del collaudo operativo".
 
 ## Decisione architetturale

@@ -1,5 +1,6 @@
 # Studio indipendente gol: implementazione e risultati
 
+> Coordinamento aggiornato, 10 ottobre 2026: [protocollo generale v1](protocollo-generale-v1.md). Le istruzioni storiche restano per riproduzione; il pilot giornata 6 è protetto da nuove analisi. Le decisioni nuove richiedono anche attestazione di liquidazione; uso operativo/pubblicazione restano disabilitati.
 ## Stato
 
 Implementazione Node.js senza dipendenze nuove: parser e snapshot risultati, alias espliciti squadre, training temporale con buffer 48h, Poisson penalizzato attacco/difesa e vantaggio casa, correzione Dixon-Coles a quattro celle, baseline empirica e Poisson lega, tuning separato dal test, metriche/calibrazione/Wilson, bootstrap appaiato settimanale e bootstrap delle previsioni per data. Il protocollo è in `docs/protocollo-modello-gol-v1.md` ed è stato scritto prima del modello.

@@ -19,6 +19,7 @@ import {manifestFromReport} from './lib/prospective/freeze.mjs';
 import {buildContext,contextGate} from './lib/context/dossier.mjs';
 import {contextIdentity} from './lib/context/identity.mjs';
 import {validateBundle} from './lib/context/evidence.mjs';
+import {GENERAL_POLICY,assertFutureRound} from './lib/decision/policy.mjs';
 
 const {values}=parseArgs({options:{help:{type:'boolean'},cycle:{type:'boolean'},'live-odds':{type:'boolean'},'refresh-data':{type:'boolean'},
   preview:{type:'boolean'},journal:{type:'string'},study:{type:'string'},report:{type:'string'},assessment:{type:'string'},
@@ -34,7 +35,8 @@ async function engineIdentity(){
   const paths=(await sourceFiles('scripts')).sort();
   const text=await Promise.all(paths.map(p=>fs.readFile(path.join(ROOT,p),'utf8')));
   return {engineCodePaths:paths,engineCodeSha256:sha256(text.map((t,i)=>paths[i]+'\n'+t.replace(/\r\n/g,'\n')).join('\n')),
-    protocolSha256:sha256((await fs.readFile(path.join(ROOT,POLICY.protocolPath),'utf8')).replace(/\r\n/g,'\n'))};
+    protocolSha256:sha256((await fs.readFile(path.join(ROOT,POLICY.protocolPath),'utf8')).replace(/\r\n/g,'\n')),
+    generalProtocolSha256:sha256((await fs.readFile(path.join(ROOT,GENERAL_POLICY.protocolPath),'utf8')).replace(/\r\n/g,'\n'))};
 }
 async function main(){
   if(values.help){console.log('Local: --journal FILE --study FILE --report FILE [--assessment FILE] [--preview]');
@@ -72,7 +74,7 @@ async function main(){
     if(values.cycle){
       if(!values.round||!values.schedule||Boolean(values.report)===Boolean(values['live-odds'])||values.journal)throw new Error('Cycle requires round/schedule and exactly one odds source');
       const schedule=await loadJson(values.schedule),rawRound=await loadJson(values.round);
-      const round={...rawRound,fixtureIds:rawRound.fixtureIds??schedule.events?.map(e=>e.fixtureId)};validateRound(round);
+      const round={...rawRound,fixtureIds:rawRound.fixtureIds??schedule.events?.map(e=>e.fixtureId)};validateRound(round);assertFutureRound(round);
       if(!values.preview)await assertNoDecision(decisionPath(directory,round.season,round.matchday)); // before any network
       validateCycleSchedule(round,schedule,clock());
       if(values.dataset&&values['refresh-data'])throw new Error('Choose dataset or refresh, not both');
@@ -98,7 +100,7 @@ async function main(){
       console.log(forecast.reused?'Forecast congelato riutilizzato:':'Nuovo forecast congelato:',journalPath);
     }else{
       if(!values.journal||!values.report||values['live-odds']||values['refresh-data']||values.dataset)throw new Error('Local mode requires journal/report; no network options');
-      journal=await readSnapshot(values.journal);report=await loadJson(values.report);
+      journal=await readSnapshot(values.journal);assertFutureRound(journal.manifest);report=await loadJson(values.report);
       if(!values.preview)await assertNoDecision(decisionPath(directory,journal.manifest.season,journal.manifest.matchday));
     }
     const context=contextInput??{...buildContext({manifest:journal.manifest,dataset,evidence:contextEvidence,now:clock()}),provenance:await contextIdentity(ROOT)};
@@ -117,7 +119,9 @@ async function main(){
       remainingLowerBoundAfterAcquisition:values['live-odds']?report.acquisition?.remainingLowerBound??null:null,
       globalIssues:decision.opportunities.globalIssues,
       exclusionReasons:Object.fromEntries([...new Set(decision.opportunities.screening.flatMap(s=>s.reasons))].map(reason=>[reason,decision.opportunities.screening.filter(s=>s.reasons.includes(reason)).length])),
-      policyVersion:decision.policy.version,final:!values.preview,operationallyApproved:false}));
+      policyVersion:decision.policy.version,generalProtocolVersion:decision.governance.policy.version,
+      operationalDecision:decision.governance.operational.decision,operationalCause:decision.governance.operational.cause,
+      selectionReady:decision.selectionGate.eligibleQuoteIds.length,selectionExclusions:decision.selectionGate.reasonCounts,final:!values.preview,operationallyApproved:false}));
     console.log(JSON.stringify({contextReadyFixtures:decision.contextGate.eligibleFixtureIds.length,rawEVCandidates:decision.contextGate.rawEVCandidates,
       contextReadyCandidates:decision.contextGate.contextReadyCandidates,contextPolicyVersion:decision.contextPolicyVersion,probabilityAdjustment:null}));
     if(decision.experimentalMarkets)console.log(JSON.stringify({experimentalMarkets:decision.experimentalMarkets.counts,eligibleForSelector:false}));

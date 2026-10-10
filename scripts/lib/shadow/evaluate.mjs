@@ -16,6 +16,8 @@ export function evaluateShadow(decision,journal,results,{now=new Date(),markets=
   const candidateRecords=evaluation.records.filter(r=>ids.has(r.fixtureId));
   const contextualIds=decision.contextGate?new Set(decision.opportunities.candidates.filter(c=>decision.contextGate.eligibleQuoteIds.includes(c.quoteId)).map(c=>c.fixtureId)):ids;
   const contextualRecords=evaluation.records.filter(r=>contextualIds.has(r.fixtureId));
+  const selectionIds=decision.selectionGate?new Set(decision.opportunities.candidates.filter(c=>decision.selectionGate.eligibleQuoteIds.includes(c.quoteId)).map(c=>c.fixtureId)):null;
+  const selectionRecords=selectionIds?evaluation.records.filter(r=>selectionIds.has(r.fixtureId)):null;
   const proposal=decision.selector.selected;let simulated=null;
   if(proposal) {
     const settled=proposal.selections.map(s=>evaluation.records.find(r=>r.fixtureId===s.fixtureId));
@@ -29,7 +31,8 @@ export function evaluateShadow(decision,journal,results,{now=new Date(),markets=
   return {schema:'lamultipla-shadow-evaluation-v1',decisionSha256:fingerprint(decision),evaluatedAtUtc:new Date(now).toISOString(),
     resultsSha256:fingerprint(results),marketBaselinePolicy:'verified_complete_board_closest_to_forecast_time',forecastEvaluation:evaluation,candidateMetrics:metrics(candidateRecords,'oneXTwo'),
     candidatesSettled:candidateRecords.length,contextReadyCandidateMetrics:metrics(contextualRecords,'oneXTwo'),contextReadyCandidatesSettled:contextualRecords.length,
-    contextSha256:decision.contextGate?.contextSha256??null,simulation:simulated,actualStakeEUR:0,operationallyApproved:false};
+    contextSha256:decision.contextGate?.contextSha256??null,selectionReadyCandidateMetrics:selectionRecords?metrics(selectionRecords,'oneXTwo'):null,
+    selectionReadyCandidatesSettled:selectionRecords?.length??null,simulation:simulated,actualStakeEUR:0,operationallyApproved:false};
 }
 
 export function shadowProgress(decisions,evaluations,now=new Date()) {
@@ -42,7 +45,7 @@ export function shadowProgress(decisions,evaluations,now=new Date()) {
     if(latest)for(const fixtureId of signatures.keys())if(!latest.forecastEvaluation.records.some(r=>r.fixtureId===fixtureId))conflicts.push({decisionId:decision.id,fixtureId,reason:'result_removed_requires_review'});
     const blocked=conflicts.some(c=>c.decisionId===decision.id),simulation=blocked?null:latest?.simulation??null;
     if(simulation){nominalNetEUR+=simulation.netEUR;nominalStakeEUR+=simulation.nominalStakeEUR;}
-    const key=`${decision.policy.version}:${decision.modelVersion}`+(decision.contextPolicyVersion?':'+decision.contextPolicyVersion:''),group=groups.get(key)||{records:[],candidates:[],contextReadyCandidates:[],marketPairs:[],seen:new Set()};
+    const key=`${decision.policy.version}:${decision.modelVersion}`+(decision.contextPolicyVersion?':'+decision.contextPolicyVersion:'')+(decision.governance?.policy?.version?':'+decision.governance.policy.version:''),group=groups.get(key)||{records:[],candidates:[],contextReadyCandidates:[],marketPairs:[],seen:new Set()};
     if(!blocked&&latest){const candidates=new Set(decision.opportunities.candidates.map(c=>c.fixtureId));
       for(const r of latest.forecastEvaluation.records){const id=decision.journalId+':'+r.fixtureId;if(group.seen.has(id))throw new Error('Duplicate shadow forecast in same version');
         group.seen.add(id);group.records.push(r);if(candidates.has(r.fixtureId))group.candidates.push(r);

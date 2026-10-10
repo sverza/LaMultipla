@@ -1,5 +1,6 @@
 # Studio contestuale — punto 8
 
+> Coordinamento aggiornato, 10 ottobre 2026: [protocollo generale v1](protocollo-generale-v1.md). Le istruzioni storiche restano per riproduzione; il pilot giornata 6 è protetto da nuove analisi. Le decisioni nuove richiedono anche attestazione di liquidazione; uso operativo/pubblicazione restano disabilitati.
 Il contesto è un livello della decisione shadow, distinto dal forecast statistico. Non aggiunge punti percentuali alle probabilità, non allarga numericamente gli intervalli e non ricalcola EV o parametri. La forma pesa già indirettamente nel decadimento temporale del modello: non la contiamo una seconda volta. Punto 7 completato sperimentalmente; validazione dei modelli in corso e sviluppo consentito. Punto 9 resta un passaggio successivo.
 
 ## Flusso integrato

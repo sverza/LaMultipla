@@ -20,7 +20,8 @@
     "model:study": "node scripts/goals-study.mjs",
     "shadow:run": "node scripts/shadow.mjs",
     "model:engine": "node scripts/model-engine.mjs",
-    "match:context": "node scripts/context.mjs"
+    "match:context": "node scripts/context.mjs",
+    "decision:review": "node scripts/decision.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",

@@ -17,6 +17,7 @@ import {refreshDataset} from '../scripts/lib/shadow/data.mjs';
 import {importQuotes} from '../scripts/oddspapi.mjs';
 import {account} from './fixtures/oddspapi.mjs';
 import {readSnapshot} from '../scripts/lib/prospective/store.mjs';
+import {settlementTemplate} from '../scripts/lib/decision/gates.mjs';
 import {syntheticReviewedContext} from './fixtures/context.mjs';
 
 // All events/prices/probabilities in this test are SYNTHETIC; no actual betting evidence.
@@ -121,7 +122,9 @@ test('one bound-supported proposal needs exact actual combined price and manual 
   const input=fixture();for(const e of input.journal.entries){e.probabilities=[.95,.03,.02];e.central=e.probabilities;e.intervals95=[[.94,.96],[.02,.04],[.01,.03]];reseal(e);}
   input.report.selections=input.report.selections.filter(q=>q.fixtureId==='synthetic-0'||q.fixtureId==='synthetic-1');
   for(const q of input.report.selections)if(q.outcome==='1')q.price=1.2;
-  const assessment={estimates:input.report.selections.map(q=>({quoteId:q.quoteId,manualVerification:verify(input.report,q)}))};
+  const assessment={estimates:input.report.selections.map(q=>({quoteId:q.quoteId,manualVerification:verify(input.report,q),
+    settlementVerification:{...settlementTemplate(input.report,q),rulesUrl:'https://help.bet365.it/synthetic-rules',rulesVersion:'SYNTHETIC',rulesSha256:'a'.repeat(64),
+      reviewedAtUtc:now,reviewer:'synthetic tester',evidence:'SYNTHETIC only',regulationTimeIncludingStoppage:true,extraTimeExcluded:true,penaltiesExcluded:true,voidAndPostponementReviewed:true}}))};
   const screen=screenOpportunities({...input,assessment,now}),evidence={schema:'lamultipla-accumulator-price-verification-v1',domain:'bet365.it',origin:'manual_bet365_it',
     kind:'ordinary_accumulator',availability:'available',reportSha256:fingerprint(input.report),quoteIds:screen.candidates.map(s=>s.quoteId),price:1.44,verifiedAtUtc:now,reviewer:'synthetic',evidence:'SYNTHETIC'};
   const selected=selectCombination(screen,{now,combinedPrices:[evidence]});assert.equal(selected.decision,'SHADOW_BOUND_PROPOSAL');assert.equal(selected.selected.actualStakeEUR,0);

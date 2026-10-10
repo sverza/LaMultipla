@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { PRIVATE_DIR, loadJson, saveJson } from './lib/private-store.mjs';
 import { quoteProbabilities } from './lib/goals/bridge.mjs';
 import { verificationTemplate } from './lib/availability.mjs';
+import {settlementTemplate} from './lib/decision/gates.mjs';
 import { fingerprint } from './lib/odds-report.mjs';
 const { values } = parseArgs({ options: { report: { type: 'string' }, 'quote-ids': { type: 'string' }, forecast: { type: 'string' }, help: { type: 'boolean' } }, strict: true });
 if (values.help) {
@@ -24,7 +25,7 @@ if (values.help) {
         calibration: { artifact: '', metric: '', value: null, sampleSize: null, outOfSample: false, evaluatedAtUtc: null } },
       estimates: selected.map(q => ({ quoteId: q.quoteId, estimatedAtUtc: null,
         probabilities: { win: null, halfWin: null, push: null, halfLoss: null, loss: null },
-        settlementVerified: false, settlementRules: '',
+        settlementVerified: false, settlementRules: '',settlementVerification:settlementTemplate(report,q),
         context: { absences: '', form: '', calendar: '', tacticalContext: '', dataSources: '', lineupAndMinutes: '' },
         manualVerification: verificationTemplate(report, q) }))
     };

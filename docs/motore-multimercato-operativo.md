@@ -1,5 +1,6 @@
 # Motore multimercato: implementazione e uso shadow
 
+> Coordinamento aggiornato, 10 ottobre 2026: [protocollo generale v1](protocollo-generale-v1.md). Le istruzioni storiche restano per riproduzione; il pilot giornata 6 è protetto da nuove analisi. Le decisioni nuove richiedono anche attestazione di liquidazione; uso operativo/pubblicazione restano disabilitati.
 Implementazione separata in scripts/lib/engine e scripts/model-engine.mjs. Riusa dataset CC0, alias, finestra temporale, metriche, EV con liquidazione e store immutabile esistenti. Non modifica codice/protocollo gol v1, forecast round6, snapshot di analisi, baseline Inter–Parma, app, schedine o storico. Registro modello v1 e selettore shadow esistenti rimangono vincolanti; i nuovi modelli non ricevono autorizzazione operativa.
 
 ## Componenti e fonte

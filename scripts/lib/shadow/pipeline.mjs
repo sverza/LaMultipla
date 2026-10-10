@@ -10,13 +10,18 @@ import {validateCurrentDataset} from './registry.mjs';
 import {POLICY} from './policy.mjs';
 import {canonicalTeam} from '../goals/data.mjs';
 import {contextGate} from '../context/dossier.mjs';
+import {selectionGate} from '../decision/gates.mjs';
+import {governance} from '../decision/governance.mjs';
 
 export function decisionPath(directory,season,matchday) {
   if(!/^\d{4}\/\d{2}$/.test(season)||!Number.isInteger(matchday)||matchday<1||matchday>38)throw new Error('Invalid decision round');
   return path.join(directory,'decisions',`${season.replace('/','-')}-round-${String(matchday).padStart(2,'0')}-${POLICY.version}.json`);
 }
 export async function assertNoDecision(filename) {
-  try{await fs.stat(filename);throw new Error('Final decision already frozen: no new acquisition or replacement');}catch(e){if(e.code!=='ENOENT')throw e;}
+  const prefix=path.basename(filename).replace(/-shadow-value-v\d+\.json$/, '-');
+  let names=[];try{names=await fs.readdir(path.dirname(filename));}catch(e){if(e.code!=='ENOENT')throw e;}
+  if(names.some(n=>n.startsWith(prefix)&&(n.endsWith('.json')||n.endsWith('.claim')))){
+    const error=new Error('Final decision already frozen or freeze in progress: no new acquisition or replacement');error.code='EEXIST';throw error;}
 }
 export function validateCycleSchedule(round,schedule,now) {
   const clock=new Date(now).getTime(),events=schedule?.events;
@@ -31,13 +36,17 @@ export function createDecision({journal,report,study,assessment={},maxLegs=4,com
   const opportunities=screenOpportunities({journal,report,study,assessment,now}),gate=contextGate(context,journal,now);
   const eligible=opportunities.candidates.filter(c=>gate.eligibleFixtureIds.includes(c.fixtureId));
   const contextualInput={...opportunities,candidates:eligible,state:opportunities.candidates.length&&!eligible.length?'CONTEXT_REVIEW_REQUIRED':opportunities.state};
-  const selector=selectCombination(contextualInput,{maxLegs,combinedPrices,now});
+  const selection=selectionGate(opportunities,report,assessment,gate,now);
+  const approved=eligible.filter(c=>selection.eligibleQuoteIds.includes(c.quoteId));
+  const candidateInput={...contextualInput,candidates:approved,state:eligible.length&&!approved.length?'SELECTION_REVIEW_REQUIRED':contextualInput.state};
+  const selector=selectCombination(candidateInput,{maxLegs,combinedPrices,now});
   gate.eligibleQuoteIds=eligible.map(c=>c.quoteId);gate.rawEVCandidates=opportunities.candidates.length;gate.contextReadyCandidates=eligible.length;
-  return {schema:'lamultipla-shadow-decision-v1',id:`${journal.manifest.season.replace('/','-')}-round-${journal.manifest.matchday}-${POLICY.version}`,
+  const decision={schema:'lamultipla-shadow-decision-v1',id:`${journal.manifest.season.replace('/','-')}-round-${journal.manifest.matchday}-${POLICY.version}`,
     generatedAtUtc:new Date(now).toISOString(),round:{season:journal.manifest.season,matchday:journal.manifest.matchday},
     policy:POLICY,policySha256:digest(POLICY),modelVersion:journal.modelVersion,journalId:journal.id,journalSha256:digest(journal),reportSha256:digest(report),
-    studySha256:digest(study),assessmentSha256:digest(assessment),provenance,opportunities,context,contextGate:gate,contextPolicyVersion:gate.policyVersion,selector,decision:selector.decision,
+    studySha256:digest(study),assessmentSha256:digest(assessment),provenance,opportunities,context,contextGate:gate,selectionGate:selection,contextPolicyVersion:gate.policyVersion,selector,decision:selector.decision,
     noBetCause:selector.cause,experimental:true,operationallyApproved:false,actualStakeEUR:0,noPublication:true};
+  decision.governance=governance(decision);return decision;
 }
 export async function freezeForwardForecast({report,schedule,registry,dataset=registry.dataset,root,clock=()=>new Date()}) {
   const manifest=report?manifestFromReport(report,schedule):{
@@ -63,5 +72,17 @@ export async function freezeForwardForecast({report,schedule,registry,dataset=re
 }
 export async function persistDecision(decision,directory,{preview=false}={}) {
   const filename=preview?path.join(directory,'previews',randomUUID()+'.json'):decisionPath(directory,decision.round.season,decision.round.matchday);
-  const snapshot={...decision,final:!preview};const sha256=await writeExclusive(filename,snapshot);return {filename,sha256,decision:snapshot};
+  const snapshot={...decision,final:!preview};snapshot.governance=governance(snapshot);
+  if(preview){const sha256=await writeExclusive(filename,snapshot);return {filename,sha256,decision:snapshot};}
+  await fs.mkdir(path.dirname(filename),{recursive:true,mode:0o700});await assertNoDecision(filename);
+  const claim=filename.replace(/-shadow-value-v\d+\.json$/,'-freeze.claim');
+  const handle=await fs.open(claim,'wx',0o600);
+  try{await assertNoOtherFinal(filename);const sha256=await writeExclusive(filename,snapshot);return {filename,sha256,decision:snapshot};}
+  finally{await handle.close();await fs.rm(claim,{force:true});}
+}
+
+async function assertNoOtherFinal(filename){
+  const prefix=path.basename(filename).replace(/-shadow-value-v\d+\.json$/,'-');
+  if((await fs.readdir(path.dirname(filename))).some(n=>n.startsWith(prefix)&&n.endsWith('.json'))) {
+    const error=new Error('Final decision already frozen under another policy');error.code='EEXIST';throw error;}
 }

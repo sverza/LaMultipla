@@ -109,7 +109,8 @@ test('context gates the selector while retaining raw EV opportunities and exact 
   assert.equal(missing.opportunities.candidates.length,10);assert.equal(missing.contextGate.contextReadyCandidates,0);
   const context=buildContext({manifest,dataset,evidence:bundle,now}),ready=createDecision({report,journal,study,assessment,context,now});
   assert.equal(ready.contextGate.contextReadyCandidates,10);assert.deepEqual(ready.opportunities,missing.opportunities);assert.equal(digest({report,journal}),before);assert.equal(q.active,false);
-  assert.equal(ready.actualStakeEUR,0);assert.equal(ready.noBetCause,'COMBINATION_EVIDENCE_INSUFFICIENT');
+  assert.equal(ready.actualStakeEUR,0);assert.equal(ready.noBetCause,'SELECTION_REVIEW_REQUIRED');
+  assert.equal(ready.selectionGate.eligibleQuoteIds.length,0);assert.equal(ready.selectionGate.reasonCounts.settlement_rules_not_verified,10);
   assert.throws(()=>contextGate({...context,manifestSha256:'wrong'},journal,now),/mismatch/);
 });
 test('legacy frozen decisions still evaluate; context-ready cohorts have separate monitoring',()=>{
