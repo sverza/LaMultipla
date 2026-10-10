@@ -17,7 +17,8 @@
     "android:sync": "npx cap sync android",
     "android:open": "npx cap open android",
     "lint": "eslint app scripts tests next.config.ts capacitor.config.ts --ignore-pattern dist --ignore-pattern .next --ignore-pattern out --ignore-pattern android",
-    "model:study": "node scripts/goals-study.mjs"
+    "model:study": "node scripts/goals-study.mjs",
+    "shadow:run": "node scripts/shadow.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",

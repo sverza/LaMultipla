@@ -1,0 +1,90 @@
+#!/usr/bin/env node
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import {parseArgs} from 'node:util';
+import {ROOT,loadJson,withLock} from './lib/private-store.mjs';
+import {sha256} from './lib/goals/data.mjs';
+import {validateRound} from './lib/odds-report.mjs';
+import {readSnapshot,writeExclusive,digest} from './lib/prospective/store.mjs';
+import {readRegistry,validateCurrentDataset} from './lib/shadow/registry.mjs';
+import {refreshDataset} from './lib/shadow/data.mjs';
+import {assertNoDecision,decisionPath,freezeForwardForecast,createDecision,persistDecision,validateCycleSchedule} from './lib/shadow/pipeline.mjs';
+import {evaluateShadow,shadowProgress} from './lib/shadow/evaluate.mjs';
+import {importQuotes} from './oddspapi.mjs';
+
+const {values}=parseArgs({options:{help:{type:'boolean'},cycle:{type:'boolean'},'live-odds':{type:'boolean'},'refresh-data':{type:'boolean'},
+  preview:{type:'boolean'},journal:{type:'string'},study:{type:'string'},report:{type:'string'},assessment:{type:'string'},
+  dataset:{type:'string'},schedule:{type:'string'},round:{type:'string'},'max-legs':{type:'string'},'combined-prices':{type:'string'},
+  inspect:{type:'string'},evaluate:{type:'string'},results:{type:'string'},progress:{type:'boolean'}},strict:true});
+const directory=path.join(ROOT,'.local/shadow');
+const clock=()=>new Date();
+const files=async folder=>{try{return(await fs.readdir(folder)).filter(n=>n.endsWith('.json')).map(n=>path.join(folder,n));}catch(e){if(e.code==='ENOENT')return [];throw e;}};
+async function engineIdentity(){
+  async function sourceFiles(folder){const out=[];for(const entry of await fs.readdir(path.join(ROOT,folder),{withFileTypes:true})){
+    const relative=folder+'/'+entry.name;if(entry.isDirectory())out.push(...await sourceFiles(relative));else if(/\.(mjs|ps1)$/.test(entry.name))out.push(relative);}return out;}
+  const paths=(await sourceFiles('scripts')).sort();
+  const text=await Promise.all(paths.map(p=>fs.readFile(path.join(ROOT,p),'utf8')));
+  return {engineCodePaths:paths,engineCodeSha256:sha256(text.map((t,i)=>paths[i]+'\n'+t.replace(/\r\n/g,'\n')).join('\n')),
+    protocolSha256:sha256((await fs.readFile(path.join(ROOT,'docs/protocollo-shadow-v1.md'),'utf8')).replace(/\r\n/g,'\n'))};
+}
+async function main(){
+  if(values.help){console.log('Local: --journal FILE --study FILE --report FILE [--assessment FILE] [--preview]');
+    console.log('Cycle: --cycle --study FILE --round FILE --schedule FILE (--report FILE | --live-odds) [--refresh-data]');
+    console.log('Read-only: --inspect FILE. Future evaluation: --evaluate DECISION --journal FILE --results FILE. --progress');return;}
+  if(values.inspect){console.log(JSON.stringify(await readSnapshot(values.inspect),null,2));return;}
+  const maxLegs=values['max-legs']===undefined?4:Number(values['max-legs']);if(![2,3,4,5,6].includes(maxLegs))throw new Error('--max-legs must be 2..6');
+  await withLock(directory,async()=>{
+    if(values.evaluate){
+      if(!values.journal||!values.results)throw new Error('--journal and --results required');
+      const decision=await readSnapshot(values.evaluate),journal=await readSnapshot(values.journal),results=await readSnapshot(values.results);
+      if(!/^[A-Za-z0-9_-]+$/.test(journal.id))throw new Error('Invalid journal id');
+      const markets=await Promise.all((await files(path.join(ROOT,'.local/model/prospective/markets',journal.id))).map(readSnapshot));
+      const output=evaluateShadow(decision,journal,results,{now:clock(),markets}),filename=path.join(directory,'evaluations',digest(decision)+'-'+digest(results)+'.json');
+      await writeExclusive(filename,output);console.log('Valutazione shadow privata:',filename);console.log(JSON.stringify({candidatesSettled:output.candidatesSettled,simulation:output.simulation}));return;
+    }
+    if(values.progress){
+      const decisions=await Promise.all((await files(path.join(directory,'decisions'))).map(readSnapshot));
+      const evaluations=await Promise.all((await files(path.join(directory,'evaluations'))).map(readSnapshot));
+      const output=shadowProgress(decisions,evaluations,clock()),filename=path.join(directory,'progress',digest(output)+'.json');
+      await writeExclusive(filename,output);console.log('Progressione shadow privata:',filename);console.log(JSON.stringify(output,null,2));return;
+    }
+    if(!values.study)throw new Error('--study required');
+    const registry=await readRegistry(ROOT,values.study,loadJson),assessment=values.assessment?await loadJson(values.assessment):{};
+    const input=values['combined-prices']?await loadJson(values['combined-prices']):[];
+    const combinedPrices=input.payload?.verifications??input.verifications??input;if(!Array.isArray(combinedPrices))throw new Error('Combined price verification array required');
+    let report,journal,reportPath=values.report,journalPath=values.journal,dataset=registry.dataset;
+    if(values.cycle){
+      if(!values.round||!values.schedule||Boolean(values.report)===Boolean(values['live-odds'])||values.journal)throw new Error('Cycle requires round/schedule and exactly one odds source');
+      const schedule=await loadJson(values.schedule),rawRound=await loadJson(values.round);
+      const round={...rawRound,fixtureIds:rawRound.fixtureIds??schedule.events?.map(e=>e.fixtureId)};validateRound(round);
+      if(!values.preview)await assertNoDecision(decisionPath(directory,round.season,round.matchday)); // before any network
+      validateCycleSchedule(round,schedule,clock());
+      if(values.dataset&&values['refresh-data'])throw new Error('Choose dataset or refresh, not both');
+      if(values.dataset)dataset=validateCurrentDataset(await loadJson(values.dataset),clock()).dataset;
+      if(values['refresh-data']){
+        dataset=await refreshDataset({now:clock(),clock});validateCurrentDataset(dataset,clock());
+        const filename=path.join(directory,'datasets',digest(dataset)+'.json');await writeExclusive(filename,dataset);console.log('Nuovo dataset privato:',filename);
+      }
+      if(values['live-odds']){const imported=await importQuotes({round,key:process.env.ODDSPAPI_API_KEY});report=imported.report;reportPath=imported.filename;}
+      else report=await loadJson(values.report);
+      const forecast=await freezeForwardForecast({report,schedule,registry,dataset,root:ROOT,clock});journal=forecast.journal;journalPath=forecast.filename;
+      console.log(forecast.reused?'Forecast congelato riutilizzato:':'Nuovo forecast congelato:',journalPath);
+    }else{
+      if(!values.journal||!values.report||values['live-odds']||values['refresh-data']||values.dataset)throw new Error('Local mode requires journal/report; no network options');
+      journal=await readSnapshot(values.journal);report=await loadJson(values.report);
+      if(!values.preview)await assertNoDecision(decisionPath(directory,journal.manifest.season,journal.manifest.matchday));
+    }
+    const decision=createDecision({journal,report,study:registry.study,assessment,maxLegs,combinedPrices,now:clock(),
+      provenance:{...await engineIdentity(),repositoryCommit:registry.identity.repositoryCommit,repositoryDirty:registry.identity.repositoryDirty,journalPath,reportPath,
+        quoteAcquisition:report.acquisition??null,mode:values.cycle?'cycle':'local',
+        sourceData:report.source.mode==='synthetic_test'?'synthetic_test':'local_original_artifacts'}});
+    const frozen=await persistDecision(decision,directory,{preview:values.preview});
+    console.log(values.preview?'Anteprima shadow privata:':'Decisione shadow congelata:',frozen.filename);
+    console.log(JSON.stringify({sha256:frozen.sha256,decision:decision.decision,cause:decision.noBetCause,...decision.opportunities.counts,
+      combinations:decision.selector.counts.combinations,proposal:decision.selector.selected?.id??null,actualStakeEUR:0,
+      billableAttemptsThisRun:values['live-odds']?report.acquisition?.billableAttempts??0:0,
+      remainingLowerBoundAfterAcquisition:values['live-odds']?report.acquisition?.remainingLowerBound??null:null,
+      final:!values.preview,operationallyApproved:false}));
+  });
+}
+main().catch(error=>{console.error('Shadow interrotto:',error.code==='EEXIST'?'Snapshot già esistente: nessuna sovrascrittura':error.safeMessage??error.message);process.exitCode=1;});

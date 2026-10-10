@@ -1,7 +1,12 @@
 param(
   [Parameter(Mandatory=$true)][string]$RoundPath,
   [switch]$SaveKey,
-  [switch]$AccountOnly
+  [switch]$AccountOnly,
+  [switch]$ShadowCycle,
+  [switch]$ShadowPreview,
+  [string]$StudyPath,
+  [string]$SchedulePath,
+  [switch]$RefreshData
 )
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path $PSScriptRoot -Parent
@@ -9,6 +14,12 @@ $privateDirectory = Join-Path $projectRoot '.local/oddspapi'
 $keyFile = Join-Path $privateDirectory 'api-key.dpapi'
 $previousKey = $env:ODDSPAPI_API_KEY
 $pointer = [IntPtr]::Zero
+if ($ShadowCycle -and ($AccountOnly -or -not $StudyPath -or -not $SchedulePath)) {
+  throw 'ShadowCycle richiede StudyPath e SchedulePath; AccountOnly non compatibile.'
+}
+if (-not $ShadowCycle -and ($ShadowPreview -or $RefreshData -or $StudyPath -or $SchedulePath)) {
+  throw 'Le opzioni ShadowPreview/RefreshData/StudyPath/SchedulePath richiedono ShadowCycle.'
+}
 try {
   if (-not $env:ODDSPAPI_API_KEY) {
     if ((Test-Path $keyFile) -and -not $SaveKey) {
@@ -24,7 +35,13 @@ try {
     $pointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($protectedKey)
     $env:ODDSPAPI_API_KEY = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer)
   }
-  $nodeArguments = @((Join-Path $PSScriptRoot 'oddspapi.mjs'), '--round', $RoundPath)
+  if ($ShadowCycle) {
+    $nodeArguments = @((Join-Path $PSScriptRoot 'shadow.mjs'), '--cycle', '--live-odds', '--round', $RoundPath, '--study', $StudyPath, '--schedule', $SchedulePath)
+    if ($RefreshData) { $nodeArguments += '--refresh-data' }
+    if ($ShadowPreview) { $nodeArguments += '--preview' }
+  } else {
+    $nodeArguments = @((Join-Path $PSScriptRoot 'oddspapi.mjs'), '--round', $RoundPath)
+  }
   if ($AccountOnly) { $nodeArguments += '--account-only' }
   & node @nodeArguments
   if ($LASTEXITCODE -ne 0) { throw 'Importazione non riuscita; nessun nuovo tentativo automatico.' }
