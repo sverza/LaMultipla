@@ -9,6 +9,7 @@ import {selectCombination} from './combinations.mjs';
 import {validateCurrentDataset} from './registry.mjs';
 import {POLICY} from './policy.mjs';
 import {canonicalTeam} from '../goals/data.mjs';
+import {contextGate} from '../context/dossier.mjs';
 
 export function decisionPath(directory,season,matchday) {
   if(!/^\d{4}\/\d{2}$/.test(season)||!Number.isInteger(matchday)||matchday<1||matchday>38)throw new Error('Invalid decision round');
@@ -26,12 +27,16 @@ export function validateCycleSchedule(round,schedule,now) {
       ||!Number.isFinite(Date.parse(e.kickoffUtc))||Date.parse(e.kickoffUtc)<Date.parse(round.fromUtc)||Date.parse(e.kickoffUtc)>=Date.parse(round.toUtc))
     ||events.every(e=>Date.parse(e.kickoffUtc)<=clock+POLICY.freezeBufferMinutes*60000))throw new Error('Schedule/round must identify ten distinct confirmed fixtures before acquisition');
 }
-export function createDecision({journal,report,study,assessment={},maxLegs=4,combinedPrices=[],now=new Date(),provenance={}}) {
-  const opportunities=screenOpportunities({journal,report,study,assessment,now}),selector=selectCombination(opportunities,{maxLegs,combinedPrices,now});
+export function createDecision({journal,report,study,assessment={},maxLegs=4,combinedPrices=[],now=new Date(),provenance={},context=null}) {
+  const opportunities=screenOpportunities({journal,report,study,assessment,now}),gate=contextGate(context,journal,now);
+  const eligible=opportunities.candidates.filter(c=>gate.eligibleFixtureIds.includes(c.fixtureId));
+  const contextualInput={...opportunities,candidates:eligible,state:opportunities.candidates.length&&!eligible.length?'CONTEXT_REVIEW_REQUIRED':opportunities.state};
+  const selector=selectCombination(contextualInput,{maxLegs,combinedPrices,now});
+  gate.eligibleQuoteIds=eligible.map(c=>c.quoteId);gate.rawEVCandidates=opportunities.candidates.length;gate.contextReadyCandidates=eligible.length;
   return {schema:'lamultipla-shadow-decision-v1',id:`${journal.manifest.season.replace('/','-')}-round-${journal.manifest.matchday}-${POLICY.version}`,
     generatedAtUtc:new Date(now).toISOString(),round:{season:journal.manifest.season,matchday:journal.manifest.matchday},
     policy:POLICY,policySha256:digest(POLICY),modelVersion:journal.modelVersion,journalId:journal.id,journalSha256:digest(journal),reportSha256:digest(report),
-    studySha256:digest(study),assessmentSha256:digest(assessment),provenance,opportunities,selector,decision:selector.decision,
+    studySha256:digest(study),assessmentSha256:digest(assessment),provenance,opportunities,context,contextGate:gate,contextPolicyVersion:gate.policyVersion,selector,decision:selector.decision,
     noBetCause:selector.cause,experimental:true,operationallyApproved:false,actualStakeEUR:0,noPublication:true};
 }
 export async function freezeForwardForecast({report,schedule,registry,dataset=registry.dataset,root,clock=()=>new Date()}) {

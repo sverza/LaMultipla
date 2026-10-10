@@ -14,6 +14,8 @@ export function evaluateShadow(decision,journal,results,{now=new Date(),markets=
   const evaluation=evaluateJournal(journal,results,{evaluatedAtUtc:new Date(now).toISOString(),markets:compatible});
   const ids=new Set(decision.opportunities.candidates.map(c=>c.fixtureId));
   const candidateRecords=evaluation.records.filter(r=>ids.has(r.fixtureId));
+  const contextualIds=decision.contextGate?new Set(decision.opportunities.candidates.filter(c=>decision.contextGate.eligibleQuoteIds.includes(c.quoteId)).map(c=>c.fixtureId)):ids;
+  const contextualRecords=evaluation.records.filter(r=>contextualIds.has(r.fixtureId));
   const proposal=decision.selector.selected;let simulated=null;
   if(proposal) {
     const settled=proposal.selections.map(s=>evaluation.records.find(r=>r.fixtureId===s.fixtureId));
@@ -26,7 +28,8 @@ export function evaluateShadow(decision,journal,results,{now=new Date(),markets=
   }
   return {schema:'lamultipla-shadow-evaluation-v1',decisionSha256:fingerprint(decision),evaluatedAtUtc:new Date(now).toISOString(),
     resultsSha256:fingerprint(results),marketBaselinePolicy:'verified_complete_board_closest_to_forecast_time',forecastEvaluation:evaluation,candidateMetrics:metrics(candidateRecords,'oneXTwo'),
-    candidatesSettled:candidateRecords.length,simulation:simulated,actualStakeEUR:0,operationallyApproved:false};
+    candidatesSettled:candidateRecords.length,contextReadyCandidateMetrics:metrics(contextualRecords,'oneXTwo'),contextReadyCandidatesSettled:contextualRecords.length,
+    contextSha256:decision.contextGate?.contextSha256??null,simulation:simulated,actualStakeEUR:0,operationallyApproved:false};
 }
 
 export function shadowProgress(decisions,evaluations,now=new Date()) {
@@ -39,19 +42,22 @@ export function shadowProgress(decisions,evaluations,now=new Date()) {
     if(latest)for(const fixtureId of signatures.keys())if(!latest.forecastEvaluation.records.some(r=>r.fixtureId===fixtureId))conflicts.push({decisionId:decision.id,fixtureId,reason:'result_removed_requires_review'});
     const blocked=conflicts.some(c=>c.decisionId===decision.id),simulation=blocked?null:latest?.simulation??null;
     if(simulation){nominalNetEUR+=simulation.netEUR;nominalStakeEUR+=simulation.nominalStakeEUR;}
-    const key=`${decision.policy.version}:${decision.modelVersion}`,group=groups.get(key)||{records:[],candidates:[],marketPairs:[],seen:new Set()};
+    const key=`${decision.policy.version}:${decision.modelVersion}`+(decision.contextPolicyVersion?':'+decision.contextPolicyVersion:''),group=groups.get(key)||{records:[],candidates:[],contextReadyCandidates:[],marketPairs:[],seen:new Set()};
     if(!blocked&&latest){const candidates=new Set(decision.opportunities.candidates.map(c=>c.fixtureId));
       for(const r of latest.forecastEvaluation.records){const id=decision.journalId+':'+r.fixtureId;if(group.seen.has(id))throw new Error('Duplicate shadow forecast in same version');
-        group.seen.add(id);group.records.push(r);if(candidates.has(r.fixtureId))group.candidates.push(r);}
+        group.seen.add(id);group.records.push(r);if(candidates.has(r.fixtureId))group.candidates.push(r);
+        if(decision.contextGate?.eligibleFixtureIds.includes(r.fixtureId)&&candidates.has(r.fixtureId))group.contextReadyCandidates.push(r);}
       group.marketPairs.push(...latest.forecastEvaluation.marketPairs);}
     groups.set(key,group);
     rounds.push({id:decision.id,decision:decision.decision,cause:decision.noBetCause,candidates:decision.opportunities.counts.candidates,
       forecastMetrics:blocked?null:latest?.forecastEvaluation.metrics??null,candidateMetrics:blocked?null:latest?.candidateMetrics??null,
       cumulativeModelMetrics:metrics(group.records,'oneXTwo'),cumulativeCandidateMetrics:metrics(group.candidates,'oneXTwo'),
+      contextPolicyVersion:decision.contextPolicyVersion??null,cumulativeContextReadyCandidateMetrics:metrics(group.contextReadyCandidates,'oneXTwo'),
       cumulativeMarketComparison:{n:group.marketPairs.length,model:metrics(group.marketPairs,'oneXTwo'),market:metrics(group.marketPairs,'oneXTwo','market')},simulation,resultConflict:blocked});
   }
   return {schema:'lamultipla-shadow-progress-v1',generatedAtUtc:new Date(now).toISOString(),rounds,conflicts,
     versions:Object.fromEntries([...groups].map(([key,g])=>[key,{model:metrics(g.records,'oneXTwo'),candidates:metrics(g.candidates,'oneXTwo'),
+      contextReadyCandidates:metrics(g.contextReadyCandidates,'oneXTwo'),
       marketComparison:{n:g.marketPairs.length,model:metrics(g.marketPairs,'oneXTwo'),market:metrics(g.marketPairs,'oneXTwo','market')}}])),
     nominalNetEUR,nominalStakeEUR,simulatedROI:nominalStakeEUR?nominalNetEUR/nominalStakeEUR:null,
     actualStakeEUR:0,actualProfitEUR:0,operationallyApproved:false,notEvidenceOfPredictiveOrBettingProfitability:true};

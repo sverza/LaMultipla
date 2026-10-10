@@ -17,6 +17,7 @@ import {refreshDataset} from '../scripts/lib/shadow/data.mjs';
 import {importQuotes} from '../scripts/oddspapi.mjs';
 import {account} from './fixtures/oddspapi.mjs';
 import {readSnapshot} from '../scripts/lib/prospective/store.mjs';
+import {syntheticReviewedContext} from './fixtures/context.mjs';
 
 // All events/prices/probabilities in this test are SYNTHETIC; no actual betting evidence.
 const now='2026-10-10T10:15:00.000Z',observed='2026-10-10T10:14:00.000Z';
@@ -130,7 +131,8 @@ test('one bound-supported proposal needs exact actual combined price and manual 
   assert.equal(selectCombination(screen,{now,combinedPrices:[evidence,evidence]}).selected,null);
   assert.equal(selectCombination(screen,{now,combinedPrices:[{...evidence,availability:'unavailable'}]}).selected,null);
   assert.throws(()=>selectCombination(screen,{now:'2026-10-10T07:45:00Z'}),/expired/);
-  const decision=createDecision({...input,assessment,now,combinedPrices:[evidence]});
+  const missingContext=createDecision({...input,assessment,now,combinedPrices:[evidence]});assert.equal(missingContext.decision,'NO_BET');assert.equal(missingContext.noBetCause,'CONTEXT_REVIEW_REQUIRED');
+  const decision=createDecision({...input,assessment,now,combinedPrices:[evidence],context:syntheticReviewedContext(input.journal.manifest,now)});
   const results={schema:'lamultipla-result-observations-v1',source:'openfootball/football.json',license:'CC0-1.0',sourceCommit:'a'.repeat(40),acquiredAtUtc:'2026-10-13T00:00:00Z',
     rows:input.journal.entries.map(e=>({season:'2026-27',home:e.home,away:e.away,date:'2026-10-10',availableAtUtc:'2026-10-12T00:00:00Z',goals:[1,0]}))};
   const evaluation=evaluateShadow(decision,input.journal,results,{now:'2026-10-13T00:01:00Z'});assert.equal(evaluation.simulation.won,true);

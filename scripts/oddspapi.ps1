@@ -8,7 +8,9 @@ param(
   [string]$SchedulePath,
   [switch]$RefreshData,
   [string]$ExperimentalJournalPath,
-  [string]$ExperimentalStudyPath
+  [string]$ExperimentalStudyPath,
+  [string]$ContextPath,
+  [string]$ContextEvidencePath
 )
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path $PSScriptRoot -Parent
@@ -22,7 +24,8 @@ if ($ShadowCycle -and ($AccountOnly -or -not $StudyPath -or -not $SchedulePath))
 if ($ExperimentalJournalPath -and -not $ExperimentalStudyPath) {
   throw 'ExperimentalJournalPath richiede ExperimentalStudyPath.'
 }
-if (-not $ShadowCycle -and ($ShadowPreview -or $RefreshData -or $StudyPath -or $SchedulePath -or $ExperimentalJournalPath -or $ExperimentalStudyPath)) {
+if ($ContextPath -and $ContextEvidencePath) { throw 'Scegli ContextPath oppure ContextEvidencePath.' }
+if (-not $ShadowCycle -and ($ShadowPreview -or $RefreshData -or $StudyPath -or $SchedulePath -or $ExperimentalJournalPath -or $ExperimentalStudyPath -or $ContextPath -or $ContextEvidencePath)) {
   throw 'Le opzioni ShadowPreview/RefreshData/StudyPath/SchedulePath richiedono ShadowCycle.'
 }
 try {
@@ -46,6 +49,8 @@ try {
     if ($ShadowPreview) { $nodeArguments += '--preview' }
     if ($ExperimentalStudyPath) { $nodeArguments += @('--extension-study', $ExperimentalStudyPath) }
     if ($ExperimentalJournalPath) { $nodeArguments += @('--extension-journal', $ExperimentalJournalPath) }
+    if ($ContextPath) { $nodeArguments += @('--context', $ContextPath) }
+    if ($ContextEvidencePath) { $nodeArguments += @('--context-evidence', $ContextEvidencePath) }
   } else {
     $nodeArguments = @((Join-Path $PSScriptRoot 'oddspapi.mjs'), '--round', $RoundPath)
   }
