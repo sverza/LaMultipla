@@ -1,0 +1,81 @@
+# Punto 11 — stato del collaudo, 11 ottobre 2026
+
+Base remota prima del recupero: `977ec415cb3051eadbf2110d5070ba68676a65af`, PR #2 in bozza. Punto 10 completato come implementazione sperimentale: 114 test superati e CI verde sul commit consegnato. Questo checkpoint raccoglie il lavoro successivo autorizzato alla consegna nella Fase 0; non attribuire al nuovo commit la CI del precedente.
+
+Nessun merge, deploy, rilascio di produzione, pubblicazione di schedine o nuova automazione. Stake reale 0 €. Vecchio trigger sospeso secondo lo stato già accertato; nessuna API di gestione automazioni invocata durante il collaudo. Snapshot originali della sesta giornata non riscritti.
+
+## Collaudo sintetico completato
+
+Le prove fisiche sul PC e sul Samsung Galaxy S24 Ultra sono confermate dall'utente. Non sono test del dispositivo eseguiti dal container.
+
+| Verifica | Windows | PWA installata | APK di collaudo |
+|---|---|---|---|
+| Import quattro pacchetti sintetici v4 | Superata | Superata | Superata |
+| MULTIPLA_SIMULATA, NO BET motivati, ricevuta redatta | Superata | Superata | Superata |
+| Esperimenti separati dalle giocate | 4 esperimenti / 0 schedine | 4 / 0 | 4 / 0 |
+| Persistenza dopo chiusura e riapertura | Superata | Superata | Superata |
+| Backup v4, restore in archivio vuoto, deduplicazione | Superata | Superata | Superata |
+| Rifiuto payload alterato con hash invariato | Non attestata in questa sequenza | Superata, restano 4 | Superata, restano 4 |
+| Apertura, navigazione, esportazione senza rete | Non oggetto della prova desktop | Superata dopo correzione SW | Superata |
+| Integrità backup offline verificata sul PC | — | Superata | Superata |
+
+Compatibilità v3 sul PC provata con storico vuoto, preservando gli esperimenti: non attesta migrazione completa dei dati legacy. I prezzi osservati e le probabilità della prova positiva sono sintetici e non dimostrano accuratezza o valore su partite reali.
+
+Backup privati verificati sul PC:
+
+- `.local/android-v4-backup-before-restore-2026-10-11.json` e `.local/android-v4-backup-offline-2026-10-11.json`: PWA, versione 4, quattro esperimenti, zero schedine.
+- `.local/android-apk-v4-backup-before-restore-2026-10-11.json` e `.local/android-apk-v4-backup-offline-2026-10-11.json`: APK, `parseBackup` superato per tutti gli elementi, versione 4, quattro esperimenti, zero schedine, `backgroundSync: false`.
+
+I backup non sono allegati al repository pubblico.
+
+## Correzione offline PWA
+
+La prima apertura offline mostrava HTML senza stile e pulsanti non operativi. `public/sw.js` v9 precache anche CSS e JS referenziati dal documento iniziale; fallback HTML solo per navigazioni. L'utente ha applicato la correzione al server locale e confermato la prova offline riuscita.
+
+Sei test mirati Node del service worker superati: root/basepath, installazione incompleta, fallback navigazione, feed senza copia obsoleta, preservazione di altre cache, scritture runtime. Nessun nuovo test browser offline nel container attestato; verifica reale sul telefono. Nella Fase 0 autorizzata per recuperare e pubblicare il lavoro locale, la suite completa è stata eseguita una volta sulle modifiche da consegnare: 123/123 test superati (114 precedenti e nove nuovi). Lint zero errori, solo il warning preesistente `combinedPlayedOdd`.
+
+## APK nativo separato: prova completata
+
+L'APK resta il prodotto principale previsto; la PWA è aggiuntiva. L'app originale `it.personale.lamultipla` non è stata aggiornata o azzerata.
+
+`scripts/prepare-android-v4-collaudo.mjs` prepara manualmente una nuova copia `.local/android-v4-collaudo`, package `it.personale.lamultipla.collaudo`, nome `LaMultipla TEST APK`, FileProvider separato e banner esplicito. Esclude credenziali/dati locali/feed/correzioni storiche, riusa le dipendenze, rifiuta destinazioni esistenti. Nella sola copia forza l'anteprima, blocca feed/aggiornamenti e rimuove servizio periodico e comandi che possono creare job. Necessario perché il plugin originale può schedulare un job già durante `getStatus`. Nessuna modifica/cancellazione dei job originali.
+
+Windows: sorgente `977ec41`, 75 file verificati, `sourceUnchanged: true`, job/feed/release disabilitati, API 0. Prima preparazione interrotta prima della scrittura per CRLF; script corretto e poi riuscito. Tre test mirati dello script, lint, build web e sync della copia superati nel container.
+
+Sul PC: Java 21, SDK 36, Build Tools 35.0.0; build web, sync Capacitor e `assembleDebug` riusciti. Gradle ha installato Platform-Tools nella radice SDK privata; ADB precedente resta separato. APK 7.302.355 byte, SHA256 `ac8772413343bdc73dc3b068dc66474b39ccd1a92b7cd630f2b3149bc4e6fbe6`. Manifest compilato: package/nome/provider separati, nessun servizio o avvio automatico. Installazione e prove native completate; restore da vuoto dopo backup validato, azzerando esclusivamente il package di test.
+
+Ultimo controllo read-only `dumpsys jobscheduler it.personale.lamultipla.collaudo`: sezione Registered filtrata `None.`. Intestazione 785 jobs globale, non conteggio del package di test. Backup offline integro, sincronizzazione disabilitata.
+
+Limite: chooser Android di condivisione aperto, ma lettura FileProvider da parte di un'app destinataria esterna non provata. Backup recuperato senza modificarne i byte dalla cache del package debug via ADB. Consegna automatica, notifiche v4 e autenticità del produttore restano da implementare/collaudare. Versione/timestamp dell'APK originale non acquisiti: non attestare confronto prima/dopo.
+
+## Prova prospettica reale aperta
+
+Calendario privato settima giornata: dieci eventi, primo kickoff registrato 16 ottobre 2026 ore 18:45 UTC / 20:45 Europe/Rome; SHA `805b16b7a75c304d4665ce7415e3f93fec2ade4d853233cb0e7b1c2d34b4ae0e`. Riconfermare alla fonte ufficiale prima del freeze. Nessun forecast/report quote della settima giornata prodotto.
+
+Sviluppo v2 privato completato, mercati validati vuoti e uso operativo non approvato. Non ripetere tuning/confronto storico. Nuovo storico osservato e verificato prima del freeze; refit mensile resta con cutoff 1 ottobre, senza risultati successivi nel training. I nuovi dati possono aggiornare il contesto secondo policy.
+
+Prima della prova: calendario/identità, storico, codice registrato, quota API corrente; freeze nuovo entro 24 ore, quote successive al forecast e fresche entro 30 minuti, contesto/regole/prezzi attestati quando richiesti, buffer pre-kickoff 5 minuti. Riutilizzare artefatti idonei; non sovrascrivere forecast scaduti. Finale unico, replay prima dell'import. MULTIPLA_SIMULATA o NO BET validi; stake reale 0 €.
+
+## Obbligo separato dal 15 ottobre
+
+Journal originale `2026-27-round-06-goals-v1-b630b78`, SHA già verificato sul PC `6500cb65e321568c033bfec90e90fee97b43b6fb489f07e9daf4b15adc3a9070`. Baseline `lamultipla-market-baseline-v1` verificata indipendentemente sul PC: journal associato corretto, SHA `199386b326542ab68d7f7f18c80ac1b691f9e335db40a9c00070f552076d9990`, integrità confermata. Non ripetere questi controlli senza motivo.
+
+Dal 15 ottobre Europe/Rome: risultati verificati e valutazione append-only secondo [validazione prospettica v1](validazione-prospettica-v1.md). Nessun nuovo forecast/quote del pilot. Nessun promemoria/job creato.
+
+## Consegna e blocchi
+
+Proposta ancora non attivata: [motore Windows e consegna privata a costo zero](punto11-consegna-privata.md). GitHub conserva codice/verifiche; non possiede file/credenziali del PC. Firma, destinatario autenticato, scadenze, finale unico e recupero notifiche perse sono specificati nel progetto, non già operativi.
+
+L'utente conferma che il PC può restare acceso spesso. Il progetto prevede futura ripartenza al suo accesso Windows, recuperando solo attività ancora temporalmente valide; nessun task creato ora. Il PC deve comunque essere disponibile nella finestra utile prima dei kickoff.
+
+L'11 ottobre l'utente riferisce di avere già chiarito con OddsPapi il giorno precedente: uso privato, senza distribuzione pubblica/a pagamento, consentito. Il percorso privato procede su questa conferma; nessun nuovo contatto o richiesta di conferma obbligatoria. Non estendere il chiarimento alla pubblicazione di dati o ricevute reali nel repository pubblico. La risposta originale del provider non è stata acquisita in questa sessione.
+
+Restano evidenze umane richieste dalle policy attuali, futura configurazione account/destinatari, sviluppo della consegna e autorizzazione all'attivazione. Sviluppo locale sintetico può proseguire nel frattempo.
+
+Audit Windows: 27 vulnerabilità, 1 bassa/3 moderate/21 alte/2 critiche. Analisi e correzioni mirate aperte; nessun `audit fix --force`. Nessuna modifica ai workflow o alle automazioni.
+
+## Recupero del lavoro locale — Fase 0
+
+Checkout Windows verificato dall'utente: branch della PR, HEAD `977ec41`, nessun commit successivo o file non tracciato da recuperare; unica modifica `public/sw.js`. Il suo SHA256 coincide con la correzione di questo ambiente: `d24627cc76854bc69ddcddf27093593b1e5567b38fe07a9a6dbe18dc1d954b25`. `.local/`, `.next/`, `node_modules/`, `out/` e `next-env.d.ts` risultano ignorati anche sul PC.
+
+Consegna preparata con sei percorsi espliciti: SW, preparatore APK, due test e i due documenti del punto 11. Revisione del contenuto e scansione credenziali senza rilevamenti; nessun report reale, journal, forecast, backup, token o dato personale riservato incluso. Nessun `git add -f`, reset o pulizia dei file privati. Suite 123/123, lint zero errori e warning preesistente, build Next/TypeScript completata. Le prove del telefono non vengono ripetute.
