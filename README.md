@@ -6,6 +6,10 @@ Tracker personale, mobile-first, per una multipla Serie A da 3 € a giornata. F
 
 Il [protocollo generale v1](docs/protocollo-generale-v1.md) coordina acquisizione privata, modelli indipendenti, EV, contesto, liquidazione, combinazioni, congelamento e valutazione. `shadow.mjs` è l'unico produttore di decisioni; `decision.mjs` ne verifica il replay e prepara pacchetti locali. Tutti i modelli restano sperimentali per il gioco, stake reale zero: nessuna pubblicazione automatica. [Audit dell'architettura e punto 10](docs/rapporto-protocollo-2026-10-10.md).
 
+## Analisi sperimentali private v4
+
+Il collegamento decisione → app è implementato: `decision --app-package` prepara un file privato verificato per la scheda **Esperimento**. MULTIPLA SIMULATA e NO BET motivato restano separati da storico/ROI, con stake reale 0 € e nessuna conferma di gioco. Backup v4 include l’archivio sperimentale e conserva compatibilità v3. [Contratto](docs/contratto-app-v4.md), [collaudo Windows](docs/collaudo-v4-windows.md), [rapporto e blocchi](docs/rapporto-punto10-2026-10-11.md).
+
 ## Funzioni principali
 
 - schedine da 1 a 6 selezioni, importate tramite JSON o automaticamente da GitHub;
@@ -49,9 +53,9 @@ L'importatore Node acquisisce privatamente sul PC le quote pre-match `bet365.it`
 
 Istruzioni Windows, contratto di analisi e limiti: [importatore privato OddsPapi](docs/oddspapi-private-import.md). Non inserire chiavi o risposte API in `public/`, nel sorgente o negli artifact di GitHub.
 
-## Contratto legacy di consegna (app attuale)
+## Contratto legacy di consegna v3
 
-Questo contratto descrive il tracker esistente, non autorizza nuove proposte del motore. Il futuro adapter v4 e i diritti di pubblicazione sono ancora da completare; non tradurre gli intervalli del modello in fiducia soggettiva.
+Questo contratto descrive il tracker esistente, non autorizza nuove proposte del motore. L’adapter v4 privato è separato; i diritti di pubblicazione restano da chiarire; non tradurre gli intervalli del modello in fiducia soggettiva.
 
 La PWA controlla `public/latest-slip.json` all’apertura e quando torna in primo piano. L’APK lo controlla anche periodicamente in background e, se gli avvisi sono attivati, segnala una nuova giornata con una notifica. Android decide il momento esatto del controllo per proteggere la batteria.
 

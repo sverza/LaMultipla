@@ -21,7 +21,9 @@
     "shadow:run": "node scripts/shadow.mjs",
     "model:engine": "node scripts/model-engine.mjs",
     "match:context": "node scripts/context.mjs",
-    "decision:review": "node scripts/decision.mjs"
+    "decision:review": "node scripts/decision.mjs",
+    "app:experiment-selftest": "node scripts/app-v4-selftest.mjs",
+    "test:app-browser": "node tests/browser-v4.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",

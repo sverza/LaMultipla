@@ -1,6 +1,10 @@
 'use client';
 /* eslint-disable @next/next/no-img-element -- i percorsi relativi devono funzionare anche sotto GitHub Pages */
 
+import {ExperimentCard} from './experiment';
+import type {ExperimentalEnvelope} from '../shared/decision-v4.mjs';
+import {isExperimentalInput,isLocalExperimentPreview} from '../shared/decision-v4.mjs';
+import {readExperiments,addExperiment,mergeExperiments,makeBackup,parseBackup} from '../shared/experimental-store.mjs';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Calibration,
@@ -59,7 +63,9 @@ import {
 } from './lib/native';
 import { migrateHistoricalV3Once, putSlip, readAll, removeSlip, replaceAll, updateSlip } from './lib/storage';
 
-type View = 'dash' | 'current' | 'history' | 'detail' | 'settings';
+const localExperimentPreview=()=>typeof window!=='undefined'&&isLocalExperimentPreview(window.location.hostname,isNative);
+
+type View = 'dash' | 'current' | 'history' | 'detail' | 'settings' | 'experiment';
 type Modal = 'import' | 'edit' | 'schema' | 'backup' | null;
 type Theme = 'system' | 'light' | 'dark';
 type UndoState = { previous?: Slip; currentId: string; message: string };
@@ -84,6 +90,9 @@ const EXAMPLE = `{
 const sortSlips = (items: Slip[]) => items.slice().sort((a, b) => b.date.localeCompare(a.date) || b.matchday - a.matchday);
 
 export default function Home() {
+  const [experiments,setExperiments]=useState<ExperimentalEnvelope[]>([]);
+  const [experimentalText,setExperimentalText]=useState('');
+  const experimentInput=useRef<HTMLInputElement>(null);
   const [slips, setSlips] = useState<Slip[]>([]);
   const [ready, setReady] = useState(false);
   const [view, setView] = useState<View>('dash');
@@ -114,6 +123,8 @@ export default function Home() {
   const load = useCallback(async () => {
     const items = sortSlips(await readAll());
     setSlips(items);
+    try {setExperiments((await readExperiments()).sort((a,b)=>b.payload.generatedAtUtc.localeCompare(a.payload.generatedAtUtc)));}
+    catch {setMessage('Archive sperimentale non verificabile; lo storico delle giocate resta disponibile.');}
     setReady(true);
     setActiveSeason((current) => {
       if (current && items.some((slip) => slip.season === current)) return current;
@@ -127,10 +138,11 @@ export default function Home() {
   const refreshStatus = useCallback(async () => {
     setSyncStatus(await getSyncStatus());
     setNotifications(await notificationPermission());
-    setUpdateInfo(await fetchUpdateInfo());
+    if(!localExperimentPreview())setUpdateInfo(await fetchUpdateInfo());
   }, []);
 
   const checkGitHub = useCallback(async (announce = false) => {
+    if(localExperimentPreview()){if(announce)setMessage('Anteprima locale: feed pubblico disabilitato; usa il pacchetto privato.');return;}
     if (checkingRef.current) return;
     checkingRef.current = true;
     setChecking(true);
@@ -138,6 +150,10 @@ export default function Home() {
       const feed = await fetchRemoteFeed();
       if (!feed || typeof feed !== 'object') throw new Error('Il file GitHub non contiene dati validi.');
       const source = feed as Record<string, unknown>;
+      if (source.schema === 'lamultipla-public-decision-receipt-v1' || source.schema === 'lamultipla-prospective-envelope-v1' && (source.payload as Record<string,unknown>)?.schema === 'lamultipla-public-decision-receipt-v1') {
+        await addExperiment(source);await load();if(announce)setMessage('Ricevuta NO BET consultabile in Esperimento. Nessuna schedina importata.');return;
+      }
+      if (isExperimentalInput(source)) throw new Error('Pacchetti privati v4: usare importazione locale in Esperimento.');
       if (source.available === false) {
         if (announce) setMessage('Controllo completato: nessuna nuova schedina.');
         return;
@@ -176,7 +192,8 @@ export default function Home() {
     else delete document.documentElement.dataset.theme;
 
     const initialLoad = window.setTimeout(() => {
-      void migrateHistoricalV3Once().then(() => load()).then(() => checkGitHub(false));
+      if(localExperimentPreview()){setView('experiment');void load();}
+      else void migrateHistoricalV3Once().then(() => load()).then(() => checkGitHub(false));
       void refreshStatus();
     }, 0);
     if (!isNative && 'serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
@@ -217,9 +234,18 @@ export default function Home() {
     await load();
   };
 
+  const importExperiment=async (input:unknown)=>{
+    const stored=await addExperiment(input);await load();setExperimentalText('');setModal(null);setView('experiment');
+    setMessage(stored.payload.schema==='lamultipla-app-decision-v4'?'Analisi v4 importata privatamente. Stake reale 0 €.':'Ricevuta NO BET importata.');
+  };
+  const importExperimentText=async()=>{try{await importExperiment(JSON.parse(experimentalText));}catch(error){setMessage(error instanceof Error?error.message:'Pacchetto non valido.');}};
+  const importExperimentFile=async(file:File)=>{try{if(file.size>5*1024*1024)throw new Error('Pacchetto troppo grande (massimo 5 MB).');await importExperiment(JSON.parse(await file.text()));}catch(error){setMessage(error instanceof Error?error.message:'Pacchetto non valido.');}};
+
   const importSlip = async () => {
     try {
-      const slip = parseSlip(JSON.parse(text));
+      const raw=JSON.parse(text);
+      if(isExperimentalInput(raw)){await importExperiment(raw);return;}
+      const slip = parseSlip(raw);
       const current = await readAll();
       if (current.some((item) => item.season === slip.season && item.matchday === slip.matchday)) throw new Error(`La giornata ${slip.matchday} è già presente.`);
       await putSlip(slip);
@@ -280,11 +306,11 @@ export default function Home() {
   const backup = async () => {
     try {
       const now = new Date().toISOString();
-      const data = JSON.stringify({
-        app: 'seriea-multipla', version: 3, exportedAt: now,
+      const data = JSON.stringify(await makeBackup({
+        exportedAt: now,experiments,
         preferences: { theme, activeSeason, notifications: localStorage.getItem('la-multipla-notifications') === 'true', backgroundSync: syncStatus?.enabled ?? true, syncHours: syncStatus?.intervalHours ?? 3 },
         slips,
-      }, null, 2);
+      }), null, 2);
       await exportBackupFile(data, `la-multipla-backup-${now.slice(0, 10)}.json`);
       localStorage.setItem('la-multipla-last-backup', now);
       setLastBackup(now);
@@ -316,9 +342,11 @@ export default function Home() {
 
   const restore = async (file: File) => {
     try {
-      const raw = JSON.parse(await file.text()) as { app?: string; slips?: Partial<Slip>[]; preferences?: Record<string, unknown> };
-      if (raw.app !== 'seriea-multipla' || !Array.isArray(raw.slips)) throw new Error('Backup non riconosciuto.');
-      await replaceAll(raw.slips.map(normalizeSlip));
+      const raw = await parseBackup(JSON.parse(await file.text()));
+      // Both parts validated before legacy restore; experiment import is additive and immutable.
+      const restored=raw.slips.map(item=>normalizeSlip(item as Partial<Slip>));
+      await mergeExperiments(raw.experiments);
+      await replaceAll(restored);
       if (raw.preferences?.theme && ['system', 'light', 'dark'].includes(String(raw.preferences.theme))) applyTheme(String(raw.preferences.theme) as Theme);
       setUndo(null);
       await load();
@@ -468,6 +496,18 @@ export default function Home() {
 
         {view === 'current' && !selected && <><div className="eye">SCHEDINA ATTUALE</div><h1>La prossima<br /><em>multipla.</em></h1><CurrentSlipCard onOpen={() => undefined} onImport={() => setModal('import')} /></>}
 
+        {view === 'experiment' && <>
+          <div className="eye">ANALISI PRIVATA · STAKE REALE 0 €</div><h1>Esperimento<br /><em>probabilistico.</em></h1>
+          {localExperimentPreview()&&<p className="hint">Anteprima locale: feed pubblico e migrazioni dello storico disabilitati.</p>}
+          <section className="settings-card experiment-import"><h2>Importa un’analisi v4</h2><p>Il file resta su questo dispositivo, separato dalle giocate. Nessuna proposta è autorizzata al gioco.</p>
+            <button className="primary wide" onClick={()=>experimentInput.current?.click()}>Apri pacchetto locale</button>
+            <input hidden ref={experimentInput} type="file" accept=".json,application/json" onChange={event=>{const f=event.target.files?.[0];if(f)void importExperimentFile(f);event.target.value='';}} />
+            <details><summary>Incolla il JSON</summary><textarea aria-label="Pacchetto sperimentale v4" value={experimentalText} onChange={event=>setExperimentalText(event.target.value)} /><button className="secondary wide" onClick={importExperimentText}>Verifica e importa analisi</button></details>
+          </section>
+          {!experiments.length&&<div className="empty">Nessuna analisi sperimentale importata.</div>}
+          {experiments.map(item=><ExperimentCard key={item.sha256} envelope={item} />)}
+        </>}
+
         {view === 'settings' && <>
           <div className="eye">CENTRO DI CONTROLLO</div><h1>Impostazioni<br /><em>e stato.</em></h1><div className="settings-stack">
             <section className="settings-card"><div className="settings-title"><span className="settings-icon">↻</span><div><small>SINCRONIZZAZIONE</small><h2>Schedine da GitHub</h2></div><i className={syncStatus?.enabled ? 'online' : ''} /></div><div className="status-grid"><span><small>Ultimo controllo</small><b>{syncStatus?.lastCheck ? new Date(syncStatus.lastCheck).toLocaleString('it-IT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Mai'}</b></span><span><small>Ultimo file</small><b>{syncStatus?.lastFeedId || 'Nessuno'}</b></span></div><label className="switch-row"><span><strong>Controllo in background</strong><small>{isNative ? 'Funziona periodicamente anche ad app chiusa' : 'Disponibile nell’APK Android'}</small></span><input type="checkbox" checked={Boolean(syncStatus?.enabled)} disabled={!isNative} onChange={(event) => changeBackgroundSync(event.target.checked)} /><i /></label><label className="select-row"><span>Frequenza controllo</span><select value={syncStatus?.intervalHours || 3} disabled={!isNative || !syncStatus?.enabled} onChange={(event) => changeBackgroundSync(true, Number(event.target.value))}><option value="1">Ogni ora</option><option value="3">Ogni 3 ore</option><option value="6">Ogni 6 ore</option><option value="12">Ogni 12 ore</option></select></label><button className="secondary wide" disabled={checking} onClick={runCheck}>{checking ? 'Controllo in corso…' : 'Controlla ora'}</button></section>
@@ -479,13 +519,13 @@ export default function Home() {
         </>}
       </section>
 
-      <nav><button className={view === 'dash' ? 'active' : ''} onClick={() => setView('dash')}><b>⌂</b>Home</button><button className={view === 'current' ? 'active' : ''} onClick={() => { if (currentSlip) openSlip(currentSlip, 'current'); else setView('current'); }}><b>◇</b>Schedina</button><button className={view === 'history' || view === 'detail' ? 'active' : ''} onClick={() => setView('history')}><b>◷</b>Storico</button><button className={view === 'settings' ? 'active' : ''} onClick={() => { setView('settings'); refreshStatus(); }}><b>⚙</b>Altro</button></nav>
+      <nav><button className={view === 'dash' ? 'active' : ''} onClick={() => setView('dash')}><b>⌂</b>Home</button><button className={view === 'current' ? 'active' : ''} onClick={() => { if (currentSlip) openSlip(currentSlip, 'current'); else setView('current'); }}><b>◇</b>Schedina</button><button className={view === 'history' || view === 'detail' ? 'active' : ''} onClick={() => setView('history')}><b>◷</b>Storico</button><button aria-label="Esperimento" className={view === 'experiment' ? 'active' : ''} onClick={()=>setView('experiment')}><b>⌁</b>Esperimento</button><button className={view === 'settings' ? 'active' : ''} onClick={() => { setView('settings'); refreshStatus(); }}><b>⚙</b>Altro</button></nav>
       {message && <div className="toast"><span>{message}</span>{undo && message === undo.message && <button onClick={undoLast}>Annulla</button>}<button className="toast-close" onClick={() => setMessage('')} aria-label="Chiudi">×</button></div>}
       {modal && <div className="overlay" onMouseDown={(event) => event.target === event.currentTarget && setModal(null)}><div className="modal"><button className="close" onClick={() => setModal(null)}>×</button>
         {modal === 'import' && <><div className="eye">NUOVA GIORNATA</div><h2>Incolla la schedina</h2><p>Da 1 a 6 selezioni. Verrà salvata come bozza; lo stake è sempre 3 €.</p><textarea value={text} onChange={(event) => setText(event.target.value)} placeholder={EXAMPLE} /><button className="primary wide" onClick={importSlip}>Controlla e importa</button><button className="link wide" onClick={() => setModal('schema')}>Vedi lo schema accettato</button></>}
         {modal === 'edit' && <><div className="eye">MODIFICA GIORNATA</div><h2>Correggi la schedina</h2><p>Puoi cambiare data, quota, mercato o selezioni. Gli esiti già inseriti restano associati per ordine.</p><textarea value={text} onChange={(event) => setText(event.target.value)} /><button className="primary wide" onClick={editSlip}>Salva modifiche</button></>}
-        {modal === 'schema' && <><div className="eye">FORMATO ACCETTATO</div><h2>Schema JSON</h2><p><code>probability</code> è una percentuale; <code>confidence</code> va da 1 a 5.</p><pre>{EXAMPLE}</pre><button className="primary wide" onClick={() => { navigator.clipboard.writeText(EXAMPLE); setMessage('Schema copiato.'); }}>Copia esempio</button></>}
-        {modal === 'backup' && <><div className="eye">I TUOI DATI</div><h2>Backup ed esportazione</h2><p>Il backup include tutte le stagioni e le preferenze principali.</p>{lastBackup && <div className="last-backup"><small>ULTIMA COPIA</small><strong>{new Date(lastBackup).toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' })}</strong></div>}<button className="primary wide" onClick={backup}>Esporta backup JSON</button><button className="secondary wide" onClick={exportCsv}>Esporta CSV per Excel</button><button className="secondary wide" onClick={() => backupInput.current?.click()}>Importa backup</button><small className="privacy">🔒 Nessun dato lascia il dispositivo.</small></>}
+        {modal === 'schema' && <><div className="eye">FORMATO ACCETTATO</div><h2>Schema JSON</h2><p>Schema storico v3: <code>probability</code> è una percentuale; <code>confidence</code> va da 1 a 5. Le analisi v4 si importano in Esperimento, con probabilità 0–1 e intervalli statistici, senza fiducia numerica.</p><pre>{EXAMPLE}</pre><button className="primary wide" onClick={() => { navigator.clipboard.writeText(EXAMPLE); setMessage('Schema copiato.'); }}>Copia esempio</button></>}
+        {modal === 'backup' && <><div className="eye">I TUOI DATI</div><h2>Backup ed esportazione</h2><p>Il backup v4 include storico v3, preferenze e archivio sperimentale separato.</p>{lastBackup && <div className="last-backup"><small>ULTIMA COPIA</small><strong>{new Date(lastBackup).toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' })}</strong></div>}<button className="primary wide" onClick={backup}>Esporta backup JSON</button><button className="secondary wide" onClick={exportCsv}>Esporta CSV per Excel</button><button className="secondary wide" onClick={() => backupInput.current?.click()}>Importa backup</button><small className="privacy">🔒 Nessun dato lascia il dispositivo.</small></>}
       </div></div>}
     </main>
   );

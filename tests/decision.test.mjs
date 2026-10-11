@@ -116,6 +116,7 @@ test('pilot protection permits subsequent rounds and keeps evaluation obligation
 test('local review CLI has no API or scheduler and works without an API key',async()=>{
   const dir=await fs.mkdtemp(path.join(os.tmpdir(),'lamultipla-review-cli-'));try{
     await fs.cp(new URL('../scripts',import.meta.url),path.join(dir,'scripts'),{recursive:true});
+    await fs.cp(new URL('../shared',import.meta.url),path.join(dir,'shared'),{recursive:true});
     const run=spawnSync(process.execPath,[path.join(dir,'scripts/decision.mjs'),'--obligations'],{encoding:'utf8',env:{...process.env,ODDSPAPI_API_KEY:''}});
     assert.equal(run.status,0,run.stderr);assert.equal(JSON.parse(run.stdout).items[0].newTriggerCreated,false);
     const i=input();i.assessment=assessed(i);const b=bundle(i);
