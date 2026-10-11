@@ -64,7 +64,7 @@ Dal 15 ottobre Europe/Rome: risultati verificati e valutazione append-only secon
 
 ## Consegna e blocchi
 
-Proposta ancora non attivata: [motore Windows e consegna privata a costo zero](punto11-consegna-privata.md). GitHub conserva codice/verifiche; non possiede file/credenziali del PC. Firma, destinatario autenticato, scadenze, finale unico e recupero notifiche perse sono specificati nel progetto, non già operativi.
+Proposta ancora non attivata: [motore Windows e consegna privata a costo zero](punto11-consegna-privata.md). GitHub conserva codice/verifiche; non possiede file/credenziali del PC. Firma, REST privato, outbox, import/cursore atomici e regole sono ora implementati e collaudati con dati sintetici/emulatore; integrazione APK/FCM, orchestratore e collaudo reale del trasporto restano da completare. Non è ancora un servizio automatico operativo.
 
 L'utente conferma che il PC può restare acceso spesso. Il progetto prevede futura ripartenza al suo accesso Windows, recuperando solo attività ancora temporalmente valide; nessun task creato ora. Il PC deve comunque essere disponibile nella finestra utile prima dei kickoff.
 
@@ -79,3 +79,11 @@ Audit Windows: 27 vulnerabilità, 1 bassa/3 moderate/21 alte/2 critiche. Analisi
 Checkout Windows verificato dall'utente: branch della PR, HEAD `977ec41`, nessun commit successivo o file non tracciato da recuperare; unica modifica `public/sw.js`. Il suo SHA256 coincide con la correzione di questo ambiente: `d24627cc76854bc69ddcddf27093593b1e5567b38fe07a9a6dbe18dc1d954b25`. `.local/`, `.next/`, `node_modules/`, `out/` e `next-env.d.ts` risultano ignorati anche sul PC.
 
 Consegna preparata con sei percorsi espliciti: SW, preparatore APK, due test e i due documenti del punto 11. Revisione del contenuto e scansione credenziali senza rilevamenti; nessun report reale, journal, forecast, backup, token o dato personale riservato incluso. Nessun `git add -f`, reset o pulizia dei file privati. Suite 123/123, lint zero errori e warning preesistente, build Next/TypeScript completata. Le prove del telefono non vengono ripetute.
+
+## Primo blocco del trasporto privato — 11 ottobre
+
+Recupero precedente pubblicato in `cd313130d078801e138c5ce627e51abd7fca5417`; PR #2 ancora in bozza e verifica CI #15 verde. Il successivo blocco aggiunge firma P-256, outbox, REST Auth/Firestore, ricevitore con cursore atomico, regole verificate in emulatore e adapter DPAPI/CLI manuale. Suite completa 140/140 superata, lint zero errori (warning preesistente), build riuscita. Le 17 nuove prove usano esclusivamente fixture sintetiche; i test Firestore separati usano un progetto demo locale e l'emulatore viene spento dopo la prova.
+
+DPAPI non è collaudabile nel container Linux: predisposto `scripts/private-vault-selftest.mjs`, che sul PC crea soltanto una cartella di prova nuova dentro `.local`, verifica cifratura/lettura/rifiuto alterazioni, poi elimina esclusivamente tale cartella. Non richiede credenziali o account cloud. Non ripetere i collaudi manuali v4/PWA/APK già superati: questo è un nuovo componente.
+
+Nessuna consegna cloud/FCM reale o integrazione APK del nuovo trasporto attestata. Orchestratore, Task Scheduler non attivato, contesto automatico, risultati e prova end-to-end su Samsung restano lavori aperti. Il journal originale rimane una valutazione separata obbligatoria dal 15 ottobre, senza modificarne gli snapshot.

@@ -41,5 +41,8 @@ next-env.d.ts
 
 # Android signing: never publish these files
 /android/keystore.properties
+/android/app/google-services.json
+/private-cloud/.firebaserc
+/private-cloud/.firebase/
 /android/app/keystore/*.jks
 /android/app/keystore/*.keystore

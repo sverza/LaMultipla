@@ -76,7 +76,7 @@ try{
     await page.getByRole('button',{name:/Altro$/}).click();
   }
   // Only this isolated, synthetic browser database is emptied to exercise an actual restore.
-  await page.evaluate(async()=>{for(const [name,version,store] of [['seriea-multipla',2,'slips'],['lamultipla-experiments',1,'snapshots']]){
+  await page.evaluate(async()=>{for(const [name,version,store] of [['seriea-multipla',2,'slips'],['lamultipla-experiments',2,'snapshots']]){
     const db=await new Promise(resolve=>{const r=indexedDB.open(name,version);r.onsuccess=()=>resolve(r.result);});
     await new Promise((resolve,reject)=>{const t=db.transaction(store,'readwrite');t.objectStore(store).clear();t.oncomplete=resolve;t.onerror=()=>reject(t.error);});db.close();}});
   await page.locator('input[type=file]').last().setInputFiles(destination);await page.getByText('Backup ripristinato.',{exact:true}).waitFor();

@@ -1,6 +1,8 @@
 # Punto 11 — motore Windows e consegna privata a costo zero
 
-Progetto dell'11 ottobre 2026, base `977ec41`, PR #2 in bozza. **Proposta da implementare e collaudare**, non servizio operativo. Nessun progetto cloud, credenziale di produzione, job, trigger, workflow, deploy o nuova automazione creato da questo studio. Stake reale 0 €.
+Aggiornamento dell'11 ottobre 2026. Recupero del precedente lavoro pubblicato in `cd313130d078801e138c5ce627e51abd7fca5417`, PR #2 in bozza e CI verde. **Protocollo di trasporto e recupero implementato e collaudato localmente; servizio reale e integrazione APK ancora da completare.** Nessun progetto cloud reale, job, trigger, workflow, deploy o automazione persistente attivato. Stake reale 0 €.
+
+Il punto 11 resta un lavoro in corso: questi componenti non costituiscono ancora un ciclo autonomo PC → Samsung. Il collaudo Windows DPAPI e quello Android del nuovo trasporto non sono sostituiti dalle prove Node/emulatore.
 
 ## Dove eseguire il motore
 
@@ -12,7 +14,7 @@ Progetto dell'11 ottobre 2026, base `977ec41`, PR #2 in bozza. **Proposta da imp
 
 GitHub pubblico conserva sorgenti, documentazione redatta e CI software. Il runner ospitato non legge automaticamente `C:\LaMultipla`, né la chiave OddsPapi del PC. Nessun dataset/report privato nei log o artefatti Actions. Le quote di un repo privato non garantiscono spazio/minuti disponibili nell'account; verificare il consumo condiviso e impedire addebiti.
 
-Primo ciclo manuale con CLI esistenti. Un eventuale task Windows sarà una fase successiva autorizzata: qui non si prepara o registra alcun task/trigger. Vecchio trigger sospeso separato.
+L'utente autorizza sviluppo e collaudo dell'orchestratore e preparazione della configurazione Task Scheduler. Registrazione/attivazione di task persistenti richiedono la sua autorizzazione finale. La preparazione del task resta da implementare; vecchio trigger sospeso separato.
 
 ### Ripartenza dopo spegnimento
 
@@ -22,7 +24,7 @@ All'avvio: leggere stato persistente e orologio, attendere rete se assente, otte
 
 Il recupero previsto non è una funzione già installata. Oggi dopo un riavvio non c'è un motore automatico da riattivare; il collaudo manuale riprende dal suo checkpoint. L'APK statico può aprirsi e mostrare gli esperimenti offline senza server PC; il server locale serve soltanto al percorso PWA di laboratorio.
 
-## Trasporto privato proposto
+## Trasporto privato scelto
 
 Progetto personale dedicato **Firebase Spark**, senza Blaze/metodo di pagamento; Authentication senza SMS, Firestore Standard, FCM. Documentazione verificata: Firestore 1 GiB archiviato, 10 GiB/mese uscita, 50.000 letture e 20.000 scritture/giorno; FCM senza costo. Escludere Cloud Functions, Cloud Run, Cloud Storage, backup e TTL gestiti che richiedono fatturazione. Hosting PWA HTTPS da autorizzare separatamente, nessun deploy ora.
 
@@ -52,25 +54,25 @@ Due identità Firebase Auth dedicate: produttore sul PC e lettore nell'app. Fire
 
 FCM richiede credenziale server distinta, protetta sul PC, permessi ristretti all'invio e nessun accesso Firestore. Le chiamate Firestore OAuth/service account bypassano le Security Rules e usano IAM: non trattare Admin SDK come un lettore sottoposto alle regole. La chiave client Firebase da sola non autorizza accesso ai dati.
 
-Involucro versionato proposto, esterno al pacchetto v4:
+Involucro versionato implementato in `shared/private-delivery.mjs`, esterno al pacchetto v4:
 
 | Campi firmati | Vincolo |
 |---|---|
 | `schema`, `keyId`, `channel` | Versione esplicita, test/produzione separati |
-| `audience` | UID lettore e identificativo app previsti |
-| `round`, `kind` | Stagione/giornata; anteprima/finale/risultato |
+| `readerUid`, `applicationId` | UID lettore e identificativo app previsti |
+| `season`, `matchday`, `kind`, `status` | Stagione/giornata; anteprima/finale; simulation/no_bet. Risultati fuori da questo protocollo iniziale |
 | `sequence`, `previousDeliveryHash` | Sequenza monotona del canale, predecessore vincolato |
-| `deliveryId`, `envelopeSha256` | ID deterministico da canale/giornata/tipo/hash pacchetto, indipendente dalla firma |
+| `deliveryId`, `envelopeSha256`, `packageSha256` | ID deterministico da destinatario/canale/app/giornata/tipo/hash pacchetto, indipendente dalla firma; hash anche dei byte JSON trasportati |
 | `generatedAtUtc`, `expiresAtUtc` | Tempi firmati, mai retrodatati |
 | `signature` | ECDSA P-256/SHA-256; raw `r || s`, 64 byte, base64url |
 
-Firma su JSON canonico definito/versionato, prefisso di dominio `lamultipla-private-delivery-v1`; payload vincolato dal suo SHA. Fissare serializer e vettori interoperabili prima del codice. Chiave pubblica incorporata in build verificata o abbinata tramite fingerprint dal PC: non fidarsi di una chiave scaricata dal medesimo feed. Privata sul PC. Rotazione con vecchia firma della nuova chiave e revoca esplicita.
+Firma su `lamultipla-private-delivery-v1\n` seguito dai byte UTF-8 di `statement`. Serializer locale esplicito: chiavi ordinate UTF-16, escaping JSON, numeri JSON finiti; non dichiarato RFC 8785. `statement` deve coincidere con la serializzazione canonica. Il contenuto completo di `packageJson` è vincolato da `packageSha256`; il parser v4 ne controlla anche SHA e semantica. Test Node/WebCrypto superati; interoperabilità Android da verificare. Chiave pubblica incorporata in build verificata o abbinata tramite fingerprint dal PC: non fidarsi di una chiave scaricata dal medesimo feed. Privata sul PC. Rotazione/revoca restano da implementare; nessuna chiave nuova proveniente dal feed viene accettata automaticamente. Il primo percorso supporta una sola chiave attiva, abbinata fuori banda.
 
-Il solo SHA corrente rileva alterazioni, non autentica il produttore. La firma non certifica accuratezza dei dati o tempo esterno del forecast. WebCrypto e formato firma da collaudare in Node, WebView APK e PWA; nessuna chiave reale generata ora.
+Il solo SHA corrente rileva alterazioni, non autentica il produttore. La firma non certifica accuratezza dei dati o tempo esterno del forecast. Node/WebCrypto collaudato; WebView APK e PWA del nuovo trasporto non ancora collaudate. Solo chiavi sintetiche temporanee generate nei test, eliminate dopo le prove; nessuna chiave reale dell'utente generata ora.
 
 ## Finale unico e recupero
 
-Percorsi logici: `users/{readerUid}/deliveries/{deliveryId}`, indice finale per giornata, testa del canale, dispositivi e ACK separati. Outbox locale persistente prima della rete. Transazione cloud crea consegna/finale e aggiorna testa: confronto sul predecessore, sequenza +1, finale solo se assente. Regole `getAfter` vincolano documenti collegati. Produttore ordinario non può cancellare/sostituire un finale.
+Percorsi implementati: `users/{readerUid}/channels/{channel}/events/{sequence}`, `head/current`, `finals/{season-matchday}`, `devices/{deviceId}`, `acks/{deviceId}`. Documento ruoli `users/{readerUid}/access/config`, modificabile solo dal proprietario in console. Outbox locale persistente prima della rete. Commit REST atomico con precondizioni crea evento/finale e aggiorna testa: confronto sul predecessore, sequenza +1, finale solo se assente. Regole `getAfter` vincolano documenti collegati. Produttore ordinario non può cancellare/sostituire un finale.
 
 Retry riusa consegna già sigillata e ID; stesso ID con byte diversi è errore. Modifica pre-finale → nuova anteprima. Rettifica post-finale → protocollo distinto, senza sostituzione silenziosa.
 
@@ -78,7 +80,7 @@ Dopo commit cloud, FCM invia avviso minimale con ID: niente quote, credenziali o
 
 ID restituito da FCM significa invio accettato, non ricevuto sul telefono. TTL entro scadenza; push perso/duplicato/fuori ordine gestito recuperando testa e consegne mancanti in ordine all'apertura/ritorno online. Consegna scaduta solo archivio storico, mai nuova proposta utilizzabile. ACK distinto da invio e import.
 
-Cursore persistente anche dopo restore/reset: futura revisione backup o recupero autenticato dello stato completo, senza alterare retroattivamente backup v4. Backup vecchio non autorizza rollback/duplicazione.
+Database esperimenti aggiornato da v1 a v2 conservando `snapshots` e aggiungendo `private-deliveries`, `private-cursors`, `private-finals`. Import verificato e cursore/finale in una sola transazione. Backup v4 mantiene il formato attuale e l'import additivo: nessun token, chiave o cursore nel backup. Restore vecchio non fa arretrare un cursore già presente. Dopo cancellazione dati app: nuovo abbinamento e replay remoto completo in ordine; il backup da solo non è una prova di autenticità del mittente. Migrazione/deduplicazione collaudate con fake-indexeddb, non ancora sul Samsung con il nuovo codice.
 
 ## APK principale e PWA
 
@@ -109,18 +111,29 @@ PC spento/pipeline interrotta non producono una decisione v4 verificata. App dev
 
 Prima prova candidata: settima giornata, primo kickoff registrato 16 ottobre ore 18:45 UTC. Riconfermare calendario; non congelare l'11 ottobre fuori finestra. Storico aggiornato non cambia cutoff mensile 1 ottobre. Journal originale dal 15 ottobre: valutazione separata obbligatoria e manuale.
 
-## Sviluppo senza attivazione
+## Implementazione e prove eseguite
 
-| Componente pianificato | Prove prima di servizi reali |
+| Componente | Stato concreto |
 |---|---|
-| Serializer/firma/verifica condivisi | Node/WebCrypto, alterazioni, chiave/audience errate, expiry, rollback |
-| Outbox/finale locale | Crash/retry/concorrenza, stesso ID, secondo finale respinto |
-| Regole/transazioni in emulatore | Anonimo/UID errato negati, lettore non produttore, finale immutabile, testa coerente |
-| Import e cursore app | Push perso/duplicato/fuori ordine, catena incompleta, restore vecchio; giocate invariate |
-| Trasporto/notifiche | Mock errori/timeout/quota; invio distinto da ACK; log senza segreti |
-| Stato tecnico/risultati | Analisi assente distinta da NO BET valido; rinvii/revisioni senza riscrittura forecast |
+| Firma/verifica e contratto | `shared/private-delivery.mjs`: firma ECDSA, destinatario/app/canale, hash esatti, tempi, parser v4; 256 KiB massimo |
+| Outbox | `scripts/lib/private/outbox.mjs`: file esclusivi, chain contigua, riuso dopo crash, finale unico, esclusione tra processi e recupero lock del processo terminato |
+| Trasporto REST | `shared/private-cloud.mjs`: Auth ID token, URL HTTPS fissi, timeout 15s, commit atomico/CAS, deduplicazione, ACK e registrazione dispositivo |
+| Ricezione/archivio | `shared/private-receiver.mjs`: import e cursore atomici, recupero in ordine fino a 16 eventi per chiamata (max32), rifiuto rollback/finale successivo, scaduti solo archivio |
+| Sessione | `shared/private-auth.mjs`: accesso/rinnovo, identità attesa, rinnovo serializzato, persistenza delegata ad archivio sicuro; errori senza token |
+| Archivio Windows | `windows-vault.mjs`: DPAPI CurrentUser, comandi PowerShell statici, segreti solo in pipe memoria; **collaudo Windows ancora necessario** |
+| CLI | `scripts/private-delivery.mjs`: associazione sintetica, esportazione profilo privata, login senza echo/password in argomenti, accodamento e flush senza job. Prima associazione consentita soltanto all'APK di collaudo/canale sintetico |
+| Regole cloud | `private-cloud/firestore.rules`: produttore/lettore separati, niente anonimi, chain/head atomici, finale immutabile, ACK legato a evento; **emulatore locale superato**, nessun deploy |
+| APK/FCM | Integrazione UI, Android Keystore, ricezione in background e notifiche **ancora da implementare e collaudare** |
+| Orchestratore/Task Scheduler | Stato completo delle fasi, scadenze, riconoscimento calendario, pianificazione login+PC acceso **ancora da implementare** |
+| Contesto/risultati | Raccolta automatica autorizzata, revisione mirata e monitoraggio nuove giornate **ancora da completare** |
 
-Componenti pianificati, non già implementati. Prima locale sintetico/emulatore, poi prova privata manuale autorizzata, infine autorizzazione distinta per attivazione/rilascio.
+17 nuovi test Node in `tests/private-delivery.test.mjs`: migrazione DB v1, simulazione, NO BET, firme/alterazioni, destinatari, data futura/scadenza, crash dopo scrittura e dopo commit remoto, lock tra processi, recupero lock terminato, finale unico, telefono offline/push fallito, ACK perso, recupero mentre il PC è spento simulato, backup v4, chain/rollback, rinnovo Auth e assenza di fallback DPAPI in chiaro su Linux. Gli scenari PC/telefono spento usano adapter sintetici, non attestano una consegna reale. `fake-indexeddb` è dipendenza solo di sviluppo; nessun'altra versione di libreria cambiata.
+
+Emulatore Firestore 1.19.8 avviato localmente con CLI 14.16.0 e progetto `demo-lamultipla-private`, poi spento. Test: anonimo/UID estraneo negati; lettore non pubblica; writer non scrive ACK/token dispositivo; lettore registra token; ACK falso negato; eventi/finali/ruoli non sostituibili; head fuori sequenza negata; finale NO BET commit atomico. Nessuna richiesta a progetto reale e nessun task persistente. Il test è `tests/private-cloud-emulator.mjs`, separato dalla suite ordinaria.
+
+`private-cloud/firebase.emulator.json` è configurazione soltanto locale. Per riprodurre l'emulatore usare il comando di test dalla cartella privata prevista, progetto con prefisso `demo-`, senza login/deploy. `firestore.indexes.json` esclude il campo JSON dagli indici. Registrazione ruoli e deploy delle regole nel progetto dell'utente restano da eseguire in modo guidato; non usare regole aperte temporanee.
+
+Il CLI `--flush` non invia ancora FCM: diagnostica `notifications: not_configured` e `push: not_configured`, senza confondere upload con consegna. Ripete le consegne non confermate nei limiti del batch. Conserva diagnosi senza contenuto privato in `.local/private-delivery/diagnostics`. Nessuna chiamata OddsPapi, nessun import in giocate e nessuna automazione persistente attivati da queste CLI.
 
 ## Intervento necessario dell'utente
 
@@ -128,9 +141,9 @@ Componenti pianificati, non già implementati. Prima locale sintetico/emulatore,
 2. Uso privato OddsPapi già chiarito secondo conferma dell'utente; rispettarne l'ambito. Solo l'eventuale percorso pubblico resta da chiarire, senza bloccare quello privato. Non condividere la chiave per assistenza.
 3. Evidenze umane di contesto/regole/prezzi quando richieste. Senza evidenze NO BET valido.
 4. In fase autorizzata, progetto Spark/identità/dispositivo e abbinamento chiave pubblica verificato. Segreti mai in chat.
-5. Autorizzazione distinta per job, servizi notifiche, distribuzione APK/PWA e automazione. Non presunta qui.
+5. Autorizzazione finale distinta per attivare task Windows persistenti e per rilascio/deploy di produzione. Sviluppo e collaudo sintetico del trasporto/notifiche sono già richiesti e autorizzati; non richiedere di nuovo tale autorizzazione.
 
-Sviluppo sintetico locale, analisi dipendenze e preparazione prospettica proseguono indipendentemente. Restano da analizzare 27 vulnerabilità npm segnalate prima di una nuova distribuzione.
+Sviluppo sintetico locale, integrazione APK/orchestratore e preparazione prospettica proseguono indipendentemente dalla creazione dell’account cloud. Restano da analizzare 27 vulnerabilità npm segnalate prima di una nuova distribuzione.
 
 ## Fonti primarie consultate l'11 ottobre 2026
 

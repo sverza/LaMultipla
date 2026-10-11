@@ -2,8 +2,13 @@ import {parseExperimentalEnvelope,isExperimentalInput} from './decision-v4.mjs';
 // A separate database leaves all legacy slips, migrations and financial statistics untouched.
 export const EXPERIMENT_DATABASE='lamultipla-experiments';
 const STORE='snapshots';
+export const EXPERIMENT_DATABASE_VERSION=2;
+export function upgradeExperimentDatabase(db){
+  for(const name of [STORE,'private-deliveries','private-cursors','private-finals'])
+    if(!db.objectStoreNames.contains(name))db.createObjectStore(name,{keyPath:'id'});
+}
 async function open(){return new Promise((resolve,reject)=>{
-  const req=indexedDB.open(EXPERIMENT_DATABASE,1);req.onupgradeneeded=()=>req.result.createObjectStore(STORE,{keyPath:'id'});
+  const req=indexedDB.open(EXPERIMENT_DATABASE,EXPERIMENT_DATABASE_VERSION);req.onupgradeneeded=()=>upgradeExperimentDatabase(req.result);
   req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);
 });}
 async function entries(){const db=await open();try{return await new Promise((resolve,reject)=>{
