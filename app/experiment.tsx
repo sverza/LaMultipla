@@ -1,15 +1,17 @@
 'use client';
 import type {ExperimentalEnvelope} from '../shared/decision-v4.mjs';
 import {reasonLabel,stateLabels} from '../shared/decision-v4.mjs';
+import type {PrivateDeliveryInfo} from '../shared/private-receiver.mjs';
 const percent=(p:number)=>`${(p*100).toFixed(2).replace('.', ',')}%`;
 const clock=(v:string)=>new Date(v).toLocaleString('it-IT',{dateStyle:'short',timeStyle:'medium'});
-export function ExperimentCard({envelope}:{envelope:ExperimentalEnvelope}){
+export function ExperimentCard({envelope,deliveryInfo}:{envelope:ExperimentalEnvelope;deliveryInfo?:PrivateDeliveryInfo}){
   const p=envelope.payload,receipt=p.schema==='lamultipla-public-decision-receipt-v1';
   if(receipt)return <article className="experiment-card" data-testid="public-receipt"><div className="eye">{p.sourceData==='synthetic_test'?'DATI SINTETICI · TEST SOFTWARE · ':''}RICEVUTA REDATTA · DATI QUOTE ASSENTI</div><h2>NO BET · giornata {p.matchday}</h2><p>{reasonLabel(p.cause)}</p>{p.shadowCause&&<p>{reasonLabel(p.shadowCause)}</p>}<p>Esito shadow: {p.shadowDecision}. Stake reale: 0 €. Nessuna schedina importata.</p><small>{p.season} · {clock(p.generatedAtUtc)}</small><details><summary>Provenienza della ricevuta</summary><p>Hash locale, senza firma o attestazione temporale esterna.</p><code>{p.decisionSha256}</code></details></article>;
   return <article className="experiment-card" data-testid="experiment-card">
     <div className="eye">{p.sourceData==='synthetic_test'?'DATI SINTETICI · TEST SOFTWARE':'ANALISI SPERIMENTALE PRIVATA'} · {p.final?'CONGELATA':'ANTEPRIMA'}</div>
     <h2>{stateLabels[p.status]} · giornata {p.round.matchday}</h2><small>{p.round.season} · generata {clock(p.generatedAtUtc)}</small>
     <p className="experiment-warning">Uso operativo non autorizzato. Stake reale: 0 €. Questa analisi non può diventare una giocata.</p>
+    {deliveryInfo&&<p>Firma del PC verificata · ricevuta {deliveryInfo.sequence}. Scadenza: {clock(deliveryInfo.expiresAtUtc)}.{deliveryInfo.expiredAtReception?' Ricevuta dopo la scadenza: solo archivio storico.':''}</p>}
     {p.shadowCause&&<p data-testid="no-bet-cause"><strong>{reasonLabel(p.shadowCause)}</strong></p>}
     <p>Esaminate: {p.counts.examined??0} · candidate EV: {p.counts.candidates??0} · ammesse: {p.counts.selectionReady??0}.</p>
     {p.selections.map(s=><section className="experiment-selection" key={s.quoteId}>

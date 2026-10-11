@@ -11,6 +11,17 @@ export async function readPrivateCursor(scope){const db=await open();try{return 
   const tx=db.transaction('private-cursors'),r=tx.objectStore('private-cursors').get(scope);let result;
   r.onsuccess=()=>{result=r.result??initial(scope);};tx.oncomplete=()=>resolve(result);tx.onabort=tx.onerror=()=>reject(tx.error);
 });}finally{db.close();}}
+export async function readPrivateDeliveryInfo(scope,trust,{now=new Date()}={}){
+  const db=await open();let records;
+  try{records=await new Promise((resolve,reject)=>{const tx=db.transaction('private-deliveries'),r=tx.objectStore('private-deliveries').getAll();let result;
+    r.onsuccess=()=>{result=r.result;};tx.oncomplete=()=>resolve(result);tx.onerror=tx.onabort=()=>reject(tx.error);});}finally{db.close();}
+  const result={};
+  for(const record of records.filter(r=>r.id.startsWith(scope+':'))){
+    const verified=await verifyDelivery(record.frame,trust,{now,archiveExpired:true}),s=verified.statement;
+    if(record.id!==scope+':'+s.sequence||record.deliveryHash!==verified.deliveryHash)throw new Error('Ricevuta locale alterata');
+    result[s.envelopeSha256]={sequence:s.sequence,keyId:s.keyId,expiresAtUtc:s.expiresAtUtc,expiredAtReception:record.expiredAtReception};
+  }return result;
+}
 // Signature verification finishes before the transaction. The archive, chain
 // cursor and final index commit together. No access to the slips database.
 export async function importPrivateFrame(frame,trust,{scope,now=new Date()}={}){

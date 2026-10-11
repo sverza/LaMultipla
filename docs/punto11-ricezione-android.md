@@ -1,0 +1,29 @@
+# Punto 11 — ricezione Android privata
+
+Stato 11 ottobre 2026: codice preparato, prove sintetiche locali superate. **Non ancora collaudato con un progetto Firebase reale e sul Samsung.** Nessun account, credenziale, servizio remoto, task Windows o installazione Android creato da questo sviluppo. PR #2 resta in bozza; stake reale 0 €.
+
+## Percorso implementato
+
+Il PC conserva firma ECDSA e sessioni nei vault DPAPI. Pubblica il pacchetto immutabile tramite Firebase Auth e Firestore Security Rules. La credenziale FCM, separata e cifrata con DPAPI, serve soltanto a ottenere un token OAuth con scope `firebase.messaging` e inviare un avviso contenente manifest e firma: nessuna quota o dossier nel push.
+
+Android verifica la firma del manifest prima di accodare una richiesta singola WorkManager. Il download autenticato verifica destinatario, applicazione, canale, hash dei byte, firma, date, sequenza e contratto sperimentale. Salva il pacchetto in un file privato atomico cifrato AES-GCM; chiave non esportabile in Android Keystore, associata al package e assente dal backup. Poi mostra una notifica privata senza quote. Un crash tra salvataggio e notifica riprende le notifiche pendenti; ID Android stabile per sequenza.
+
+All’apertura, il parser v4 completo verifica di nuovo il pacchetto e lo importa nella sola base esperimenti, insieme al cursore e al finale. **ACK remoto solo dopo questa transazione.** Se manca rete, l’import locale resta consultabile e l’inbox nativa resta presente fino al recupero dell’ACK. L’app recupera anche eventi mancanti all’apertura, al ritorno in primo piano e online. In primo piano controlla ogni dieci secondi soltanto l’inbox locale: nessun polling remoto periodico. La ricezione nativa è sospesa per impostazione iniziale e richiede abbinamento/accesso/abilitazione espliciti.
+
+Il PC spento dopo l’upload non impedisce il download dal cloud. Se è spento prima dell’upload, non esiste una nuova decisione da ricevere. Force-stop Android, restrizioni del produttore, Doze, rete e FCM possono ritardare o impedire il risveglio: il recupero all’apertura resta necessario. Un avviso accettato da FCM non dimostra ricezione; un pacchetto scaduto è conservato solo come archivio, senza cambiare timestamp o autorizzazione.
+
+## Configurazione e limiti
+
+Prima associazione consentita soltanto a `it.personale.lamultipla.collaudo`, canale `synthetic_shadow`. Import del profilo una sola volta e confronto del fingerprint con quello mostrato sul PC: il profilo non contiene la chiave di firma privata. Accesso con identità lettore distinta da quella del PC. Sessioni Android solo nel vault Keystore, mai in localStorage o backup v4. Le credenziali e i profili restano in `.local` e nel dispositivo: mai in chat o GitHub pubblico.
+
+Preparare un progetto personale Spark senza fatturazione, Firestore, due identità Auth e ruolo FCM dedicato senza privilegi Firestore. Applicare le regole chiuse già collaudate sull’emulatore, non regole aperte temporanee. L’effettiva configurazione e la consegna remota richiedono intervento guidato dell’utente. Il nuovo APK di collaudo si prepara in **una nuova sottocartella** tramite terzo argomento di `prepare-android-v4-collaudo.mjs`; il vecchio progetto/APK non viene sovrascritto.
+
+Dipendenze native fissate: Firebase Messaging 26.0.0 e WorkManager 2.12.0, minSdk 24. Il manifest APK finale includerà componenti SDK per il recupero del lavoro singolo: la precedente prova “nessun servizio/BOOT” riguarda il vecchio APK. Nessun `PeriodicWorkRequest`, vecchio servizio schedine eliminato nella copia di collaudo, auto-init FCM inizialmente disattivato. Nessun task persistente Windows attivato. Le vulnerabilità npm già segnalate restano da valutare prima di un rilascio.
+
+## Prove e passaggi ancora aperti
+
+Suite locale: 147 test superati, nessun test saltato; lint senza errori (un warning preesistente) e build web/TypeScript superata. Build nativa del nuovo APK ancora da verificare. Sette test aggiuntivi: associazione/fingerprint/package/progetto; firme WebCrypto verificate realmente da Java con UTF-8, chiave errata, alterazione, lunghezza e dominio errati; ACK perso con import persistente e retry senza duplicati; pacchetto alterato senza import/ACK/cancellazione; archivio nativo aggiornato prima dell’ACK in primo piano; JWT OAuth RS256 verificato e push senza quote; scadenza/destinatario/progetto/dispositivo incoerenti rifiutati prima di richieste remote. Chiavi sintetiche effimere e adapter locali: nessun messaggio reale inviato.
+
+Ancora necessari: compilazione del nuovo APK e verifica manifest risultante; progetto Spark e ruoli; abbinamento; notifica/app chiusa; telefono su rete mobile e PC su rete domestica; modalità aereo e ritorno online; PC spento dopo upload; perdita ACK e recupero; riavvio telefono; permesso negato/force-stop; backup v4 dopo ricezione. Orchestratore Windows, Task Scheduler, automazione del contesto e monitoraggio delle giornate restano attività separate da completare. Nessuna promozione del modello a uso operativo.
+
+Fonti: [FCM HTTP v1](https://firebase.google.com/docs/cloud-messaging/send/v1-api), [callback Android e lavoro differito](https://firebase.google.com/docs/cloud-messaging/android/receive-messages), [Android Keystore](https://developer.android.com/privacy-and-security/keystore), [WorkManager](https://developer.android.com/jetpack/androidx/releases/work), [Firebase prezzi](https://firebase.google.com/pricing). Le quote gratuite vanno riconfermate prima della configurazione e monitorate; nessuna garanzia di tempestività o gratuità perpetua.

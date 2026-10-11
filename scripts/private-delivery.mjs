@@ -10,6 +10,8 @@ import {base64url,unbase64url,keyFingerprint} from '../shared/private-delivery.m
 import {createPrivateCloud,validateCloudConfig} from '../shared/private-cloud.mjs';
 import {createPrivateAuth} from '../shared/private-auth.mjs';
 import {writeExclusive} from './lib/prospective/store.mjs';
+import {createFcmNotifier,validateFcmCredential} from './lib/private/fcm.mjs';
+import {validatePrivatePairing} from '../shared/private-pairing.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),directory=path.join(root,'.local','private-delivery');
 function arg(name){const i=process.argv.indexOf(name);if(i<0)return null;const v=process.argv[i+1];if(!v||v.startsWith('--'))throw new Error('Argomento richiesto: '+name);return path.resolve(v);}
 async function main(){
@@ -30,6 +32,7 @@ async function main(){
       const trust={readerUid:config.readerUid,applicationId:config.applicationId,channel:config.channel,keys:{[id]:spki}};
       const profile={schema:'lamultipla-private-pairing-v1',projectId:config.projectId,apiKey:config.apiKey,mobileAppId:config.mobileAppId,senderId:config.senderId,
         deviceId:randomUUID(),trust};
+      await validatePrivatePairing(profile,config.applicationId,id);
       // Save key first. If pairing export fails, do not silently create a new key.
       await vault.save({config,profile,privateKeyPkcs8:base64url(await crypto.subtle.exportKey('pkcs8',pair.privateKey))});
       const filename=path.join(directory,'phone-pairing.private.json');
@@ -39,6 +42,15 @@ async function main(){
   }
   const stored=await vault.load();if(!stored)throw new Error('Associazione privata non configurata');
   const {config,profile}=stored,trust=profile.trust,outbox=path.join(directory,'outbox');
+  const fcmVault=windowsVault(path.join(directory,'fcm.dpapi.json')),fcmPath=arg('--install-fcm');
+  if(fcmPath){
+    if(!path.relative(path.join(root,'.local'),fcmPath)||path.relative(path.join(root,'.local'),fcmPath).startsWith('..')||path.isAbsolute(path.relative(path.join(root,'.local'),fcmPath)))throw new Error('Credenziale FCM richiesta dentro .local');
+    return privateLock(directory,async()=>{
+      if(await fcmVault.load())throw new Error('Credenziale FCM già presente: nessuna sovrascrittura');
+      await fcmVault.save(validateFcmCredential(JSON.parse(await fs.readFile(fcmPath,'utf8')),config.projectId));
+      return {encryptedOnDisk:true,purpose:'PRIVATE_FCM_CREDENTIAL',jobsEnabled:false};
+    });
+  }
   if(process.argv.includes('--export-pairing')){
     const filename=path.join(directory,'phone-pairing.private.json');await fs.writeFile(filename,JSON.stringify(profile,null,2)+'\n',{flag:'wx',mode:0o600});
     return {pairingFile:filename};
@@ -59,11 +71,12 @@ async function main(){
   }
   if(process.argv.includes('--flush')){
     const cloud=createPrivateCloud(config,{getIdToken:auth.getIdToken});
-    const result=await privateLock(directory,()=>flushOutbox({directory:outbox,trust,cloud,deviceId:profile.deviceId}));
+    const credential=await fcmVault.load(),notify=credential?createFcmNotifier({credential,projectId:config.projectId,deviceId:profile.deviceId,applicationId:trust.applicationId,readerUid:trust.readerUid,cloud}):undefined;
+    const result=await privateLock(directory,()=>flushOutbox({directory:outbox,trust,cloud,deviceId:profile.deviceId,notify}));
     const diagnostic=path.join(directory,'diagnostics',new Date().toISOString().replaceAll(':','-')+'-'+randomUUID()+'.json');
     await writeExclusive(diagnostic,{schema:'lamultipla-private-flush-v1',atUtc:new Date().toISOString(),...result});
-    return {...result,notifications:'not_configured',jobsEnabled:false};
+    return {...result,notifications:notify?'configured':'not_configured',jobsEnabled:false};
   }
-  throw new Error('Usare --init, --export-pairing, --queue o --flush');
+  throw new Error('Usare --init, --export-pairing, --install-fcm, --login, --queue o --flush');
 }
 main().then(result=>console.log(JSON.stringify(result,null,2))).catch(error=>{console.error(error.message);process.exitCode=1;});

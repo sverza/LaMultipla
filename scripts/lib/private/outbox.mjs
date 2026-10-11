@@ -76,7 +76,7 @@ export async function flushOutbox({directory,trust,cloud,deviceId,now=new Date()
     for(const r of pending){
       const accepted=await cloud.publish(r.frame);let push='expired_archive';
       if(!r.expired&&!notify)push='not_configured';
-      if(!r.expired&&notify){try{await notify(r.statement);push='accepted_not_device_ack';}catch{push='failed_retry_later';}}
+      if(!r.expired&&notify){try{await notify(r.frame);push='accepted_not_device_ack';}catch{push='failed_retry_later';}}
       results.push({sequence:r.statement.sequence,deliveryId:r.statement.deliveryId,serverAccepted:accepted.accepted,push});
     }return {acknowledged:ack?.sequence??0,pending:records.length-(ack?.sequence??0),results};
   });

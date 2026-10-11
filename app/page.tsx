@@ -2,6 +2,9 @@
 /* eslint-disable @next/next/no-img-element -- i percorsi relativi devono funzionare anche sotto GitHub Pages */
 
 import {ExperimentCard} from './experiment';
+import {PrivateDelivery} from './private-delivery';
+import {privateDeliveryInfo} from './lib/private';
+import type {PrivateDeliveryInfo} from '../shared/private-receiver.mjs';
 import type {ExperimentalEnvelope} from '../shared/decision-v4.mjs';
 import {isExperimentalInput,isLocalExperimentPreview} from '../shared/decision-v4.mjs';
 import {readExperiments,addExperiment,mergeExperiments,makeBackup,parseBackup} from '../shared/experimental-store.mjs';
@@ -91,6 +94,7 @@ const sortSlips = (items: Slip[]) => items.slice().sort((a, b) => b.date.localeC
 
 export default function Home() {
   const [experiments,setExperiments]=useState<ExperimentalEnvelope[]>([]);
+  const [deliveryInfo,setDeliveryInfo]=useState<Record<string,PrivateDeliveryInfo>>({});
   const [experimentalText,setExperimentalText]=useState('');
   const experimentInput=useRef<HTMLInputElement>(null);
   const [slips, setSlips] = useState<Slip[]>([]);
@@ -125,6 +129,7 @@ export default function Home() {
     setSlips(items);
     try {setExperiments((await readExperiments()).sort((a,b)=>b.payload.generatedAtUtc.localeCompare(a.payload.generatedAtUtc)));}
     catch {setMessage('Archive sperimentale non verificabile; lo storico delle giocate resta disponibile.');}
+    try{setDeliveryInfo(await privateDeliveryInfo());}catch{setDeliveryInfo({});setMessage('Provenienza delle ricevute private non verificabile.');}
     setReady(true);
     setActiveSeason((current) => {
       if (current && items.some((slip) => slip.season === current)) return current;
@@ -140,6 +145,7 @@ export default function Home() {
     setNotifications(await notificationPermission());
     if(!localExperimentPreview())setUpdateInfo(await fetchUpdateInfo());
   }, []);
+  const privateReceived=useCallback(async()=>{await load();setView('experiment');setMessage('Analisi privata firmata ricevuta. Stake reale 0 €.');},[load]);
 
   const checkGitHub = useCallback(async (announce = false) => {
     if(localExperimentPreview()){if(announce)setMessage('Anteprima locale: feed pubblico disabilitato; usa il pacchetto privato.');return;}
@@ -466,6 +472,7 @@ export default function Home() {
       </header>
 
       <section className="content">
+        <PrivateDelivery visible={view==='experiment'} onReceived={privateReceived} />
         {view === 'dash' && <>
           <div className="page-intro"><div><div className="eye">PANORAMICA STAGIONE</div><h1>Il tuo campionato,<br /><em>una multipla alla volta.</em></h1></div>{renderSeasonSelector()}</div>
           {!ready ? <div className="empty">Caricamento…</div> : <>
@@ -505,7 +512,7 @@ export default function Home() {
             <details><summary>Incolla il JSON</summary><textarea aria-label="Pacchetto sperimentale v4" value={experimentalText} onChange={event=>setExperimentalText(event.target.value)} /><button className="secondary wide" onClick={importExperimentText}>Verifica e importa analisi</button></details>
           </section>
           {!experiments.length&&<div className="empty">Nessuna analisi sperimentale importata.</div>}
-          {experiments.map(item=><ExperimentCard key={item.sha256} envelope={item} />)}
+          {experiments.map(item=><ExperimentCard key={item.sha256} envelope={item} deliveryInfo={deliveryInfo[item.sha256]} />)}
         </>}
 
         {view === 'settings' && <>

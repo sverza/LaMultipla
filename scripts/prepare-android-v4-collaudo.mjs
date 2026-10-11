@@ -89,7 +89,7 @@ export function prepareAndroidCollaudo(root, destination = path.join(root, '.loc
   });
   modify('android/app/build.gradle', text => replaceOnce(text, 'applicationId "it.personale.lamultipla"', `applicationId "${TEST_APP_ID}"`));
   modify('android/app/src/main/res/values/strings.xml', text => text.replaceAll('La Multipla', 'LaMultipla TEST APK').replaceAll('it.personale.lamultipla', TEST_APP_ID));
-  modify('app/layout.tsx', text => replaceOnce(text, '<body>{children}</body>', '<body><div role="status" style={{padding:8,textAlign:"center",background:"#ccf068",color:"#10241e",fontWeight:700}}>APK DI COLLAUDO · dati sintetici · nessuna automazione · stake reale 0 €</div>{children}</body>'));
+  modify('app/layout.tsx', text => replaceOnce(text, '<body>{children}</body>', '<body><div role="status" style={{padding:8,textAlign:"center",background:"#ccf068",color:"#10241e",fontWeight:700}}>APK DI COLLAUDO · dati sintetici · stake reale 0 €</div>{children}</body>'));
   modify('package.json', text => {
     const pkg = JSON.parse(text);
     pkg.name = 'lamultipla-private-android-collaudo';
@@ -114,7 +114,7 @@ export function prepareAndroidCollaudo(root, destination = path.join(root, '.loc
     purpose: 'SYNTHETIC_ANDROID_V4_TEST_ONLY', destination, applicationId: TEST_APP_ID,
     sourceCommit: execFileSync('git', ['-C', root, 'rev-parse', 'HEAD'], {encoding: 'utf8'}).trim(),
     sourceHashes, actualStakeEUR: 0, apiRequests: 0, jobsEnabled: false,
-    remoteFeedEnabled: false, release: false, sourceUnchanged: true,
+    remoteFeedEnabled: false, privateReceptionRequiresPairing: true, periodicJobsEnabled: false, release: false, sourceUnchanged: true,
   };
   for (const [name, expected] of Object.entries(sourceHashes)) {
     if (sha(fs.readFileSync(path.join(root, name))) !== expected) throw new Error(`Sorgente cambiato durante preparazione: ${name}`);
@@ -126,7 +126,7 @@ export function prepareAndroidCollaudo(root, destination = path.join(root, '.loc
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     if (!process.argv[2]) throw new Error('Uso: node prepare-android-v4-collaudo.mjs <repository-root>');
-    const {sourceHashes, ...summary} = prepareAndroidCollaudo(process.argv[2]);
+    const {sourceHashes, ...summary} = prepareAndroidCollaudo(process.argv[2],process.argv[3]);
     console.log(JSON.stringify({...summary, sourceFilesVerified: Object.keys(sourceHashes).length}, null, 2));
   } catch (error) { console.error(error.message); process.exitCode = 1; }
 }

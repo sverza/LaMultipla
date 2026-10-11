@@ -87,3 +87,7 @@ Recupero precedente pubblicato in `cd313130d078801e138c5ce627e51abd7fca5417`; PR
 DPAPI non è collaudabile nel container Linux: predisposto `scripts/private-vault-selftest.mjs`, che sul PC crea soltanto una cartella di prova nuova dentro `.local`, verifica cifratura/lettura/rifiuto alterazioni, poi elimina esclusivamente tale cartella. Non richiede credenziali o account cloud. Non ripetere i collaudi manuali v4/PWA/APK già superati: questo è un nuovo componente.
 
 Nessuna consegna cloud/FCM reale o integrazione APK del nuovo trasporto attestata. Orchestratore, Task Scheduler non attivato, contesto automatico, risultati e prova end-to-end su Samsung restano lavori aperti. Il journal originale rimane una valutazione separata obbligatoria dal 15 ottobre, senza modificarne gli snapshot.
+
+## Aggiornamento DPAPI e ricezione privata
+
+DPAPI collaudato sul PC Windows dall’utente: `encryptedOnDisk`, `sameUserRoundTrip`, `tamperingRejected` tutti veri, zero richieste API e nessun job attivato. Nuovo codice APK/FCM preparato; il precedente APK offline resta una prova del contratto v4, non del nuovo trasporto. Build e collaudo sul Samsung del nuovo APK restano aperti. Vedere `punto11-ricezione-android.md`.

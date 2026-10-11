@@ -2,7 +2,7 @@
 
 Aggiornamento dell'11 ottobre 2026. Recupero del precedente lavoro pubblicato in `cd313130d078801e138c5ce627e51abd7fca5417`, PR #2 in bozza e CI verde. **Protocollo di trasporto e recupero implementato e collaudato localmente; servizio reale e integrazione APK ancora da completare.** Nessun progetto cloud reale, job, trigger, workflow, deploy o automazione persistente attivato. Stake reale 0 €.
 
-Il punto 11 resta un lavoro in corso: questi componenti non costituiscono ancora un ciclo autonomo PC → Samsung. Il collaudo Windows DPAPI e quello Android del nuovo trasporto non sono sostituiti dalle prove Node/emulatore.
+Il punto 11 resta un lavoro in corso: questi componenti non costituiscono ancora un ciclo autonomo PC → Samsung. Il collaudo Windows DPAPI è superato sul PC dell’utente: cifratura su disco, recupero con lo stesso utente e rifiuto del ciphertext alterato. Il nuovo trasporto Android richiede ancora build e prova sul Samsung; le prove Node/emulatore non le sostituiscono.
 
 ## Dove eseguire il motore
 
@@ -76,7 +76,7 @@ Percorsi implementati: `users/{readerUid}/channels/{channel}/events/{sequence}`,
 
 Retry riusa consegna già sigillata e ID; stesso ID con byte diversi è errore. Modifica pre-finale → nuova anteprima. Rettifica post-finale → protocollo distinto, senza sostituzione silenziosa.
 
-Dopo commit cloud, FCM invia avviso minimale con ID: niente quote, credenziali o dossier nella notifica. App scarica autenticata, verifica firma/destinatario/hash/tempi/sequenza, poi parser v4 e import Esperimento. Import e cursore salvati atomicamente. Deduplicazione SHA attuale mantenuta; da sola non impedisce due finali diversi della stessa giornata.
+Dopo commit cloud, FCM invia manifest firmato e firma (senza pacchetto): niente quote, credenziali o dossier nella notifica. App scarica autenticata, verifica firma/destinatario/hash/tempi/sequenza, poi parser v4 e import Esperimento. Import e cursore salvati atomicamente. Deduplicazione SHA attuale mantenuta; da sola non impedisce due finali diversi della stessa giornata.
 
 ID restituito da FCM significa invio accettato, non ricevuto sul telefono. TTL entro scadenza; push perso/duplicato/fuori ordine gestito recuperando testa e consegne mancanti in ordine all'apertura/ritorno online. Consegna scaduta solo archivio storico, mai nuova proposta utilizzabile. ACK distinto da invio e import.
 
@@ -84,7 +84,7 @@ Database esperimenti aggiornato da v1 a v2 conservando `snapshots` e aggiungendo
 
 ## APK principale e PWA
 
-APK: futura ricezione FCM/apertura esperimento. Callback Android con tempo limitato; download lunghi richiederebbero lavoro successivo o recupero all'apertura. Nuovi servizi/job richiedono la fase autorizzata; nessuno aggiunto ora. Provare permessi notifiche, app chiusa, Doze, offline, token ruotato, force-stop. Piano gratuito non garantisce tempestività.
+APK: implementati ricezione FCM, verifica nativa della firma e download differito con WorkManager, archivio cifrato con Android Keystore, importazione v4 e ACK all’apertura. Codice da compilare e collaudare sul dispositivo. Nessuna configurazione privata o attivazione avvenuta. Non viene registrato lavoro periodico: soltanto richieste singole dopo abilitazione esplicita, avviso firmato o recupero. Provare permessi notifiche, app chiusa, Doze, offline, token ruotato, force-stop. Piano gratuito non garantisce tempestività.
 
 PWA: HTTPS, Push API, permesso, VAPID. Integrare FCM nello stesso service worker, evitando registrazioni concorrenti sullo scope. Fissare SDK e API della versione: guida consultata presenta registrazione FID e deprecazione `getToken`. PWA aggiuntiva; prova locale offline non attesta push web o hosting produzione.
 
@@ -120,10 +120,10 @@ Prima prova candidata: settima giornata, primo kickoff registrato 16 ottobre ore
 | Trasporto REST | `shared/private-cloud.mjs`: Auth ID token, URL HTTPS fissi, timeout 15s, commit atomico/CAS, deduplicazione, ACK e registrazione dispositivo |
 | Ricezione/archivio | `shared/private-receiver.mjs`: import e cursore atomici, recupero in ordine fino a 16 eventi per chiamata (max32), rifiuto rollback/finale successivo, scaduti solo archivio |
 | Sessione | `shared/private-auth.mjs`: accesso/rinnovo, identità attesa, rinnovo serializzato, persistenza delegata ad archivio sicuro; errori senza token |
-| Archivio Windows | `windows-vault.mjs`: DPAPI CurrentUser, comandi PowerShell statici, segreti solo in pipe memoria; **collaudo Windows ancora necessario** |
+| Archivio Windows | `windows-vault.mjs`: DPAPI CurrentUser, comandi PowerShell statici, segreti solo in pipe memoria; **collaudo Windows superato sul PC dell’utente** |
 | CLI | `scripts/private-delivery.mjs`: associazione sintetica, esportazione profilo privata, login senza echo/password in argomenti, accodamento e flush senza job. Prima associazione consentita soltanto all'APK di collaudo/canale sintetico |
 | Regole cloud | `private-cloud/firestore.rules`: produttore/lettore separati, niente anonimi, chain/head atomici, finale immutabile, ACK legato a evento; **emulatore locale superato**, nessun deploy |
-| APK/FCM | Integrazione UI, Android Keystore, ricezione in background e notifiche **ancora da implementare e collaudare** |
+| APK/FCM | UI, Android Keystore, FCM HTTP v1, download differito e notifica implementati; **build APK e collaudo del nuovo trasporto sul Samsung ancora necessari** |
 | Orchestratore/Task Scheduler | Stato completo delle fasi, scadenze, riconoscimento calendario, pianificazione login+PC acceso **ancora da implementare** |
 | Contesto/risultati | Raccolta automatica autorizzata, revisione mirata e monitoraggio nuove giornate **ancora da completare** |
 
@@ -133,7 +133,7 @@ Emulatore Firestore 1.19.8 avviato localmente con CLI 14.16.0 e progetto `demo-l
 
 `private-cloud/firebase.emulator.json` è configurazione soltanto locale. Per riprodurre l'emulatore usare il comando di test dalla cartella privata prevista, progetto con prefisso `demo-`, senza login/deploy. `firestore.indexes.json` esclude il campo JSON dagli indici. Registrazione ruoli e deploy delle regole nel progetto dell'utente restano da eseguire in modo guidato; non usare regole aperte temporanee.
 
-Il CLI `--flush` non invia ancora FCM: diagnostica `notifications: not_configured` e `push: not_configured`, senza confondere upload con consegna. Ripete le consegne non confermate nei limiti del batch. Conserva diagnosi senza contenuto privato in `.local/private-delivery/diagnostics`. Nessuna chiamata OddsPapi, nessun import in giocate e nessuna automazione persistente attivati da queste CLI.
+Il CLI `--flush` invia FCM quando è stata installata la credenziale dedicata nel vault DPAPI tramite `--install-fcm`. In sua assenza espone `notifications: not_configured` e `push: not_configured`, senza confondere upload con consegna. La credenziale di servizio è usata solo per FCM, con scope OAuth messaging; Firestore continua a usare ID token Auth e Security Rules. Ruolo IAM dedicato da predisporre, senza privilegi Firestore. Ripete le consegne non confermate nei limiti del batch. Conserva diagnosi senza contenuto privato in `.local/private-delivery/diagnostics`. Nessuna chiamata OddsPapi, nessun import in giocate e nessuna automazione persistente attivati da queste CLI.
 
 ## Intervento necessario dell'utente
 
