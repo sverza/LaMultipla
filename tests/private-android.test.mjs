@@ -17,6 +17,26 @@ import {syntheticDecisionBundle,syntheticNow} from './fixtures/decision.mjs';
 import {appPackage} from '../scripts/lib/decision/app-package.mjs';
 import {envelope} from '../scripts/lib/prospective/store.mjs';
 const applicationId='it.personale.lamultipla.collaudo',readerUid='SYNTHETIC_READER',projectId='demo-private-android',deviceId='synthetic-device-01';
+test('actual Java diagnostic formatter retains fixed failure stages but never secret messages or arbitrary input',async t=>{
+  let compiler='javac',prefix=[];
+  try{execFileSync(compiler,['-version'],{stdio:'pipe'});}catch{compiler='java';prefix=['-m','jdk.compiler/com.sun.tools.javac.Main'];
+    try{execFileSync(compiler,[...prefix,'-version'],{stdio:'pipe'});}catch{t.skip('JDK required for native diagnostic test');return;}}
+  const directory=await fs.mkdtemp(path.join(os.tmpdir(),'lamultipla-java-diagnostics-'));t.after(()=>fs.rm(directory,{recursive:true,force:true}));
+  const source=fileURLToPath(new URL('../android/app/src/main/java/it/personale/lamultipla/PrivateDiagnosticCode.java',import.meta.url));
+  const main=`import it.personale.lamultipla.PrivateDiagnosticCode;
+public class DiagnosticTest {public static void main(String[] args){
+System.out.println(PrivateDiagnosticCode.format("HINT_RECEIVED",null));
+System.out.println(PrivateDiagnosticCode.format("HINT_VERIFY",new Exception("Clock")));
+System.out.println(PrivateDiagnosticCode.format("HEAD_READ",new Exception("HTTP_403")));
+System.out.println(PrivateDiagnosticCode.format("SESSION_READ",new IllegalStateException("https://example.test/?api_key=SYNTHETIC_SECRET token=SYNTHETIC_TOKEN user=SYNTHETIC_UID")));
+System.out.println(PrivateDiagnosticCode.format("SYNTHETIC_SECRET",new Exception("HTTP_403 token=SYNTHETIC_TOKEN")));
+}}`;
+  await fs.writeFile(path.join(directory,'DiagnosticTest.java'),main);
+  execFileSync(compiler,[...prefix,'-d',directory,source,path.join(directory,'DiagnosticTest.java')],{stdio:'pipe'});
+  const result=execFileSync('java',['-cp',directory,'DiagnosticTest'],{encoding:'utf8'}).trim();
+  assert.deepEqual(result.split(/\r?\n/),['HINT_RECEIVED','HINT_VERIFY_FAILED:Exception:Clock','HEAD_READ_FAILED:Exception:HTTP_403','SESSION_READ_FAILED:IllegalStateException','UNKNOWN_FAILED:Exception']);
+  assert.doesNotMatch(result,/SYNTHETIC|https|api_key|token=/);
+});
 async function setup(){
   const keys=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);
   const spki=base64url(await crypto.subtle.exportKey('spki',keys.publicKey)),keyId=await keyFingerprint(spki);

@@ -75,7 +75,15 @@ export function createPrivateCloud(config,{getIdToken,fetchImpl=fetch}={}) {
     if(!/^[a-z0-9-]{8,64}$/.test(deviceId)||typeof fcmToken!=='string'||!fcmToken||fcmToken.length>4096
       ||!['it.personale.lamultipla','it.personale.lamultipla.collaudo'].includes(applicationId))throw new Error('Registrazione privata non valida');
     const path=`${prefix}/devices/${deviceId}`,old=await getDoc(path);
-    await request(':commit',{method:'POST',data:{writes:[write(path,{fcmToken,applicationId},old?{updateTime:old.updateTime}:{exists:false})]}});
+    const matches=doc=>{const value=decode(doc);return value?.fcmToken===fcmToken&&value.applicationId===applicationId;};
+    if(matches(old))return;
+    try{await request(':commit',{method:'POST',data:{writes:[write(path,{fcmToken,applicationId},old?{updateTime:old.updateTime}:{exists:false})]}});}
+    catch(error){
+      // Native token rotation can race the foreground CAS; a lost response can
+      // also follow a successful commit. Confirm exact desired values once.
+      if(error.status&&![409,412].includes(error.status))throw error;
+      if(matches(await getDoc(path)))return;throw error;
+    }
   }
   return {head,event,publish,acknowledge,ack,device,registerDevice,canonical};
 }

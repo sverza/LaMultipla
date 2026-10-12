@@ -13,6 +13,7 @@ public class LaMultiplaApplication extends Application {
                 .setApplicationId(profile.getString("mobileAppId")).setGcmSenderId(profile.getString("senderId")).build();
             if(FirebaseApp.getApps(this).isEmpty())FirebaseApp.initializeApp(this,options);
             FirebaseMessaging.getInstance().setAutoInitEnabled(true);
-        }catch(Exception ignored){/* Locked/unavailable vault: recover after opening app; no plaintext fallback. */}
+            android.util.Log.i("LaMultiplaPrivateDiag",PrivateDiagnosticCode.format("FIREBASE_INIT",null));
+        }catch(Exception error){android.util.Log.w("LaMultiplaPrivateDiag",PrivateDiagnosticCode.format("FIREBASE_INIT",error));}
     }
 }

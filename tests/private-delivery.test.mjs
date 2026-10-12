@@ -45,6 +45,25 @@ function fakeFirestore(){
   return {docs,requests,fetchImpl,loseCommitResponse:()=>{failAfterCommit=true;}};
 }
 function cloudFor(s,server){return createPrivateCloud(s.config,{getIdToken:async()=>'SYNTHETIC_AUTH',fetchImpl:server.fetchImpl});}
+test('device registration confirms lost commit response and skips identical token without another write',async t=>{
+  const s=await setup(t),server=fakeFirestore(),cloud=cloudFor(s,server),token='SYNTHETIC_DEVICE_TOKEN_123456';
+  server.loseCommitResponse();await cloud.registerDevice('synthetic-device',token,s.trust.applicationId);
+  await cloud.registerDevice('synthetic-device',token,s.trust.applicationId);
+  assert.deepEqual(await cloud.device('synthetic-device'),{fcmToken:token,applicationId:s.trust.applicationId});
+  assert.equal(server.requests.filter(r=>r.options.method==='POST').length,1);
+});
+test('device CAS conflict recovers only exact desired token; 403 never becomes success or a retry',async t=>{
+  const s=await setup(t),server=fakeFirestore(),token='SYNTHETIC_DEVICE_TOKEN_123456';let deny=false,posts=0;
+  const fetchImpl=async(url,options)=>{
+    if(options.method==='POST'){posts++;if(deny)return new Response(null,{status:403});
+      await server.fetchImpl(url,options);return new Response(null,{status:409});}
+    return server.fetchImpl(url,options);
+  };
+  const cloud=createPrivateCloud(s.config,{getIdToken:async()=>'SYNTHETIC_AUTH',fetchImpl});
+  await cloud.registerDevice('synthetic-device',token,s.trust.applicationId);assert.equal(posts,1);
+  deny=true;await assert.rejects(cloud.registerDevice('synthetic-device',token+'-rotated',s.trust.applicationId),/403/);
+  assert.equal(posts,2);assert.equal((await cloud.device('synthetic-device')).fcmToken,token);
+});
 test('existing experiment DB v1 upgrades without losing snapshots; legacy slips remain untouched',async t=>{
   const s=await setup(t),db=await new Promise((resolve,reject)=>{const r=indexedDB.open('lamultipla-experiments',1);
     r.onupgradeneeded=()=>r.result.createObjectStore('snapshots',{keyPath:'id'});r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});

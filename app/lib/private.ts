@@ -5,6 +5,7 @@ import {createPrivateCloud} from '../../shared/private-cloud.mjs';
 import {validatePrivatePairing,type PrivatePairing} from '../../shared/private-pairing.mjs';
 import {receiverScope,readPrivateCursor,readPrivateDeliveryInfo} from '../../shared/private-receiver.mjs';
 import {receiveAndroidPrivate,type PrivateInboxBridge} from '../../shared/private-android-receiver.mjs';
+import {activatePrivateReception} from '../../shared/private-activation.mjs';
 export type PrivateStatus={backgroundEnabled:boolean;pending:number;lastFailure:string};
 type PrivateBridge=PrivateInboxBridge&{
   applicationId:()=>Promise<{value:string}>;loadProfile:()=>Promise<{value:PrivatePairing|null}>;saveProfile:(v:{json:string})=>Promise<void>;
@@ -31,7 +32,10 @@ export async function pairPrivate(value:unknown,fingerprint:string){
 }
 export async function loginPrivate(email:string,password:string){const c=await getClient();await c.auth.signIn(email,password);}
 export async function enablePrivate(enabled:boolean){
-  await Native.setBackground({enabled});if(enabled){const c=await getClient();await c.cloud.registerDevice(c.profile.deviceId,(await Native.fcmToken()).value,c.profile.trust.applicationId);}
+  if(!enabled){await Native.setBackground({enabled:false});return;}
+  const c=await getClient();
+  await activatePrivateReception({ensureSession:()=>c.auth.getIdToken(),setBackground:enabled=>Native.setBackground({enabled}),
+    registerDevice:async()=>c.cloud.registerDevice(c.profile.deviceId,(await Native.fcmToken()).value,c.profile.trust.applicationId)});
 }
 export async function logoutPrivate(){await Native.setBackground({enabled:false});const c=await getClient();await c.auth.signOut();client=null;}
 export async function receivePrivate(onImported:()=>Promise<void>){

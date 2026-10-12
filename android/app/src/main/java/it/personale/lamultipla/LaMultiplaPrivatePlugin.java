@@ -51,10 +51,10 @@ public class LaMultiplaPrivatePlugin extends Plugin {
             WorkManager.getInstance(getContext()).cancelAllWorkByTag(PrivateDownloadWorker.TAG);
             if(!FirebaseApp.getApps(getContext()).isEmpty())FirebaseMessaging.getInstance().setAutoInitEnabled(false);
         }call.resolve();
-    }catch(Exception e){call.reject("Ricezione privata non configurata");}}
+    }catch(Exception e){android.util.Log.w("LaMultiplaPrivateDiag",PrivateDiagnosticCode.format("BACKGROUND_ENABLE",e));call.reject("Ricezione privata non configurata");}}
     @PluginMethod public void fcmToken(PluginCall call){try{
         JSONObject s=PrivateVault.load(getContext());if(!s.optBoolean("backgroundEnabled"))throw new Exception();firebase(s.getJSONObject("profile"));
-        FirebaseMessaging.getInstance().getToken().addOnCompleteListener(task->{if(!task.isSuccessful())call.reject("Registrazione notifiche non riuscita");else{
+        FirebaseMessaging.getInstance().getToken().addOnCompleteListener(task->{if(!task.isSuccessful()){android.util.Log.w("LaMultiplaPrivateDiag",PrivateDiagnosticCode.format("FCM_REGISTER",task.getException()));call.reject("Registrazione notifiche non riuscita");}else{
             try{PrivateVault.put(getContext(),"fcmToken",task.getResult());call.resolve(new JSObject().put("value",task.getResult()));}
             catch(Exception e){call.reject("Registrazione notifiche non salvata");}
         }});
