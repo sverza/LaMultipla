@@ -12,10 +12,21 @@ import {createPrivateAuth} from '../shared/private-auth.mjs';
 import {writeExclusive} from './lib/prospective/store.mjs';
 import {createFcmNotifier,validateFcmCredential} from './lib/private/fcm.mjs';
 import {validatePrivatePairing} from '../shared/private-pairing.mjs';
+import {repairWriterIdentity} from './lib/private/writer-identity.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),directory=path.join(root,'.local','private-delivery');
 function arg(name){const i=process.argv.indexOf(name);if(i<0)return null;const v=process.argv[i+1];if(!v||v.startsWith('--'))throw new Error('Argomento richiesto: '+name);return path.resolve(v);}
 async function main(){
   const vault=windowsVault(path.join(directory,'writer.dpapi.json'));
+  const repairInput=arg('--repair-writer');
+  if(repairInput){
+    if(process.platform!=='win32')throw new Error('Correzione identità consentita solo sul PC Windows');
+    const relative=path.relative(directory,repairInput);
+    if(!relative||relative.startsWith('..')||path.isAbsolute(relative))throw new Error('File di correzione richiesto nella cartella privata');
+    const bytes=await fs.readFile(repairInput,'utf8');if(bytes.length>4096)throw new Error('Richiesta di correzione troppo grande');
+    let input;try{input=JSON.parse(bytes);}catch{throw new Error('Richiesta di correzione JSON non valida');}
+    if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).sort().join(',')!=='purpose,readerUid,writerUid'||input.purpose!=='REPAIR_WRITER_IDENTITY_ONLY')throw new Error('Richiesta di correzione non valida');
+    return repairWriterIdentity({directory,vault,writerUid:input.writerUid,readerUid:input.readerUid});
+  }
   const configPath=arg('--init');
   if(configPath){
     if(process.platform!=='win32')throw new Error('Inizializzazione consentita solo sul PC Windows');
@@ -77,6 +88,6 @@ async function main(){
     await writeExclusive(diagnostic,{schema:'lamultipla-private-flush-v1',atUtc:new Date().toISOString(),...result});
     return {...result,notifications:notify?'configured':'not_configured',jobsEnabled:false};
   }
-  throw new Error('Usare --init, --export-pairing, --install-fcm, --login, --queue o --flush');
+  throw new Error('Usare --init, --repair-writer, --export-pairing, --install-fcm, --login, --queue o --flush');
 }
 main().then(result=>console.log(JSON.stringify(result,null,2))).catch(error=>{console.error(error.message);process.exitCode=1;});
