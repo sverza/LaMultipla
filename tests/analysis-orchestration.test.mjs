@@ -121,7 +121,7 @@ test('private preflight admits source claims with original field names, pins inp
 test('production decision adapter invokes only shadow.mjs with pinned local inputs, never a second selector/live odds',()=>{
   const args=shadowArguments('/SYNTHETIC-root',{inputs:{studyFile:{file:'/SYNTHETIC-study'},contextEvidenceFile:{file:'/SYNTHETIC-context'}},maxLegs:4},
     {dataset:{purpose:'SYNTHETIC_HISTORY'},forecast:{filename:'/SYNTHETIC-journal'},quotes:{filename:'/SYNTHETIC-report'}});
-  assert.equal(args[0],'/SYNTHETIC-root/scripts/shadow.mjs');assert.ok(args.includes('--context-evidence'));assert.ok(!args.includes('--live-odds'));assert.ok(!args.includes('--cycle'));
+  assert.equal(args[0],path.join('/SYNTHETIC-root','scripts/shadow.mjs'));assert.ok(args.includes('--context-evidence'));assert.ok(!args.includes('--live-odds'));assert.ok(!args.includes('--cycle'));
 });
 
 function provider(){let calls=0;return {get calls(){return calls;},fetchImpl:async url=>{calls++;return {ok:true,status:200,json:async()=>url.pathname.endsWith('/account')?account():url.pathname.endsWith('/markets')?catalog:sample()};}};}
