@@ -1,0 +1,41 @@
+# Punto 11 — fasi analitiche persistenti
+
+13 ottobre 2026. Nuovo componente eseguibile oltre al pump di consegna collaudato su Windows. Non attiva task, non crea trigger, non pubblica schedine. Non costituisce ancora l’automazione completa di ogni giornata. Nuovi artefatti soltanto sotto `.local/`; stake reale 0 € e modello sperimentale.
+
+## Implementazione concreta
+
+`windows-orchestrator.mjs --analysis-once PLAN` carica un piano privato e coordina sei passaggi: aggiornamento storico CC0, forecast, quote, decisione, pacchetto v4 e accodamento privato. Poi esegue il pump esistente anche quando l’analisi attende finestra o revisione. `--once` conserva la sola consegna: il task già preparato non diventa implicitamente un job di analisi. Nessun comando registra task.
+
+`--inspect-plan PLAN` esegue solo il preflight locale, senza rete/API. Piano: schema `lamultipla-private-analysis-plan-v1`, `scheduleFile` e `studyFile` obbligatori; opzionali `contextFile` oppure `contextEvidenceFile`, `assessmentFile`, `combinedPricesFile`, `maxLegs` (2–6). Tutti i file devono esistere sotto `.local`, anche dopo risoluzione dei link. Non accetta comandi, credenziali o script dal piano.
+
+Il calendario usa i campi originali `source.officialUrl`, `officialPdfUrl`, `confirmedAtUtc`, `providerObservedAtUtc`, `providerFixturesSha256`. Controlla struttura della giornata, dieci identità distinte, URL HTTPS della Lega e tempi non futuri. Sono **dichiarazioni locali di provenienza**, non una nuova verifica online del documento ufficiale. Il preflight lo dichiara nell’output. Non riscrivere uno snapshot per riempire campi mancanti. Scoperta autonoma e verifica aggiornata dei rinvii restano aperte.
+
+La finestra iniziale apre 60 minuti prima del primo kickoff e chiude cinque minuti prima: pianificazione tecnica, non una nuova regola probabilistica. Forecast e quote conservano i limiti del protocollo. Nuova attività di storico, forecast o quote vietata oltre la chiusura. In ripresa, recupero prima degli output già congelati senza retrodatazione. Il journal originale della sesta giornata è rifiutato come ingresso per una nuova analisi.
+
+Lo storico riusa `refreshDataset`, fissa commit/licenza CC0 e si salva separatamente dallo studio originale. `freezeForwardForecast` conserva la parte numerica. Il dossier locale usa `shadow.mjs --context-dataset SNAPSHOT`: deve essere proprio lo storico associato al forecast congelato, evitando il solo dataset originale più vecchio. Nessuna autorizzazione implicita di temi mancanti, regole o formazioni non verificate.
+
+Decisione prodotta **soltanto da `shadow.mjs`**, tramite processo Node locale con argomenti fissati. Nessun secondo selettore, modifica di probabilità o prezzo congiunto inventato. Dopo interruzione recupera il risultato già congelato, lo verifica con audit deterministico e lo converte tramite `appPackage`. L’accodamento riusa ID, firma e deduplicazione esistenti. Il pump conserva il comportamento già collaudato.
+
+## Persistenza e interruzioni
+
+Per stagione/giornata: `.local/orchestrator/analysis/.../plan.json`, `intents/`, `receipts/`, `state.private.json`, `app-v4.json`. Piano/ricevute: involucro hash e pubblicazione atomica senza sovrascrittura. Ogni ricevuta collega hash del piano, fase e ricevuta precedente. Nuovi processi verificano gli output e continuano dalla prima fase incompleta. Input cambiati o ricevute incompatibili non sostituiscono silenziosamente il lavoro.
+
+I lock import/shadow riusano il lock con proprietario PID già impiegato dal trasporto. Implementazione separata dal protocollo cloud, senza dipendenze Android/app nelle CLI statistiche. Recupera partecipanti terminati dello stesso host. Vecchi `import.lock` o `freeze.claim` senza proprietario restano bloccanti: nessuna eliminazione automatica. Il nuovo congelamento finale usa esclusione con proprietario e snapshot esclusivo, senza nuovi claim vuoti residui.
+
+Le acquisizioni live possono usare un’identità deterministica `acquisitionId`: intento, report e ricevuta sotto `.local/oddspapi/acquisitions/`. Report completo prima del crash: recupero senza nuove richieste anche se `latest.json` o la ricevuta non sono stati aggiornati. Intento senza report completo: `review_required`, nessun retry a pagamento. È un’eccezione da risolvere, non una prova che il provider non abbia conteggiato la chiamata. Contatore prima della trasmissione, riserva Free e cache rimangono nell’adapter originale.
+
+Errori recuperabili di fasi non conteggiate: backoff persistente 5/10/20/40/60 minuti. Diagnostica con codici fissi, mai output grezzo o credenziali. Orologio arretrato e snapshot alterati bloccano. Pacchetto scaduto prima dell’accodamento: revisione, nessuna nuova firma come se fosse fresco. Le consegne già accodate continuano a recuperarsi anche scadute per archivio secondo il protocollo esistente.
+
+## Credenziali e canale reale
+
+L’adapter unattended legge soltanto la chiave DPAPI prevista da `oddspapi.ps1`, con lo stesso utente Windows. Non apre prompt né stampa la chiave. Decrittazione via pipe in memoria; niente chiavi in argomenti, ambiente dei figli o log. Presenza/decrittazione sul PC restano da collaudare; il componente non crea credenziali.
+
+Prima di spendere quota richiede un profilo privato per il canale `shadow`. L’abbinamento sintetico e le quattro consegne confermate non cambiano. Occorre completare separatamente il canale reale con migrazione/abbinamento controllati e prove Android: quote reali non entrano nel canale sintetico. Cambiare soltanto il JSON di configurazione non è la procedura di migrazione.
+
+## Prove e passaggi aperti
+
+Nuove prove host sintetiche: MULTIPLA_SIMULATA firmata/v4 verificato, due cause NO BET distinte, seconda invocazione senza ripetere fasi, arresto dopo ciascuna ricevuta, forecast prima del checkpoint, report prima della ricevuta, intento API ambiguo senza seconda richiesta, processo terminato durante lock, concorrenza, scadenza, orologio, piano/ricevute alterati, contenimento dei file privati. Zero rete reale, credenziali reali o task. Suite completa: 194 test superati, nessuno saltato. Collaudo Windows delle sole novità: `node --test tests/analysis-orchestration.test.mjs`; non sostituisce gli adapter reali.
+
+Restano: scoperta e verifica autonoma del calendario; chiave locale unattended; canale reale/migrazione; fonti contestuali compatibili e revisione mirata; risultati/monitoraggio automatici; consegna di diagnostica quando manca un forecast/report utilizzabile (distinta dal NO BET del selettore); prova prospettica reale; preparazione del task completo e autorizzazione finale all’attivazione. Nessuna promozione automatica del modello. Journal originale sesta giornata da valutare separatamente dal 15 ottobre Europe/Rome.
+
+Passaggio all’APK principale: backup verificato delle nuove ricezioni, aggiornamento compatibile con identità/firma dell’APK installato, prova di migrazione e autorizzazione al rilascio. Ricevere analisi shadow nell’app principale non richiede autorizzare stake reale: autorizzazioni separate.

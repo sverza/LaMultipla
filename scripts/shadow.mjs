@@ -25,7 +25,7 @@ const {values}=parseArgs({options:{help:{type:'boolean'},cycle:{type:'boolean'},
   preview:{type:'boolean'},journal:{type:'string'},study:{type:'string'},report:{type:'string'},assessment:{type:'string'},
   dataset:{type:'string'},schedule:{type:'string'},round:{type:'string'},'max-legs':{type:'string'},'combined-prices':{type:'string'},
   inspect:{type:'string'},evaluate:{type:'string'},results:{type:'string'},progress:{type:'boolean'},
-  'extension-journal':{type:'string'},'extension-study':{type:'string'},context:{type:'string'},'context-evidence':{type:'string'}},strict:true});
+  'extension-journal':{type:'string'},'extension-study':{type:'string'},context:{type:'string'},'context-evidence':{type:'string'},'context-dataset':{type:'string'}},strict:true});
 const directory=path.join(ROOT,'.local/shadow');
 const clock=()=>new Date();
 const files=async folder=>{try{return(await fs.readdir(folder)).filter(n=>n.endsWith('.json')).map(n=>path.join(folder,n));}catch(e){if(e.code==='ENOENT')return [];throw e;}};
@@ -41,7 +41,7 @@ async function engineIdentity(){
 async function main(){
   if(values.help){console.log('Local: --journal FILE --study FILE --report FILE [--assessment FILE] [--preview]');
     console.log('Cycle: --cycle --study FILE --round FILE --schedule FILE (--report FILE | --live-odds) [--refresh-data]');
-    console.log('Context: --context SNAPSHOT or --context-evidence LOCAL_NOTES; otherwise league-only dossier is generated, with missing themes explicit.');
+    console.log('Context: --context SNAPSHOT or --context-evidence LOCAL_NOTES; otherwise league-only dossier is generated, with missing themes explicit. Local mode: --context-dataset SNAPSHOT binds the updated history to the frozen journal.');
     console.log('Read-only: --inspect FILE. Future evaluation: --evaluate DECISION --journal FILE --results FILE. --progress');return;}
   if(values.inspect){console.log(JSON.stringify(await readSnapshot(values.inspect),null,2));return;}
   const maxLegs=values['max-legs']===undefined?4:Number(values['max-legs']);if(![2,3,4,5,6].includes(maxLegs))throw new Error('--max-legs must be 2..6');
@@ -61,6 +61,7 @@ async function main(){
       await writeExclusive(filename,output);console.log('Progressione shadow privata:',filename);console.log(JSON.stringify(output,null,2));return;
     }
     if(!values.study)throw new Error('--study required');
+    if(values.cycle&&values['context-dataset'])throw new Error('--context-dataset is local replay only; cycle uses its acquisition dataset');
     if(values.context&&values['context-evidence'])throw new Error('Choose frozen context or new context evidence, not both');
     const registry=await readRegistry(ROOT,values.study,loadJson),assessment=values.assessment?await loadJson(values.assessment):{};
     const contextInput=values.context?await readSnapshot(values.context):null,contextEvidence=values['context-evidence']?await loadJson(values['context-evidence']):undefined;
@@ -101,6 +102,10 @@ async function main(){
     }else{
       if(!values.journal||!values.report||values['live-odds']||values['refresh-data']||values.dataset)throw new Error('Local mode requires journal/report; no network options');
       journal=await readSnapshot(values.journal);assertFutureRound(journal.manifest);report=await loadJson(values.report);
+      if(values['context-dataset']){
+        dataset=validateCurrentDataset(await readSnapshot(values['context-dataset']),clock()).dataset;
+        if(digest(dataset)!==journal.provenance.datasetSha256)throw new Error('Context dataset must match the frozen forecast history');
+      }
       if(!values.preview)await assertNoDecision(decisionPath(directory,journal.manifest.season,journal.manifest.matchday));
     }
     const context=contextInput??{...buildContext({manifest:journal.manifest,dataset,evidence:contextEvidence,now:clock()}),provenance:await contextIdentity(ROOT)};

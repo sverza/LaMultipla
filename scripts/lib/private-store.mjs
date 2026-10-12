@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import {privateLock} from './private/process-lock.mjs';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const PRIVATE_DIR = path.join(ROOT, '.local/oddspapi');
@@ -36,13 +37,11 @@ export async function saveJson(filename, value) {
 
 export async function withLock(directory, operation) {
   await fs.mkdir(directory, { recursive: true, mode: 0o700 });
-  const filename = path.join(directory, 'import.lock');
-  let handle;
-  try { handle = await fs.open(filename, 'wx', 0o600); }
-  catch (error) {
-    if (error.code === 'EEXIST') throw new SafeError('Importazione già in corso o lock residuo: verificare il processo prima di rimuoverlo');
-    throw new SafeError('Impossibile creare il lock privato');
+  // Preserve unknown locks left by older versions: their owner cannot be
+  // established safely. New runs use the existing PID-owned crash-safe lock.
+  try{await fs.stat(path.join(directory,'import.lock'));throw new SafeError('Importazione già in corso o lock residuo: verificare il processo prima di rimuoverlo');}
+  catch(e){if(e.code!=='ENOENT')throw e;}
+  try{return await privateLock(directory,operation);}catch(e){
+    if(e.message==='Produttore privato già in esecuzione')throw new SafeError('Importazione già in corso');throw e;
   }
-  try { return await operation(); }
-  finally { await handle.close(); await fs.rm(filename, { force: true }); }
 }

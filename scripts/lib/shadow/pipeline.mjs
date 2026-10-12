@@ -12,6 +12,7 @@ import {canonicalTeam} from '../goals/data.mjs';
 import {contextGate} from '../context/dossier.mjs';
 import {selectionGate} from '../decision/gates.mjs';
 import {governance} from '../decision/governance.mjs';
+import {privateLock} from '../private/process-lock.mjs';
 
 export function decisionPath(directory,season,matchday) {
   if(!/^\d{4}\/\d{2}$/.test(season)||!Number.isInteger(matchday)||matchday<1||matchday>38)throw new Error('Invalid decision round');
@@ -75,10 +76,10 @@ export async function persistDecision(decision,directory,{preview=false}={}) {
   const snapshot={...decision,final:!preview};snapshot.governance=governance(snapshot);
   if(preview){const sha256=await writeExclusive(filename,snapshot);return {filename,sha256,decision:snapshot};}
   await fs.mkdir(path.dirname(filename),{recursive:true,mode:0o700});await assertNoDecision(filename);
-  const claim=filename.replace(/-shadow-value-v\d+\.json$/,'-freeze.claim');
-  const handle=await fs.open(claim,'wx',0o600);
-  try{await assertNoOtherFinal(filename);const sha256=await writeExclusive(filename,snapshot);return {filename,sha256,decision:snapshot};}
-  finally{await handle.close();await fs.rm(claim,{force:true});}
+  return privateLock(path.dirname(filename),async()=>{
+    await assertNoDecision(filename);await assertNoOtherFinal(filename);
+    const sha256=await writeExclusive(filename,snapshot);return {filename,sha256,decision:snapshot};
+  });
 }
 
 async function assertNoOtherFinal(filename){

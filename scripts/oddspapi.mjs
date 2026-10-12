@@ -7,15 +7,38 @@ import { randomUUID } from 'node:crypto';
 import { PRIVATE_DIR, loadJson, optionalJson, saveJson, withLock } from './lib/private-store.mjs';
 import { ApiClient } from './lib/api-client.mjs';
 import { buildReport, catalogArray, validateRound, fingerprint } from './lib/odds-report.mjs';
+import {readSnapshot,writeExclusive} from './lib/prospective/store.mjs';
 export { buildReport } from './lib/odds-report.mjs';
 
 export async function importQuotes({ round, fixtures, markets, observedAt, directory = PRIVATE_DIR, key,
-  fetchImpl, clock = () => new Date(), pause, accountOnly = false } = {}) {
+  fetchImpl, clock = () => new Date(), pause, accountOnly = false, acquisitionId } = {}) {
   validateRound(round);
   if (Boolean(fixtures) !== Boolean(markets)) throw new SafeError('Offline: fornire sia fixtures sia markets');
   if (!fixtures && observedAt) throw new SafeError('Non si può retrodatare un’acquisizione live');
   if (accountOnly && fixtures) throw new SafeError('Controllo account disponibile solo in modalità API');
+  if(acquisitionId!==undefined&&(!/^[a-f0-9]{64}$/.test(acquisitionId)||fixtures||accountOnly))throw new SafeError('Identità acquisizione live non valida');
   return withLock(directory, async () => {
+    const transaction=acquisitionId?path.join(directory,'acquisitions',acquisitionId):null;
+    if(transaction){
+      try{
+        const saved=await readSnapshot(path.join(transaction,'completed.json'));
+        if(saved.filename!==path.join(transaction,'report.json'))throw new SafeError('Percorso ricevuta acquisizione incompatibile');
+        const report=await loadJson(saved.filename);
+        if(saved.roundSha256!==fingerprint(round)||saved.reportSha256!==fingerprint(report)||report.acquisition?.id!==acquisitionId)throw new SafeError('Ricevuta acquisizione incompatibile');
+        return {report,filename:saved.filename,reused:true};
+      }catch(e){if(e.code!=='ENOENT')throw e;}
+      // A run may have committed its complete report immediately before crash.
+      // This deterministic location is never replaced or used for a new call.
+      const reportFile=path.join(transaction,'report.json'),report=await optionalJson(reportFile);
+      if(report){
+        if(report.acquisition?.id!==acquisitionId||report.acquisition?.roundSha256!==fingerprint(round))throw new SafeError('Report acquisizione incompatibile');
+        await writeExclusive(path.join(transaction,'completed.json'),{filename:reportFile,roundSha256:fingerprint(round),reportSha256:fingerprint(report)});
+        return {report,filename:reportFile,reused:true};
+      }
+      try{await readSnapshot(path.join(transaction,'intent.json'));throw new SafeError('Acquisizione interrotta: nessun nuovo tentativo automatico');}
+      catch(e){if(e.code!=='ENOENT')throw e;}
+      await writeExclusive(path.join(transaction,'intent.json'),{roundSha256:fingerprint(round),startedAtUtc:clock().toISOString()});
+    }
     let rawFixtures = fixtures, catalog = markets, client;
     try {
       if (!fixtures) {
@@ -44,14 +67,16 @@ export async function importQuotes({ round, fixtures, markets, observedAt, direc
       report.source.catalogPath = path.join('catalogs', report.source.catalogSha256 + '.json');
       await saveJson(path.join(directory, report.source.catalogPath), catalog);
       const runId = report.fetchedAtUtc.replace(/[:.]/g, '-') + '-' + fingerprint(rawFixtures).slice(0, 12) + '-' + randomUUID();
-      const folder = path.join(directory, 'runs', runId);
+      const folder = transaction??path.join(directory, 'runs', runId);
       report.acquisition = { accountBefore: client?.account ?? null,
         billableAttempts: client?.used ?? 0, requests: client?.requests ?? [],
         remainingLowerBound: client ? client.account.remaining - client.used : null, remainingIsEstimate: true };
+      if(acquisitionId){report.acquisition.id=acquisitionId;report.acquisition.roundSha256=fingerprint(round);}
       // Never save /account; its api_key is excluded by the whitelist in accountStatus.
       await saveJson(path.join(folder, 'fixtures.json'), rawFixtures);
       await saveJson(path.join(folder, 'report.json'), report);
       await saveJson(path.join(directory, 'latest.json'), { schema: 1, reportPath: path.relative(directory, path.join(folder, 'report.json')), fetchedAtUtc: report.fetchedAtUtc });
+      if(transaction)await writeExclusive(path.join(transaction,'completed.json'),{filename:path.join(folder,'report.json'),roundSha256:fingerprint(round),reportSha256:fingerprint(report)});
       return { report, filename: path.join(folder, 'report.json') };
     } catch (error) {
       if (client) await saveJson(path.join(directory, 'last-failure.json'), {

@@ -1,6 +1,6 @@
 # Orchestratore Windows — primo componente eseguibile
 
-13 ottobre 2026. Implementato il **recupero delle consegne private già accodate**. Non è ancora l’orchestratore dell’intera analisi: calendario, storico, forecast, quote, contesto, decisione e risultati devono essere collegati a passaggi persistenti. `shadow.mjs` rimane l’unica autorità decisionale. Stake reale 0 €, nessuna API OddsPapi, task Windows non registrati/attivati.
+13 ottobre 2026. Implementato e collaudato su Windows il **recupero delle consegne private già accodate**. Aggiunto il coordinamento persistente delle fasi analitiche con adapter esistenti e test sintetici: [analisi persistente e limiti](punto11-analisi-persistente.md). Il ciclo completo di tutte le giornate resta aperto: scoperta calendario, canale reale, fonti contestuali e risultati. `shadow.mjs` rimane l’unica autorità decisionale. Stake reale 0 €, nessuna chiamata reale OddsPapi eseguita nello sviluppo, task Windows non registrati/attivati.
 
 ## Esecuzione e stato
 
