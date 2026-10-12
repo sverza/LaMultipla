@@ -4,12 +4,13 @@ import {spawn} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
 // Static command only. Plaintext travels over child stdin/stdout in memory,
 // never arguments, environment variables, log files or shell interpolation.
-export async function powershellMemory(script,input=''){
+export async function powershellMemory(script,input='',{timeoutMs=15000,sta=false}={}){
   if(process.platform!=='win32')throw new Error('DPAPI richiede Windows e lo stesso utente di accesso');
+  if(!Number.isInteger(timeoutMs)||timeoutMs<1||timeoutMs>300000||typeof sta!=='boolean')throw new Error('Opzioni processo protetto non valide');
   const encoded=Buffer.from("$ErrorActionPreference='Stop';[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false);"+script,'utf16le').toString('base64');
   return new Promise((resolve,reject)=>{
-    const child=spawn('powershell.exe',['-NoLogo','-NoProfile','-NonInteractive','-EncodedCommand',encoded],{windowsHide:true,stdio:['pipe','pipe','pipe']});
-    let chunks=[],length=0;const timer=setTimeout(()=>{child.kill();reject(new Error('Archivio protetto: timeout'));},15000);
+    const child=spawn('powershell.exe',['-NoLogo','-NoProfile','-NonInteractive',...(sta?['-STA']:[]),'-EncodedCommand',encoded],{windowsHide:true,stdio:['pipe','pipe','pipe']});
+    let chunks=[],length=0;const timer=setTimeout(()=>{child.kill();reject(new Error('Operazione privata: timeout'));},timeoutMs);
     child.stdout.on('data',b=>{length+=b.length;if(length>1024*1024){child.kill();return;}chunks.push(b);});
     // Never forward stderr: platform errors may quote sensitive input.
     child.stderr.resume();child.on('error',()=>{clearTimeout(timer);reject(new Error('PowerShell non disponibile'));});
