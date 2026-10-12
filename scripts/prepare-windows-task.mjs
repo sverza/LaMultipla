@@ -11,8 +11,8 @@ export function windowsTaskXml({root,nodePath,userSid,startAtUtc=new Date().toIS
   for(const value of [root,nodePath])if(typeof value!=='string'||!/^[A-Za-z]:\\/.test(value)||/["\u0000-\u001f]/.test(value))throw new Error('Windows absolute paths required');
   if(!/^S-1-5-21-\d+-\d+-\d+-\d+$/.test(userSid)||!Number.isFinite(Date.parse(startAtUtc))||new Date(startAtUtc).toISOString()!==startAtUtc)throw new Error('Windows identity/clock invalid');
   const script=root.replace(/\\$/,'')+'\\scripts\\windows-orchestrator.mjs';
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<Task version="1.3" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  // COM receives Unicode BSTR: avoid a byte-encoding declaration at that boundary.
+  return `<Task version="1.3" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo><Description>LaMultipla private delivery pump only. Shadow, stake 0. Prepared disabled; activation requires explicit authorization.</Description></RegistrationInfo>
   <Triggers>
     <LogonTrigger><Enabled>true</Enabled><UserId>${xml(userSid)}</UserId></LogonTrigger>

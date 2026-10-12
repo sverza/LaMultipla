@@ -107,3 +107,6 @@ Recupero automatico delle prime due consegne all’apertura dell’APK, senza nu
 
 
 Consegna 4 MULTIPLA_SIMULATA: telefono inizialmente offline, poi dati mobili con Wi-Fi/USB disattivati e PC spento. Notifica immediata riferita dall’utente; dopo riaccensione/accesso PC, ACK 4/pending 0. Recupero dal cloud e stato persistente del produttore confermati; avvio automatico del motore Windows non attestato. Primo componente eseguibile del futuro orchestratore: recupero periodico delle sole consegne, con stato/retry/lock; preparazione Task Scheduler disabilitata e sola validazione COM da collaudare sul PC. Nessun task registrato. Vedere [orchestratore Windows](punto11-orchestratore-windows.md).
+
+
+Self-test Windows del recupero consegne superato il 13 ottobre. Prima validazione COM rifiutata per XML malformato; prova comparativa senza dichiarazione XML accettata, riserializzazione nativa e sola validazione riuscite, nessun task registrato. Generatore/validatore corretti senza modificare la preparazione privata originale; riconferma dello script aggiornato ancora necessaria.

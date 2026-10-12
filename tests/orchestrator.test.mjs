@@ -54,8 +54,16 @@ test('empty pump and portable Windows self-test never access real vault, cloud o
 });
 test('Windows preparation uses disabled least-privilege task, login and periodic checks, escaped paths',()=>{
   const xml=windowsTaskXml({root:'C:\\Private & Test',nodePath:'C:\\Program Files\\nodejs\\node.exe',userSid:'S-1-5-21-111-222-333-1001',startAtUtc:'2026-10-13T00:00:00.000Z'});
+  assert.match(xml,/^<Task /);assert.doesNotMatch(xml,/<\?xml|encoding=/);
   assert.match(xml,/<LogonTrigger>/);assert.match(xml,/<TimeTrigger>/);assert.match(xml,/<Interval>PT5M<\/Interval>/);
   assert.match(xml,/<Enabled>false<\/Enabled>/);assert.match(xml,/<LogonType>InteractiveToken<\/LogonType>/);assert.match(xml,/<RunLevel>LeastPrivilege<\/RunLevel>/);
   assert.match(xml,/Private &amp; Test/);assert.match(xml,/windows-orchestrator\.mjs&quot; --once/);assert.doesNotMatch(xml,/Password|HighestAvailable|BootTrigger|--live-odds/);
   for(const root of ['relative','C:\\x" --unsafe','C:\\x\n'])assert.throws(()=>windowsTaskXml({root,nodePath:'C:\\node.exe',userSid:'S-1-5-21-1-2-3-4'}));
+});
+
+test('Windows validator normalizes only in memory and uses validate-only on native XML',async()=>{
+  const script=await fs.readFile(new URL('../scripts/validate-windows-task.ps1',import.meta.url),'utf8');
+  assert.match(script,/NewTask\(0\)/);assert.match(script,/\$nativeDefinition\.XmlText = \$comText/);
+  assert.match(script,/RegisterTask\(\$name, \$nativeXml, 1, \$null, \$null, 3, \$null\)/);
+  assert.doesNotMatch(script,/Register-ScheduledTask|Set-Content|WriteAllText|Out-File|\.DeleteTask\(/);
 });

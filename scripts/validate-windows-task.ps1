@@ -11,6 +11,18 @@ try { [xml]$definition = $text } catch { throw 'XML non valido: nessun contenuto
 if ($definition.Task.Settings.Enabled -ne 'false') { throw 'La preparazione deve essere disabilitata.' }
 $service = New-Object -ComObject 'Schedule.Service'
 $service.Connect()
+# Windows rejects the UTF-8 declaration at the Unicode COM string boundary.
+# Keep original file bytes/hash; parse and reserialize only an in-memory copy.
+$comText = $text -replace '^\s*<\?xml[^>]+\?>\s*', ''
+try {
+    $nativeDefinition = $service.NewTask(0)
+    $nativeDefinition.XmlText = $comText
+    if ($nativeDefinition.Settings.Enabled) { throw 'Preparazione inattesa.' }
+    $nativeXml = [string]$nativeDefinition.XmlText
+} catch {
+    $code = '0x{0:X8}' -f $_.Exception.HResult
+    throw "Parser Windows non riuscito ($code). Nessun task registrato."
+}
 $folder = $service.GetFolder('\')
 $name = 'LaMultipla private delivery shadow'
 function Exists-PreparedTask {
@@ -19,7 +31,7 @@ function Exists-PreparedTask {
 $before = Exists-PreparedTask
 # TASK_VALIDATE_ONLY = 1 checks XML without registering or enabling a task.
 try {
-    $null = $folder.RegisterTask($name, $text, 1, $null, $null, 3, $null)
+    $null = $folder.RegisterTask($name, $nativeXml, 1, $null, $null, 3, $null)
 } catch {
     $code = '0x{0:X8}' -f $_.Exception.HResult
     throw "Validazione COM non riuscita ($code). Nessun task registrato."
@@ -29,6 +41,7 @@ if ($before -ne $after) { throw 'Stato del task cambiato: verificare prima di pr
 [pscustomobject]@{
     ValidatoDaWindows = $true
     SolaValidazione = $true
+    NormalizzatoInMemoria = $true
     TaskRegistratoDaQuestaOperazione = $false
     PreparazioneAbilitata = $false
     SHA256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $xmlPath).Hash
