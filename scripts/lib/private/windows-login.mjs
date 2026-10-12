@@ -10,6 +10,7 @@ $form.Text='LaMultipla - accesso utente PC Firebase';
 $form.ClientSize=[System.Drawing.Size]::new(450,230);
 $form.FormBorderStyle=[System.Windows.Forms.FormBorderStyle]::FixedDialog;
 $form.StartPosition=[System.Windows.Forms.FormStartPosition]::CenterScreen;
+$form.ShowInTaskbar=$true;$form.WindowState=[System.Windows.Forms.FormWindowState]::Normal;
 $form.MaximizeBox=$false;$form.MinimizeBox=$false;
 $emailLabel=[System.Windows.Forms.Label]::new();$emailLabel.Text='Email esatta dell''utente PC in Firebase Authentication';
 $emailLabel.Location=[System.Drawing.Point]::new(20,16);$emailLabel.Size=[System.Drawing.Size]::new(410,20);
@@ -27,7 +28,7 @@ $cancel=[System.Windows.Forms.Button]::new();$cancel.Text='Annulla';$cancel.Loca
 $cancel.DialogResult=[System.Windows.Forms.DialogResult]::Cancel;$cancel.TabIndex=3;
 $form.Controls.AddRange([System.Windows.Forms.Control[]]@($emailLabel,$email,$passwordLabel,$password,$note,$ok,$cancel));
 $form.AcceptButton=$ok;$form.CancelButton=$cancel;
-$form.Add_Shown({$email.Select()});
+$form.Add_Shown({$form.Activate();$email.Select()});
 try {
   if($form.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK){
     [Console]::Write((@{email=$email.Text;password=$password.Text}|ConvertTo-Json -Compress));
@@ -36,7 +37,7 @@ try {
 `;
 export async function readWindowsLogin({run=powershellMemory}={}){
   let result;
-  try{const text=await run(WINDOWS_LOGIN_SCRIPT,'',{timeoutMs:300000,sta:true});
+  try{const text=await run(WINDOWS_LOGIN_SCRIPT,'',{timeoutMs:300000,sta:true,showWindow:true});
     if(typeof text!=='string'||text.length>16384)throw new Error();result=JSON.parse(text);
   }catch{throw new Error('Finestra di accesso Windows non disponibile o scaduta');}
   if(result?.cancelled===true&&Object.keys(result).length===1)throw new Error('Accesso annullato');

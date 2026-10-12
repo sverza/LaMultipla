@@ -4,17 +4,29 @@ import {spawn} from 'node:child_process';
 import {randomUUID} from 'node:crypto';
 // Static command only. Plaintext travels over child stdin/stdout in memory,
 // never arguments, environment variables, log files or shell interpolation.
-export async function powershellMemory(script,input='',{timeoutMs=15000,sta=false}={}){
-  if(process.platform!=='win32')throw new Error('DPAPI richiede Windows e lo stesso utente di accesso');
-  if(!Number.isInteger(timeoutMs)||timeoutMs<1||timeoutMs>300000||typeof sta!=='boolean')throw new Error('Opzioni processo protetto non valide');
+export function buildPowerShellRequest(script,{timeoutMs=15000,sta=false,showWindow=false}={}){
+  if(typeof script!=='string'||!Number.isInteger(timeoutMs)||timeoutMs<1||timeoutMs>300000||typeof sta!=='boolean'||typeof showWindow!=='boolean')throw new Error('Opzioni processo protetto non valide');
   const encoded=Buffer.from("$ErrorActionPreference='Stop';[Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false);"+script,'utf16le').toString('base64');
+  return {args:['-NoLogo','-NoProfile','-NonInteractive',...(sta?['-STA']:[]),'-EncodedCommand',encoded],options:{windowsHide:!showWindow,stdio:['pipe','pipe','pipe']},timeoutMs};
+}
+export async function powershellMemory(script,input='',options={}){
+  if(process.platform!=='win32')throw new Error('DPAPI richiede Windows e lo stesso utente di accesso');
+  const request=buildPowerShellRequest(script,options);
   return new Promise((resolve,reject)=>{
-    const child=spawn('powershell.exe',['-NoLogo','-NoProfile','-NonInteractive',...(sta?['-STA']:[]),'-EncodedCommand',encoded],{windowsHide:true,stdio:['pipe','pipe','pipe']});
-    let chunks=[],length=0;const timer=setTimeout(()=>{child.kill();reject(new Error('Operazione privata: timeout'));},timeoutMs);
-    child.stdout.on('data',b=>{length+=b.length;if(length>1024*1024){child.kill();return;}chunks.push(b);});
+    const child=spawn('powershell.exe',request.args,request.options);
+    let chunks=[],length=0,settled=false;
+    const onExit=()=>child.kill();
+    const onInterrupt=()=>{child.kill();finish(new Error('Operazione privata annullata'));};
+    const timer=setTimeout(()=>{child.kill();finish(new Error('Operazione privata: timeout'));},request.timeoutMs);
+    function finish(error,result){if(settled)return;settled=true;clearTimeout(timer);
+      process.off('exit',onExit);process.off('SIGINT',onInterrupt);process.off('SIGTERM',onInterrupt);
+      if(error)reject(error);else resolve(result);
+    }
+    process.once('exit',onExit);process.once('SIGINT',onInterrupt);process.once('SIGTERM',onInterrupt);
+    child.stdout.on('data',b=>{length+=b.length;if(length>1024*1024){child.kill();finish(new Error('Risposta privata troppo grande'));return;}chunks.push(b);});
     // Never forward stderr: platform errors may quote sensitive input.
-    child.stderr.resume();child.on('error',()=>{clearTimeout(timer);reject(new Error('PowerShell non disponibile'));});
-    child.on('close',code=>{clearTimeout(timer);if(code||length>1024*1024)reject(new Error('Operazione archivio protetto non riuscita'));else resolve(Buffer.concat(chunks).toString('utf8').replace(/^\uFEFF/,''));});
+    child.stderr.resume();child.on('error',()=>finish(new Error('PowerShell non disponibile')));
+    child.on('close',code=>{if(code||length>1024*1024)finish(new Error('Operazione archivio protetto non riuscita'));else finish(null,Buffer.concat(chunks).toString('utf8').replace(/^\uFEFF/,''));});
     child.stdin.on('error',()=>{});child.stdin.end(input);
   });
 }
