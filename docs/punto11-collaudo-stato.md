@@ -110,3 +110,6 @@ Consegna 4 MULTIPLA_SIMULATA: telefono inizialmente offline, poi dati mobili con
 
 
 Self-test Windows del recupero consegne superato il 13 ottobre. Prima validazione COM rifiutata per XML malformato; prova comparativa senza dichiarazione XML accettata, riserializzazione nativa e sola validazione riuscite, nessun task registrato. Generatore/validatore corretti senza modificare la preparazione privata originale; riconferma dello script aggiornato ancora necessaria.
+
+
+Il 13 ottobre alle 00:44 Europe/Rome il validatore aggiornato sul PC conferma sola validazione COM, normalizzazione in memoria, preparazione disabilitata e nessun task registrato. Due esecuzioni separate del recupero consegne reale confermano ACK 4/pending 0: prima richiesta di rete, seconda solo ricevuta locale. Nessun nuovo login/invio, nessuna API OddsPapi o analisi attivata. Componente Windows delle consegne collaudato, motore analitico ancora da collegare.
