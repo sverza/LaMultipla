@@ -2,7 +2,7 @@
 
 Aggiornamento del 13 ottobre 2026. **Consegna privata sintetica PC → Samsung collaudata: upload autenticato, notifica in background, import v4 nell’archivio Esperimento e ACK al PC.** L’utente ha configurato il progetto cloud personale e abilitato esplicitamente la ricezione nell’APK di collaudo. PR #2 in bozza; nessun rilascio/deploy di produzione, schedina reale o task Windows persistente attivato. Stake reale 0 €.
 
-Il ciclo di analisi di ogni giornata non è ancora autonomo: orchestratore Windows, pianificazione e raccolta automatica delle evidenze restano da completare. Il CLI di collaudo sul PC è ancora manuale. DPAPI, accesso Windows, contratto v4, firme nel vero runtime Android e trasporto cloud sono collaudati; telefono inizialmente offline, PC spento dopo upload, consegna fra reti diverse e recupero dopo riavvio restano prove distinte da eseguire. Dettagli in [ricezione Android](punto11-ricezione-android.md).
+Il ciclo di analisi di ogni giornata non è ancora autonomo: orchestratore Windows, pianificazione e raccolta automatica delle evidenze restano da completare. Il CLI di collaudo sul PC è ancora manuale. DPAPI, accesso Windows, contratto v4, firme nel vero runtime Android e trasporto cloud sono collaudati; telefono inizialmente offline, poi su rete mobile con Wi-Fi/USB disattivati e PC spento: quarta consegna notificata/importata, ACK verificato dopo riaccensione. Ripartenza automatica dell’analisi e condizioni Android prolungate restano prove distinte. Dettagli in [ricezione Android](punto11-ricezione-android.md).
 
 ## Dove eseguire il motore
 
@@ -14,7 +14,7 @@ Il ciclo di analisi di ogni giornata non è ancora autonomo: orchestratore Windo
 
 GitHub pubblico conserva sorgenti, documentazione redatta e CI software. Il runner ospitato non legge automaticamente `C:\LaMultipla`, né la chiave OddsPapi del PC. Nessun dataset/report privato nei log o artefatti Actions. Le quote di un repo privato non garantiscono spazio/minuti disponibili nell'account; verificare il consumo condiviso e impedire addebiti.
 
-L'utente autorizza sviluppo e collaudo dell'orchestratore e preparazione della configurazione Task Scheduler. Registrazione/attivazione di task persistenti richiedono la sua autorizzazione finale. La preparazione del task resta da implementare; vecchio trigger sospeso separato.
+L'utente autorizza sviluppo e collaudo dell'orchestratore e preparazione della configurazione Task Scheduler. Registrazione/attivazione di task persistenti richiedono la sua autorizzazione finale. Preparazione implementata per il solo recupero delle consegne: XML disabilitato, login e controllo ogni cinque minuti, validazione COM senza registrazione da eseguire sul PC. Pianificazione delle analisi da collegare; vecchio trigger sospeso separato.
 
 ### Ripartenza dopo spegnimento
 
@@ -124,7 +124,7 @@ Prima prova candidata: settima giornata, primo kickoff registrato 16 ottobre ore
 | CLI | `scripts/private-delivery.mjs`: associazione sintetica, esportazione profilo privata, login senza echo/password in argomenti, accodamento e flush senza job. Prima associazione consentita soltanto all'APK di collaudo/canale sintetico |
 | Regole cloud | `private-cloud/firestore.rules`: produttore/lettore separati, niente anonimi, chain/head atomici, finale immutabile, ACK legato a evento; **emulatore locale superato**; regole applicate dall’utente al proprio progetto privato |
 | APK/FCM | UI, Android Keystore, FCM HTTP v1, download differito e notifica implementati; **build APK, test strumentali e prima consegna sintetica in background superati sul Samsung**; offline e PC spento ancora da verificare |
-| Orchestratore/Task Scheduler | Stato completo delle fasi, scadenze, riconoscimento calendario, pianificazione login+PC acceso **ancora da implementare** |
+| Orchestratore/Task Scheduler | Recupero consegne con checkpoint/retry/lock e XML login+PC acceso disabilitato **implementati**; stato delle fasi analitiche, scadenze e calendario **ancora da collegare** |
 | Contesto/risultati | Raccolta automatica autorizzata, revisione mirata e monitoraggio nuove giornate **ancora da completare** |
 
 17 nuovi test Node in `tests/private-delivery.test.mjs`: migrazione DB v1, simulazione, NO BET, firme/alterazioni, destinatari, data futura/scadenza, crash dopo scrittura e dopo commit remoto, lock tra processi, recupero lock terminato, finale unico, telefono offline/push fallito, ACK perso, recupero mentre il PC è spento simulato, backup v4, chain/rollback, rinnovo Auth e assenza di fallback DPAPI in chiaro su Linux. Gli scenari PC/telefono spento usano adapter sintetici, non attestano una consegna reale. `fake-indexeddb` è dipendenza solo di sviluppo; nessun'altra versione di libreria cambiata.
@@ -162,3 +162,6 @@ Riconfermare fonti/quote prima della configurazione; nessuna promessa di servizi
 ## Prima consegna autonoma confermata — 13 ottobre
 
 Dopo la correzione dei byte JSON, le prime due consegne sono recuperate all’apertura dell’app, senza nuovo login: accesso salvato, ricezione attiva, cursore 2 e flush con ACK 2/pending 0. Una nuova fixture NO BET per revisione/liquidazione mancante è generata con l’orologio corrente e accodata come sequenza 3. Con app in background, il PC conferma upload e accettazione FCM; l’utente riferisce notifica immediata. All’apertura, importazione della giornata sintetica 9 e cursore 3 confermati; flush successivo ACK 3/pending 0, nessun nuovo invio. **Primo percorso completo notificato e confermato sul dispositivo reale**, senza import manuale JSON. Questa prova non certifica funzionamento a PC spento, assenza di USB/rete comune, Doze prolungato o tutte le condizioni Android.
+
+
+Il componente iniziale Windows è descritto in [orchestratore Windows](punto11-orchestratore-windows.md): recupera soltanto consegne già firmate, non acquisisce quote o genera forecast/decisioni. Configurazione e stato sotto `.local/orchestrator`, nessuna registrazione/attivazione persistente.

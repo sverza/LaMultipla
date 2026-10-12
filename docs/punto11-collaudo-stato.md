@@ -104,3 +104,6 @@ Il 12 ottobre alle 23:54 Europe/Rome l’utente conferma compilazione delle sole
 ## Trasporto privato end-to-end — 13 ottobre
 
 Recupero automatico delle prime due consegne all’apertura dell’APK, senza nuovo login: cursore/ACK 2, pending 0. Nuova consegna sintetica NO BET per revisione mancante, app in background: notifica immediata riferita dall’utente; apertura, import v4 della giornata sintetica 9 e ACK 3/pending 0 confermati. Primo percorso PC → cloud privato → notifica Android → Esperimento → ACK attestato. Telefono offline, reti distinte, PC spento/riavvio e backup successivo restano da collaudare. Orchestratore Windows e Task Scheduler non ancora implementati/attivati; modello non autorizzato al gioco.
+
+
+Consegna 4 MULTIPLA_SIMULATA: telefono inizialmente offline, poi dati mobili con Wi-Fi/USB disattivati e PC spento. Notifica immediata riferita dall’utente; dopo riaccensione/accesso PC, ACK 4/pending 0. Recupero dal cloud e stato persistente del produttore confermati; avvio automatico del motore Windows non attestato. Primo componente eseguibile del futuro orchestratore: recupero periodico delle sole consegne, con stato/retry/lock; preparazione Task Scheduler disabilitata e sola validazione COM da collaudare sul PC. Nessun task registrato. Vedere [orchestratore Windows](punto11-orchestratore-windows.md).
