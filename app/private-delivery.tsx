@@ -12,7 +12,7 @@ export function PrivateDelivery({visible,onReceived}:{visible:boolean;onReceived
   const sync=useCallback(async()=>{
     if(checking.current)return;checking.current=true;
     try{const result=await receivePrivate(onReceived);remaining.current=result.pending;retryDelay.current=30000;retryAfter.current=Date.now()+30000;setNotice(result.pending?'Recupero delle analisi ancora in corso.':`Archivio privato aggiornato · ricevuta ${result.sequence}.`);}
-    catch{retryAfter.current=Date.now()+retryDelay.current;retryDelay.current=Math.min(300000,retryDelay.current*2);setNotice('Ricezione da completare: controlla accesso e connessione. Le analisi salvate restano disponibili.');}
+    catch{remaining.current=1;retryAfter.current=Date.now()+retryDelay.current;retryDelay.current=Math.min(300000,retryDelay.current*2);setNotice('Ricezione da completare: controlla accesso e connessione. Le analisi salvate restano disponibili.');}
     finally{checking.current=false;await refresh().catch(()=>{});}
   },[onReceived,refresh]);
   useEffect(()=>{
@@ -40,7 +40,7 @@ export function PrivateDelivery({visible,onReceived}:{visible:boolean;onReceived
         <button disabled={busy} className="primary wide" onClick={()=>void action(async()=>{const enabled=!status?.backgroundEnabled;if(enabled)await requestNotificationPermission();await enablePrivate(enabled);setNotice(enabled?'Ricezione privata abilitata.':'Ricezione privata sospesa.');})}>{status?.backgroundEnabled?'Sospendi ricezione privata':'Abilita ricezione privata'}</button>
         <button disabled={busy} className="secondary wide" onClick={()=>void action(sync)}>Recupera analisi in attesa</button>
         <button disabled={busy} className="secondary wide" onClick={()=>void action(async()=>{await logoutPrivate();setNotice('Accesso chiuso; ricezione sospesa.');})}>Esci dall’accesso privato</button>
-        <p>{status?.backgroundEnabled?'Ricezione attiva':'Ricezione sospesa'} · {status?.pending??0} pacchetti da importare.{status?.lastFailure?' Ultimo download da riprovare.':''}</p>
+        <p>{status?.accessSaved?'Accesso salvato':'Accesso necessario'} · {status?.backgroundEnabled?'Ricezione attiva':'Ricezione sospesa'} · {status?.pending??0} pacchetti da importare.{status?.lastFailure?' Ultimo download da riprovare.':''}</p>
       </>}
       {notice&&<p role="status">{notice}</p>}
     </>}

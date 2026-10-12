@@ -6,7 +6,7 @@ import {validatePrivatePairing,type PrivatePairing} from '../../shared/private-p
 import {receiverScope,readPrivateCursor,readPrivateDeliveryInfo} from '../../shared/private-receiver.mjs';
 import {receiveAndroidPrivate,type PrivateInboxBridge} from '../../shared/private-android-receiver.mjs';
 import {activatePrivateReception} from '../../shared/private-activation.mjs';
-export type PrivateStatus={backgroundEnabled:boolean;pending:number;lastFailure:string};
+export type PrivateStatus={accessSaved:boolean;backgroundEnabled:boolean;pending:number;lastFailure:string};
 type PrivateBridge=PrivateInboxBridge&{
   applicationId:()=>Promise<{value:string}>;loadProfile:()=>Promise<{value:PrivatePairing|null}>;saveProfile:(v:{json:string})=>Promise<void>;
   loadSession:()=>Promise<{value:PrivateSession|null}>;saveSession:(v:{json:string})=>Promise<void>;

@@ -11,7 +11,7 @@ import 'fake-indexeddb/auto';
 import {validatePrivatePairing} from '../shared/private-pairing.mjs';
 import {base64url,keyFingerprint,signDelivery,textSha256} from '../shared/private-delivery.mjs';
 import {receiveAndroidPrivate} from '../shared/private-android-receiver.mjs';
-import {readPrivateCursor,readPrivateDeliveryInfo} from '../shared/private-receiver.mjs';
+import {readPrivateCursor,readPrivateDeliveryInfo,importPrivateFrame,readPrivateDeliveryFrame} from '../shared/private-receiver.mjs';
 import {createFcmNotifier,validateFcmCredential} from '../scripts/lib/private/fcm.mjs';
 import {syntheticDecisionBundle,syntheticNow} from './fixtures/decision.mjs';
 import {appPackage} from '../scripts/lib/decision/app-package.mjs';
@@ -78,8 +78,12 @@ public class SignatureTest {public static void main(String[] args)throws Excepti
   execFileSync(compiler,[...prefix,'-d',directory,source,path.join(directory,'SignatureTest.java')],{stdio:'pipe'});
   assert.equal(execFileSync('java',['-cp',directory,'SignatureTest',path.join(directory,'vectors.tsv')],{encoding:'utf8'}),'PASS');
 });
-function nativeInbox(frame){let frames=[frame];const imported=[];return {imported,inbox:async()=>({frames}),archiveImported:async v=>imported.push(JSON.parse(v.json)),
-  consume:async()=>{frames=[];}};}
+function nativeInbox(frame){let frames=frame?[frame]:[],cursor={sequence:0,deliveryHash:null};const imported=[];
+  return {imported,cursor:async()=>({...cursor}),inbox:async()=>({frames}),archiveImported:async v=>{
+    const frame=JSON.parse(v.json),s=JSON.parse(frame.statement);assert.equal(s.sequence,cursor.sequence+1);assert.equal(s.previousDeliveryHash,cursor.deliveryHash);
+    imported.push(frame);cursor={sequence:s.sequence,deliveryHash:await textSha256(frame.statement)};
+  },consume:async()=>{frames=[];}};}
+
 test('phone inbox imports offline before ACK; lost ACK retains inbox, retry does not duplicate archive',async()=>{
   const s=await setup(),native=nativeInbox(s.frame);let failed=true,imports=0,acks=0;
   const hash=await textSha256(s.frame.statement),cloud={head:async()=>({sequence:1,deliveryHash:hash}),acknowledge:async()=>{if(failed)throw new Error('SYNTHETIC offline');acks++;}};
@@ -97,7 +101,7 @@ test('bad Android inbox signature never imports, acknowledges or deletes the evi
 });
 test('foreground delivery advances native archive before ACK, with one semantic import',async()=>{
   const s=await setup(),native=nativeInbox(s.frame);await native.consume();const order=[];
-  native.archiveImported=async()=>order.push('native_archive');const hash=await textSha256(s.frame.statement);
+  const archive=native.archiveImported;native.archiveImported=async v=>{await archive(v);order.push('native_archive');};const hash=await textSha256(s.frame.statement);
   const cloud={head:async()=>({sequence:1,deliveryHash:hash}),event:async()=>({frame:s.frame}),acknowledge:async()=>{assert.equal((await readPrivateCursor(s.scope)).sequence,1);order.push('ack');}};
   const result=await receiveAndroidPrivate({...s,native,cloud,deviceId,now:syntheticNow,onImported:()=>order.push('display')});
   assert.equal(result.received,1);assert.deepEqual(order,['native_archive','display','ack']);
@@ -127,4 +131,44 @@ test('FCM rejects expired packet, wrong recipient, wrong project and mismatched 
   await assert.rejects(createFcmNotifier({...f.args,readerUid:'OTHER'})(s.frame),/Destinatario/);
   await assert.rejects(createFcmNotifier({...f.args,cloud:{device:async()=>({applicationId:'other',fcmToken:'SYNTHETIC_FCM_TOKEN_123456789'})}})(s.frame),/Dispositivo/);
   assert.equal(f.calls.length,0);
+});
+
+test('interrupted native save is replayed before ACK even without any new cloud events',async()=>{
+  const s=await setup(),native=nativeInbox(),archive=native.archiveImported;let fail=true,acks=0,events=0;
+  native.archiveImported=async v=>{if(fail)throw new Error('SYNTHETIC native interrupted');await archive(v);};
+  const hash=await textSha256(s.frame.statement),cloud={head:async()=>({sequence:1,deliveryHash:hash}),event:async()=>{events++;return {frame:s.frame};},acknowledge:async()=>{assert.equal((await native.cursor()).sequence,1);acks++;}};
+  const args={...s,native,cloud,deviceId,now:syntheticNow};
+  await assert.rejects(receiveAndroidPrivate(args),/interrupted/);assert.equal((await readPrivateCursor(s.scope)).sequence,1);assert.equal((await native.cursor()).sequence,0);assert.equal(acks,0);
+  fail=false;assert.equal((await receiveAndroidPrivate(args)).acknowledged,1);assert.equal(events,1);assert.equal(acks,1);assert.equal(native.imported.length,1);
+  await receiveAndroidPrivate(args);assert.equal(native.imported.length,1);
+});
+test('native hash conflicts and missing or altered replay records never produce ACK',async()=>{
+  for(const fault of ['hash','missing','altered']){
+    const s=await setup(),native=nativeInbox();await importPrivateFrame(s.frame,s.trust,{scope:s.scope,now:syntheticNow});assert.equal((await readPrivateDeliveryFrame(s.scope,1,s.trust,{now:syntheticNow})).frame.statement,s.frame.statement);
+    if(fault==='hash')native.cursor=async()=>({sequence:1,deliveryHash:'0'.repeat(64)});
+    else {const {EXPERIMENT_DATABASE,EXPERIMENT_DATABASE_VERSION}=await import('../shared/experimental-store.mjs');
+      const actual=await new Promise(resolve=>{const r=indexedDB.open(EXPERIMENT_DATABASE,EXPERIMENT_DATABASE_VERSION);r.onsuccess=()=>resolve(r.result);});
+      await new Promise((resolve,reject)=>{const tx=actual.transaction('private-deliveries','readwrite'),store=tx.objectStore('private-deliveries');
+        if(fault==='missing')store.delete(s.scope+':1');else store.put({id:s.scope+':1',frame:{...s.frame,packageJson:s.frame.packageJson+' '},deliveryHash:'0'.repeat(64)});
+        tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});actual.close();
+    }
+    let acks=0;await assert.rejects(receiveAndroidPrivate({...s,native,deviceId,now:syntheticNow,cloud:{acknowledge:async()=>acks++}}));assert.equal(acks,0);
+  }
+});
+test('repair is bounded to sixteen signed records and withholds ACK until mirrors agree',async()=>{
+  const s=await setup(),native=nativeInbox();let previousDeliveryHash=null;
+  for(let n=1;n<=17;n++){
+    const input=envelope(appPackage(syntheticDecisionBundle('no_value',{matchday:6+n})));
+    const frame=await signDelivery(input,{applicationId,readerUid,channel:s.trust.channel,keyId:s.keyId,sequence:n,previousDeliveryHash,expiresAtUtc:'2026-10-17T12:55:00.000Z'},s.keys.privateKey);
+    const result=await importPrivateFrame(frame,s.trust,{scope:s.scope,now:syntheticNow});previousDeliveryHash=result.deliveryHash;
+  }
+  let acks=0;const cloud={head:async()=>({sequence:17,deliveryHash:previousDeliveryHash}),acknowledge:async()=>{assert.equal((await native.cursor()).sequence,17);acks++;}};
+  const args={...s,native,cloud,deviceId,now:syntheticNow};
+  const first=await receiveAndroidPrivate(args);assert.equal(first.pending,1);assert.equal(first.acknowledged,0);assert.equal(native.imported.length,16);assert.equal(acks,0);
+  const second=await receiveAndroidPrivate(args);assert.equal(second.pending,0);assert.equal(second.acknowledged,17);assert.equal(native.imported.length,17);assert.equal(acks,1);
+});
+test('concurrent native download ahead of JS defers ACK and leaves recovery pending',async()=>{
+  const s=await setup(),native=nativeInbox();native.cursor=async()=>({sequence:1,deliveryHash:'1'.repeat(64)});let acks=0;
+  const result=await receiveAndroidPrivate({...s,native,deviceId,now:syntheticNow,cloud:{acknowledge:async()=>acks++}});
+  assert.equal(result.pending,1);assert.equal(result.acknowledged,0);assert.equal(acks,0);
 });

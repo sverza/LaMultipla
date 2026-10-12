@@ -2,6 +2,7 @@ import type {DeliveryFrame,DeliveryTrust,VerifiedDelivery} from './private-deliv
 import type {CloudConfig} from './private-cloud.mjs';
 export function receiverScope(config:CloudConfig,trust:DeliveryTrust):Promise<string>;
 export function readPrivateCursor(scope:string):Promise<{id:string;sequence:number;deliveryHash:string|null}>;
+export function readPrivateDeliveryFrame(scope:string,sequence:number,trust:DeliveryTrust,options?:{now?:Date|string}):Promise<VerifiedDelivery>;
 export type PrivateDeliveryInfo={sequence:number;keyId:string;expiresAtUtc:string;expiredAtReception:boolean};
 export function readPrivateDeliveryInfo(scope:string,trust:DeliveryTrust,options?:{now?:Date|string}):Promise<Record<string,PrivateDeliveryInfo>>;
 export function importPrivateFrame(frame:DeliveryFrame,trust:DeliveryTrust,options:{scope:string;now?:Date|string}):Promise<VerifiedDelivery&{reused:boolean}>;

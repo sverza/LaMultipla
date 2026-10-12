@@ -4,8 +4,7 @@ import android.util.Base64;
 import org.json.JSONObject;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.TimeZone;
 
@@ -19,16 +18,9 @@ final class PrivateProtocol {
     }
     static String hash(String value) throws Exception { return PrivateSignature.sha256(value.getBytes(StandardCharsets.UTF_8)); }
     static String canonical(JSONObject object) throws Exception {
-        ArrayList<String> names = new ArrayList<>();object.keys().forEachRemaining(names::add);Collections.sort(names);
-        StringBuilder result = new StringBuilder("{");
-        for (String name : names) {
-            if (result.length() > 1) result.append(',');Object value = object.get(name);
-            result.append(JSONObject.quote(name)).append(':');
-            if (value instanceof String) result.append(JSONObject.quote((String)value));
-            else if (value == JSONObject.NULL || value instanceof Boolean || value instanceof Integer || value instanceof Long) result.append(value);
-            else throw new Exception("Statement type");
-        }
-        return result.append('}').toString();
+        HashMap<String,Object> values = new HashMap<>();
+        object.keys().forEachRemaining(name -> { Object value = object.opt(name); values.put(name, value == JSONObject.NULL ? null : value); });
+        return PrivateCanonicalJSON.encode(values);
     }
     static long time(String value) throws Exception {
         SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.ROOT);

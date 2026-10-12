@@ -41,7 +41,9 @@ public class LaMultiplaPrivatePlugin extends Plugin {
         PrivateVault.put(getContext(),"session",session);call.resolve();
     }catch(Exception e){call.reject("Accesso privato non salvato");}}
     @PluginMethod public void status(PluginCall call){try{JSONObject s=PrivateVault.load(getContext());JSONArray inbox=s.optJSONArray("inbox");
-        call.resolve(new JSObject().put("backgroundEnabled",s.optBoolean("backgroundEnabled")).put("pending",inbox==null?0:inbox.length()).put("lastFailure",s.optString("lastFailure", "")));
+        JSONObject profile=s.optJSONObject("profile"),session=s.optJSONObject("session");
+        boolean accessSaved=profile!=null&&session!=null&&session.optString("uid").equals(profile.getJSONObject("trust").getString("readerUid"))&&!session.optString("refreshToken").isEmpty();
+        call.resolve(new JSObject().put("accessSaved",accessSaved).put("backgroundEnabled",s.optBoolean("backgroundEnabled")).put("pending",inbox==null?0:inbox.length()).put("lastFailure",s.optString("lastFailure", "")));
     }catch(Exception e){call.reject("Stato privato non disponibile");}}
     @PluginMethod public void setBackground(PluginCall call){try{
         boolean enabled=Boolean.TRUE.equals(call.getBoolean("enabled"));JSONObject state=PrivateVault.load(getContext());
@@ -60,6 +62,10 @@ public class LaMultiplaPrivatePlugin extends Plugin {
         }});
     }catch(Exception e){call.reject("Ricezione privata disabilitata");}}
     @PluginMethod public void inbox(PluginCall call){try{JSONArray inbox=PrivateVault.load(getContext()).optJSONArray("inbox");call.resolve(new JSObject().put("frames",inbox==null?new JSONArray():inbox));}catch(Exception e){call.reject("Archivio ricevute non leggibile");}}
+    @PluginMethod public void cursor(PluginCall call){try{JSONObject s=PrivateVault.load(getContext());long n=s.optLong("sequence",0);String hash=s.optString("deliveryHash","");
+        if(n<0||n>1000000||(n>0&&!hash.matches("^[a-f0-9]{64}$")))throw new Exception("Chain");
+        call.resolve(new JSObject().put("sequence",n).put("deliveryHash",n==0?JSONObject.NULL:hash));
+    }catch(Exception e){call.reject("Cursore privato non disponibile");}}
     @PluginMethod public void archiveImported(PluginCall call){try{
         JSONObject frame=new JSONObject(call.getString("json"));
         synchronized(PrivateVault.class){JSONObject s=PrivateVault.load(getContext()),statement=PrivateProtocol.verify(frame,s.getJSONObject("profile"));
@@ -72,7 +78,7 @@ public class LaMultiplaPrivatePlugin extends Plugin {
             }else if(n==current&&!hash.equals(s.getString("deliveryHash")))throw new Exception();
             s.put("notifiedThrough",Math.max(n,s.optLong("notifiedThrough",0)));PrivateVault.save(getContext(),s);
         }call.resolve();
-    }catch(Exception e){call.reject("Archivio privato non coerente");}}
+    }catch(Exception e){android.util.Log.w("LaMultiplaPrivateDiag",PrivateDiagnosticCode.format("ARCHIVE_SAVE",e));call.reject("Archivio privato non coerente");}}
     @PluginMethod public void consume(PluginCall call){try{
         long n=call.getLong("sequence",0L);String hash=call.getString("deliveryHash");
         synchronized(PrivateVault.class){JSONObject s=PrivateVault.load(getContext());JSONArray before=s.optJSONArray("inbox"),after=new JSONArray();boolean found=n==s.optLong("sequence",0)&&hash.equals(s.optString("deliveryHash",""));

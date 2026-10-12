@@ -11,6 +11,15 @@ export async function readPrivateCursor(scope){const db=await open();try{return 
   const tx=db.transaction('private-cursors'),r=tx.objectStore('private-cursors').get(scope);let result;
   r.onsuccess=()=>{result=r.result??initial(scope);};tx.oncomplete=()=>resolve(result);tx.onabort=tx.onerror=()=>reject(tx.error);
 });}finally{db.close();}}
+export async function readPrivateDeliveryFrame(scope,sequence,trust,{now=new Date()}={}){
+  const db=await open();let record;
+  try{record=await new Promise((resolve,reject)=>{const tx=db.transaction('private-deliveries'),r=tx.objectStore('private-deliveries').get(scope+':'+sequence);
+    r.onsuccess=()=>{record=r.result;};tx.oncomplete=()=>resolve(record);tx.onerror=tx.onabort=()=>reject(tx.error);});}finally{db.close();}
+  if(!record)throw new Error('Ricevuta locale mancante');
+  const verified=await verifyDelivery(record.frame,trust,{now,archiveExpired:true});
+  if(record.id!==scope+':'+verified.statement.sequence||verified.statement.sequence!==sequence||record.deliveryHash!==verified.deliveryHash)throw new Error('Ricevuta locale alterata');
+  return verified;
+}
 export async function readPrivateDeliveryInfo(scope,trust,{now=new Date()}={}){
   const db=await open();let records;
   try{records=await new Promise((resolve,reject)=>{const tx=db.transaction('private-deliveries'),r=tx.objectStore('private-deliveries').getAll();let result;
