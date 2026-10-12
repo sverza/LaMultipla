@@ -1,4 +1,3 @@
-import fs from 'node:fs/promises';
 import path from 'node:path';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
@@ -12,20 +11,15 @@ import {canonicalTeam} from '../goals/data.mjs';
 import {importQuotes} from '../../oddspapi.mjs';
 import {appPackage} from '../decision/app-package.mjs';
 import {verifyDecisionBundle} from '../decision/delivery.mjs';
-import {powershellMemory,windowsVault} from '../private/windows-vault.mjs';
+import {windowsVault} from '../private/windows-vault.mjs';
+import {loadOddsKey} from '../private/odds-key.mjs';
 import {readOutbox} from '../private/outbox.mjs';
 import {parseDecisionEnvelope} from '../../../shared/decision-v4.mjs';
 const execute=promisify(execFile);
 const failure=code=>Object.assign(new Error(code),{code});
 async function existing(file){try{return await readSnapshot(file);}catch(e){if(e.code==='ENOENT')return null;throw e;}}
 async function saved(file,value){try{await writeExclusive(file,value);}catch(e){if(e.code!=='EEXIST'||digest(await readSnapshot(file))!==digest(value))throw e;}return file;}
-export async function loadUnattendedOddsKey(root){
-  const file=path.join(root,'.local/oddspapi/api-key.dpapi');
-  try{await fs.access(file);}catch{throw failure('PRIVATE_ODDS_KEY_NOT_CONFIGURED');}
-  const key=await powershellMemory('$f=[Console]::In.ReadToEnd();$s=Get-Content -LiteralPath $f -Raw | ConvertTo-SecureString;$p=[IntPtr]::Zero;try{$p=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($s);[Console]::Write([Runtime.InteropServices.Marshal]::PtrToStringBSTR($p));}finally{if($p -ne [IntPtr]::Zero){[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($p);}$s.Dispose();}',file);
-  if(typeof key!=='string'||!key||key.trim()!==key||/[\u0000-\u0020\u007f]/.test(key))throw failure('PRIVATE_ODDS_KEY_INVALID');
-  return key; // memory only; never argv, environment, files or diagnostics
-}
+export const loadUnattendedOddsKey=loadOddsKey;
 export function shadowArguments(root,plan,results){
   const args=[path.join(root,'scripts/shadow.mjs'),'--study',plan.inputs.studyFile.file,'--journal',results.forecast.filename,
     '--report',results.quotes.filename,'--max-legs',String(plan.maxLegs),'--context-dataset',path.join(root,'.local/shadow/datasets',digest(results.dataset)+'.json')];
