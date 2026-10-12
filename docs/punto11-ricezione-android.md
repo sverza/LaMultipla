@@ -89,3 +89,12 @@ Verifica locale dopo la correzione: 174 test Node superati, zero skip; lint zero
 Il comando generico Gradle ha richiesto anche i test dei moduli libreria ed è fallito nel classpath di test Cordova per versioni Kotlin duplicate. Nessuna modifica alle dipendenze: ripresa della sola compilazione pertinente con `:app:assembleDebug :app:assembleDebugAndroidTest`, nella stessa copia privata. Esito Windows: BUILD SUCCESSFUL in 8 secondi, 101 task già aggiornati. Build web, sincronizzazione e preparazione già riuscite non ripetute.
 
 Identità dei due APK e certificato atteso verificati sul PC; aggiornamento app di collaudo e installazione del solo APK test entrambi riusciti. Esecuzione sul Galaxy di `it.personale.lamultipla.PrivateProtocolInstrumentedTest` tramite AndroidJUnitRunner: **OK (2 tests)**, 0,066 secondi. Questo conferma sul vero runtime Android l’intero controllo dei tre frame sintetici PC e i rifiuti delle alterazioni, del destinatario errato e dei byte non canonici. Non è un collaudo di ricezione FCM o notifica: recupero delle consegne esistenti, rinnovo automatico dell’accesso e nuova ricezione in background restano i prossimi passaggi. Nessuna prova di rete viene inferita dal successo dei test strumentali.
+
+
+## Prima ricezione autonoma notificata — 13 ottobre, 00:05 Europe/Rome
+
+Dopo aggiornamento APK, l’utente apre l’app e conferma «Accesso salvato», ricezione attiva e archivio aggiornato a ricevuta 2. Flush PC: ACK 2, pending 0, nessun nuovo invio. Recupero delle consegne precedenti senza nuovo login; tempi/scadenze originali conservati.
+
+Nuova fixture sintetica NO BET, giornata 9, causa revisione/liquidazione ancora necessarie; generazione con orologio corrente, sequenza 3. App in background e telefono bloccato secondo procedura: upload accettato e FCM accettato; l’utente riferisce notifica istantanea e un pacchetto pronto da importare. Dopo apertura della notifica/Esperimento, conferma il nuovo NO BET e ricevuta 3. Flush successivo: **ACK 3, pending 0, results vuoto**, notifiche configurate e jobs Windows disabilitati. Nessun trasferimento manuale JSON o rinnovo manuale dell’accesso necessari per questa consegna.
+
+Questo esito attesta il trasporto completo per una fixture sul Samsung; non certifica ancora ricezione fra reti diverse, telefono offline, PC spento, riavvio, Doze prolungato, rotazione del token o backup dopo nuova ricezione. Queste prove restano separate, come orchestratore e analisi reale prospettica. Nessun dato sportivo reale o report OddsPapi acquisito/inviato durante il collaudo.

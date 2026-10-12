@@ -99,3 +99,8 @@ APK diagnostico aggiornato sul Samsung senza perdere abbinamento o analisi simul
 
 
 Il 12 ottobre alle 23:54 Europe/Rome l’utente conferma compilazione delle sole varianti app, verifica identità/firme, aggiornamento del package di collaudo e installazione del package test. I due test strumentali del protocollo sul Galaxy terminano con **OK (2 tests)**. Sono aggiuntivi alle 174 prove host e non attestano ancora notifiche o ricezione autonoma. Fonte: output Windows/Android condiviso dall’utente; nessun dato privato del progetto cloud incluso nel rapporto.
+
+
+## Trasporto privato end-to-end — 13 ottobre
+
+Recupero automatico delle prime due consegne all’apertura dell’APK, senza nuovo login: cursore/ACK 2, pending 0. Nuova consegna sintetica NO BET per revisione mancante, app in background: notifica immediata riferita dall’utente; apertura, import v4 della giornata sintetica 9 e ACK 3/pending 0 confermati. Primo percorso PC → cloud privato → notifica Android → Esperimento → ACK attestato. Telefono offline, reti distinte, PC spento/riavvio e backup successivo restano da collaudare. Orchestratore Windows e Task Scheduler non ancora implementati/attivati; modello non autorizzato al gioco.
