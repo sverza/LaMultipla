@@ -82,3 +82,10 @@ Nuova copia di collaudo: versionCode 4, `1.0.1-private-protocol`. Aggiunti due t
 Il test Java dell’encoder nel container confronta byte firmati, hash di identità, slash, controlli, Unicode e surrogate con l’encoder PC. I test del ricevitore coprono interruzione tra i due archivi, replay senza nuovi eventi, conflitti, record mancanti/alterati, recupero limitato e download nativo concorrente. **Le prove strumentali Android e le notifiche automatiche dopo la correzione devono ancora essere eseguite sul telefono.** Non descrivere i test host come collaudo del runtime Android.
 
 Verifica locale dopo la correzione: 174 test Node superati, zero skip; lint zero errori (un warning preesistente); build web/TypeScript riuscita. Il container non dispone del runtime/SDK Android per eseguire i due test strumentali: esito ancora da acquisire dal Samsung, separato dalle 174 prove host.
+
+
+## Esito delle prove strumentali sul Samsung — 12 ottobre, 23:54 Europe/Rome
+
+Il comando generico Gradle ha richiesto anche i test dei moduli libreria ed è fallito nel classpath di test Cordova per versioni Kotlin duplicate. Nessuna modifica alle dipendenze: ripresa della sola compilazione pertinente con `:app:assembleDebug :app:assembleDebugAndroidTest`, nella stessa copia privata. Esito Windows: BUILD SUCCESSFUL in 8 secondi, 101 task già aggiornati. Build web, sincronizzazione e preparazione già riuscite non ripetute.
+
+Identità dei due APK e certificato atteso verificati sul PC; aggiornamento app di collaudo e installazione del solo APK test entrambi riusciti. Esecuzione sul Galaxy di `it.personale.lamultipla.PrivateProtocolInstrumentedTest` tramite AndroidJUnitRunner: **OK (2 tests)**, 0,066 secondi. Questo conferma sul vero runtime Android l’intero controllo dei tre frame sintetici PC e i rifiuti delle alterazioni, del destinatario errato e dei byte non canonici. Non è un collaudo di ricezione FCM o notifica: recupero delle consegne esistenti, rinnovo automatico dell’accesso e nuova ricezione in background restano i prossimi passaggi. Nessuna prova di rete viene inferita dal successo dei test strumentali.

@@ -96,3 +96,6 @@ DPAPI collaudato sul PC Windows dall’utente: `encryptedOnDisk`, `sameUserRound
 ## Recupero trasporto dopo la diagnostica — 12 ottobre
 
 APK diagnostico aggiornato sul Samsung senza perdere abbinamento o analisi simulata. Prima consegna recuperata manualmente con ACK, seconda senza notifica: nessuna ricezione autonoma attestata. Identificati nel codice la ricostruzione non compatibile dei byte JSON Android e un replay incompleto dopo import IndexedDB seguito da errore nativo; corretti senza toccare snapshot, chiavi o report privati. Nuovi test host e test strumentali predisposti: dettagli e limiti in [ricezione Android](punto11-ricezione-android.md). Compilazione/esecuzione delle prove strumentali e ricezione automatica su dispositivo ancora aperte. Nessun task Windows o automazione periodica attivato.
+
+
+Il 12 ottobre alle 23:54 Europe/Rome l’utente conferma compilazione delle sole varianti app, verifica identità/firme, aggiornamento del package di collaudo e installazione del package test. I due test strumentali del protocollo sul Galaxy terminano con **OK (2 tests)**. Sono aggiuntivi alle 174 prove host e non attestano ancora notifiche o ricezione autonoma. Fonte: output Windows/Android condiviso dall’utente; nessun dato privato del progetto cloud incluso nel rapporto.
