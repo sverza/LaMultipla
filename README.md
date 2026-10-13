@@ -1,6 +1,8 @@
 # La Multipla · Serie A
 
-Tracker personale, mobile-first, per una multipla Serie A da 3 € a giornata. Funziona come PWA e come app Android; non usa backend, account o Firebase. Schedine, risultati e preferenze restano sul dispositivo in IndexedDB.
+App personale, mobile-first, per analisi sperimentali e storico Serie A, disponibile come PWA e APK Android. Schedine legacy, esperimenti, risultati e preferenze restano sul dispositivo in IndexedDB. Il nuovo canale privato PC → Firebase → Android usa account separati, pacchetti firmati e conferme di ricezione; non è il feed pubblico delle schedine.
+
+Il motore è sperimentale: **stake reale sempre 0 €**, nessuna autorizzazione al gioco o alla pubblicazione di proposte. Il tracker legacy da 3 € resta distinto dall'archivio **Esperimento** v4.
 
 ## Protocollo di analisi unico
 
@@ -24,7 +26,14 @@ Il collegamento decisione → app è implementato: `decision --app-package` prep
 - notifiche Android per nuove schedine e promemoria degli esiti;
 - controllo aggiornamenti APK dalla pagina Impostazioni.
 
-Lo stake è sempre fissato a 3 €. Una bozza non entra nelle statistiche finché non viene confermata come giocata.
+Nel tracker legacy lo stake nominale è fissato a 3 €. Una bozza non entra nelle statistiche finché non viene confermata come giocata.
+Questa regola riguarda soltanto il tracker legacy: i pacchetti sperimentali v4 impongono stake reale zero e rifiutano la promozione a giocata.
+
+## Calendario privato e orchestrazione Windows
+
+Il raccoglitore `scripts/private-calendar.mjs` incrocia stagione, giornata, squadre e orari CC0 Openfootball con gli identificativi e kickoff UTC del provider. Mantiene snapshot privati immutabili, cache e budget condiviso con le quote. Dati mancanti, annullamenti, orari discordanti e turni incompleti impediscono l'ammissione; l'incrocio delle fonti **non è una riconferma ufficiale Lega**. Download recente e risultati aggiornati sono controlli distinti.
+
+Il recupero del calendario è verificato con test sintetici e lettura della sola fonte pubblica; il primo collaudo OddsPapi reale resta da eseguire. L'orchestratore conserva checkpoint e recupera analisi/consegne, ma il raccoglitore non è ancora collegato al gestore delle giornate. Task Windows preparati e validati, senza registrazione o attivazione. Dettagli e requisiti successivi: [calendario automatico](docs/punto11-calendario-automatico.md), [analisi persistente](docs/punto11-analisi-persistente.md), [collaudo](docs/punto11-collaudo-stato.md).
 
 ## Pubblicazione PWA su GitHub Pages
 

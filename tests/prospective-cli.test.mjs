@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
+import {pathToFileURL} from 'node:url';
 import {ROOT} from '../scripts/lib/private-store.mjs';
 import {writeExclusive} from '../scripts/lib/prospective/store.mjs';
 import {sealJournal} from '../scripts/lib/prospective/freeze.mjs';
@@ -24,7 +25,7 @@ test('prospective CLI inspection, public-source capture mock, evaluation and pro
   const mock=path.join(temp,'mock-public-source.mjs');
   await fs.writeFile(mock,`import fs from 'node:fs/promises';let count=0;globalThis.fetch=async url=>{count++;await fs.writeFile('requests.json',JSON.stringify({count}));
     const text=url.includes('commits/master')?JSON.stringify({sha:'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',commit:{committer:{date:'2021-10-13T00:00:00Z'}}}):url.endsWith('LICENSE.md')?'CC0 1.0 Universal\\nSYNTHETIC TEST':JSON.stringify({name:'Italian Serie A 2021/22',matches:[{date:'2021-10-10',team1:'Synthetic A',team2:'Synthetic B',score:{ft:[2,1]}}]});return {ok:true,text:async()=>text};};`);
-  const captured=await run(['--import',mock,'scripts/prospective.mjs','--capture-results',filename]);
+  const captured=await run(['--import',pathToFileURL(mock).href,'scripts/prospective.mjs','--capture-results',filename]);
   const resultPath=captured.stdout.split('\n')[0].slice('Risultati osservati privati: '.length);
   assert.equal(JSON.parse(await fs.readFile(path.join(temp,'requests.json'),'utf8')).count,3);
   const evaluated=await run(['scripts/prospective.mjs','--evaluate',filename,'--results',resultPath]);

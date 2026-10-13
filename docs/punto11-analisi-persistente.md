@@ -1,5 +1,7 @@
 # Punto 11 — fasi analitiche persistenti
 
+Aggiornamento recupero Codex, 13 ottobre: il [raccoglitore calendario](punto11-calendario-automatico.md) è ora implementato e verificato separatamente; il runner non lo richiama e non genera automaticamente piani per nuove giornate. Riconferma ufficiale, primo collaudo provider, storico/results aggiornati e raccordo al gestore delle giornate restano aperti. La sola validazione COM del task analitico è già stata confermata dall'utente alle 12:57, senza registrazione; il precedente riferimento «da validare» descrive la consegna prima di questa prova. Nessuna modifica alla policy temporale o al pilot originale.
+
 13 ottobre 2026. Nuovo componente eseguibile oltre al pump di consegna collaudato su Windows. Non attiva task, non crea trigger, non pubblica schedine. Non costituisce ancora l’automazione completa di ogni giornata. Nuovi artefatti soltanto sotto `.local/`; stake reale 0 € e modello sperimentale.
 
 ## Implementazione concreta

@@ -3,7 +3,7 @@ import path from 'node:path';
 import { optionalJson, saveJson } from './private-store.mjs';
 import { errorDetails } from './error-diagnostics.mjs';
 
-const BILLABLE = new Set(['/markets', '/odds-by-tournaments', '/odds']);
+const BILLABLE = new Set(['/markets', '/odds-by-tournaments', '/odds', '/fixtures']);
 const DAY = 86400000;
 
 export function accountStatus(raw, now = new Date()) {

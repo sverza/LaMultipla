@@ -1,5 +1,28 @@
 # Punto 11 — stato del collaudo, 11 ottobre 2026
 
+## Stato del recupero Codex — 13 ottobre 2026
+
+Codice calendario recuperato dalla cronologia Work in un worktree isolato basato su `164392f`, includendo le patch successive all'ultimo indice e riconciliando l'aggiornamento documentale fallito. I conteggi e i «da collaudare» delle sezioni precedenti restano evidenze datate; per il calendario corrente vedere [rapporto dedicato](punto11-calendario-automatico.md).
+
+| Stato | Evidenza attuale |
+|---|---|
+| Recuperato e implementato | Discovery CC0/provider, collector privato, CLI, budget condiviso, cache e recupero senza retry di intenti ambigui |
+| Testato su Windows in isolamento | 15 test calendario, 29 con l'importatore; suite completa **231/231**, zero skip; lint zero errori e solo warning preesistente `combinedPlayedOdd`; build Next/TypeScript riuscita |
+| Correzioni di portabilità | Fixture licenza sintetica LF su checkout CRLF; mock `--import` del test prospettico come URL file, senza modifica dei forecast o della CLI di produzione |
+| Verificato online senza provider | Fonte pubblica fissata a commit/hash, 380 incontri, ultimo FT 20 settembre; otto risultati G6 mancanti secondo la disponibilità assunta data+48h |
+| Già collaudato prima del blocco | XML analitico validato COM sul PC alle 12:57, disabilitato, nessun task registrato; prova recuperata dalla cronologia, non ripetuta |
+| Ancora da collaudare/integrare | Prima risposta `/fixtures` con account reale, riconferma ufficiale, piani autonomi e raccordo allo scheduler, risultati recenti, primo ciclo prospettico e consegna di dati originali |
+
+Nessuna richiesta OddsPapi reale, credenziale privata, registrazione/attivazione task, nuovo APK, schedina o deploy durante questo recupero. I test usano cartelle temporanee sintetiche; nessuna lettura o riscrittura dei journal/backup privati del checkout principale. La valutazione originale dal **15 ottobre 2026 Europe/Rome** rimane separata e obbligatoria: forecast e baseline G6 invariati.
+
+### Rischio legacy verificato in sola lettura
+
+La cronologia della precedente app registra il 13 ottobre un'esecuzione di `pubblica-schedina-serie-a`, conclusa senza pubblicazione perché fuori dalla finestra di 48 ore. Il prompt legacy prevede scritture di `public/latest-slip.json`, push diretto su `main` e pubblicazione Pages; è distinto da «Schedina Serie A 2.1 - audit», dichiarato sospeso. Lo stato attuale della prima automazione non è certificato dall'evento storico: non dedurne la sospensione della seconda. Nessuna automazione modificata o riattivata durante il recupero.
+
+Collector e runner nuovi non richiamano l'automazione legacy, non dipendono dal feed pubblico e non scrivono su `main`. Il workflow PR verifica codice, mentre Pages parte su push a `main`: una futura esecuzione legacy rimane un rischio esterno concreto di pubblicazione. Chiarirne lo stato prima di qualsiasi attivazione del ciclo continuativo; il task nuovo rimane disabilitato.
+
+Analisi progressive, NO BET provvisorio/definitivo, versionamento e anticipo di almeno due ore sono requisiti successivi registrati nel rapporto calendario, **non implementati** in questo recupero.
+
 Base remota prima del recupero: `977ec415cb3051eadbf2110d5070ba68676a65af`, PR #2 in bozza. Punto 10 completato come implementazione sperimentale: 114 test superati e CI verde sul commit consegnato. Questo checkpoint raccoglie il lavoro successivo autorizzato alla consegna nella Fase 0; non attribuire al nuovo commit la CI del precedente.
 
 Nessun merge, deploy, rilascio di produzione, pubblicazione di schedine o nuova automazione. Stake reale 0 €. Vecchio trigger sospeso secondo lo stato già accertato; nessuna API di gestione automazioni invocata durante il collaudo. Snapshot originali della sesta giornata non riscritti.
@@ -141,3 +164,9 @@ Alle 12:44, piano privato della settima giornata creato/verificato sul PC: `PRIV
 Nuovo runner corregge il confine fra analisi e consegna: anche errori di caricamento/input/lock/replay dell'analisi lasciano eseguire il pump shadow. Pin del piano completo opzionale nel CLI e obbligatorio nel task analitico preparato; diagnostica locale redatta, nessun secondo decisore. Variante XML analitica disabilitata, login più controllo ogni cinque minuti, da validare sul Windows reale senza registrarla. Sette prove host sintetiche aggiuntive predisposte per indipendenza dei fallimenti, pin degli input e limiti/sicurezza dell'XML; nessuna prova nativa COM del nuovo XML attestata ancora.
 
 Verifica nell'ambiente di sviluppo del runner/preparazione analitica: **216/216 test host superati**, nessun test saltato, lint senza errori (warning preesistente), build web/TypeScript superata. Le sette prove nuove usano adapter sintetici; non chiamano provider, non registrano task e non sostituiscono la validazione COM sul PC. Nessuna modifica Android necessaria per questi componenti Windows.
+
+Alle 12:57 Europe/Rome l'utente conferma preparazione dell'XML analitico sul piano privato G7 e sola validazione COM: piano vincolato, controlli ogni cinque minuti/login, limite dieci minuti, engine non abilitato, XML disabilitato e nessun task registrato. Hash file originale invariato fra generazione e validazione; identità Windows e hash del piano non pubblicati. Commit `164392f`, Actions verde e PR in bozza.
+
+Implementati scoperta e raccolta private del calendario con riscontro CC0/provider, senza quote: [calendario automatico](punto11-calendario-automatico.md). Undici nuove prove sintetiche passate, budget/counter condivisi con l'acquisizione quote. Fonte pubblica e documentazione API consultate; nessuna chiamata reale OddsPapi né integrazione implicita nel task già preparato. Prima acquisizione Windows e collegamento al gestore automatico delle giornate restano aperti.
+
+Verifica host del calendario: **227/227 test superati**, nessuno saltato, lint senza errori (warning preesistente). Build web/TypeScript superata; componenti Android e sorgenti della build web invariati dalle ultime correzioni del raccoglitore. Nuove risposte/calendar fixture dei test tutte sintetiche. Controlli del calendario reale sul PC ancora da eseguire; nessun output OddsPapi reale incluso nel commit.
