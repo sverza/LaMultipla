@@ -6,12 +6,14 @@ import {validatePrivatePairing,type PrivatePairing} from '../../shared/private-p
 import {receiverScope,readPrivateCursor,readPrivateDeliveryInfo} from '../../shared/private-receiver.mjs';
 import {receiveAndroidPrivate,type PrivateInboxBridge} from '../../shared/private-android-receiver.mjs';
 import {activatePrivateReception} from '../../shared/private-activation.mjs';
+import {verifyShadowTransition} from '../../shared/private-transition.mjs';
 export type PrivateStatus={accessSaved:boolean;backgroundEnabled:boolean;pending:number;lastFailure:string};
 type PrivateBridge=PrivateInboxBridge&{
   applicationId:()=>Promise<{value:string}>;loadProfile:()=>Promise<{value:PrivatePairing|null}>;saveProfile:(v:{json:string})=>Promise<void>;
   loadSession:()=>Promise<{value:PrivateSession|null}>;saveSession:(v:{json:string})=>Promise<void>;
   status:()=>Promise<PrivateStatus>;setBackground:(v:{enabled:boolean})=>Promise<void>;fcmToken:()=>Promise<{value:string}>;
   notificationOpened:()=>Promise<{value:boolean}>;
+  loadRetiredProfile:()=>Promise<{value:PrivatePairing|null}>;applyShadowTransition:(v:{json:string})=>Promise<void>;
 };
 const Native=registerPlugin<PrivateBridge>('LaMultiplaPrivate');
 let client:Promise<Awaited<ReturnType<typeof createClient>>>|null=null,running:Promise<{received:number;pending:number;acknowledged:number;sequence:number}>|null=null;
@@ -25,7 +27,16 @@ async function createClient(){
 const getClient=()=>client??=(createClient().catch(error=>{client=null;throw error;}));
 export const privateStatus=()=>Native.status();
 export const privateProfile=async()=>(await Native.loadProfile()).value;
-export async function privateDeliveryInfo(){if(!isNative||!(await privateProfile()))return {};const c=await getClient();return readPrivateDeliveryInfo(c.scope,c.profile.trust);}
+export async function privateDeliveryInfo(){if(!isNative||!(await privateProfile()))return {};const c=await getClient();
+  const info=await readPrivateDeliveryInfo(c.scope,c.profile.trust),retired=(await Native.loadRetiredProfile()).value;
+  if(retired){const scope=await receiverScope({projectId:retired.projectId,readerUid:retired.trust.readerUid,channel:retired.trust.channel},retired.trust);Object.assign(info,await readPrivateDeliveryInfo(scope,retired.trust));}return info;
+}
+export async function transitionPrivateShadow(frame:unknown){
+  const c=await getClient(),status=await Native.status(),cursor=await readPrivateCursor(c.scope),native=await Native.cursor();
+  if(status.backgroundEnabled||status.pending||cursor.sequence!==native.sequence||cursor.deliveryHash!==native.deliveryHash)throw new Error('Sospendi e completa la ricezione sintetica prima della transizione');
+  await verifyShadowTransition(frame,{profile:c.profile,cursor});
+  await Native.applyShadowTransition({json:JSON.stringify(frame)});client=null;
+}
 export async function pairPrivate(value:unknown,fingerprint:string){
   const profile=await validatePrivatePairing(value,(await Native.applicationId()).value,fingerprint);
   await Native.saveProfile({json:JSON.stringify(profile)});client=null;return profile;

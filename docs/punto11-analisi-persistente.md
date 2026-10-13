@@ -32,7 +32,7 @@ L’adapter unattended legge soltanto la chiave DPAPI prevista da `oddspapi.ps1`
 
 `node scripts/private-odds-key.mjs --install` prepara una sola volta la credenziale già fornita dal provider: finestra Windows con casella mascherata incollabile, senza login Firebase né richiesta API. Salva esclusivamente `api-key.dpapi`, senza sovrascrivere una chiave esistente; verifica decrittazione prima e dopo la pubblicazione atomica. `--inspect` verifica soltanto lettura/formato locale senza chiedere input o aprire finestre. Entrambi restituiscono metadati, mai la chiave. `providerValidated: false` distingue chiaramente questa prova locale dalla verifica account che l’adapter originale eseguirà prima delle quote. Nessun task o automazione viene attivato. Annullamento/errore prima del salvataggio lascia il file assente; un’installazione concorrente non sostituisce la credenziale già creata.
 
-Prima di spendere quota richiede un profilo privato per il canale `shadow`. L’abbinamento sintetico e le quattro consegne confermate non cambiano. Occorre completare separatamente il canale reale con migrazione/abbinamento controllati e prove Android: quote reali non entrano nel canale sintetico. Cambiare soltanto il JSON di configurazione non è la procedura di migrazione.
+Prima di spendere quota richiede profilo e registrazione Android nel canale `shadow`. Implementata una [transizione firmata e separazione degli archivi](punto11-canale-shadow.md): l’abbinamento originale e le quattro consegne restano conservati. Prove Windows/Android della nuova transizione ancora da completare; quote reali non entrano nel canale sintetico. Cambiare soltanto il JSON di configurazione non è la procedura di migrazione.
 
 ## Prove e passaggi aperti
 

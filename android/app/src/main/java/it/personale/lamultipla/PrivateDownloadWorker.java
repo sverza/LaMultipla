@@ -35,6 +35,9 @@ public class PrivateDownloadWorker extends Worker {
         enqueue(context,false);
     }
     private static void diagnostic(String stage,Throwable error){android.util.Log.i("LaMultiplaPrivateDiag",PrivateDiagnosticCode.format(stage,error));}
+    private static boolean sameProfile(JSONObject state,JSONObject profile){
+        JSONObject current=state.optJSONObject("profile");return current!=null&&current.toString().equals(profile.toString());
+    }
     static void enqueue(Context context,boolean expedited) {
         diagnostic("WORK_ENQUEUE",null);
         OneTimeWorkRequest.Builder builder = new OneTimeWorkRequest.Builder(PrivateDownloadWorker.class).addTag(TAG)
@@ -65,7 +68,7 @@ public class PrivateDownloadWorker extends Worker {
     }
     static String token(Context context,JSONObject profile) throws Exception {
         JSONObject state=PrivateVault.load(context),session=state.optJSONObject("session");
-        if(!state.optBoolean("backgroundEnabled")||session==null||!session.getString("uid").equals(profile.getJSONObject("trust").getString("readerUid")))throw new Exception("Login needed");
+        if(!sameProfile(state,profile)||!state.optBoolean("backgroundEnabled")||session==null||!session.getString("uid").equals(profile.getJSONObject("trust").getString("readerUid")))throw new Exception("Login needed");
         if(session.getLong("expiresAt")>System.currentTimeMillis()+60000)return session.getString("idToken");
         diagnostic("SESSION_REFRESH",null);
         JSONObject data=request("https://securetoken.googleapis.com/v1/token?key="+URLEncoder.encode(profile.getString("apiKey"),"UTF-8"),"POST",null,
@@ -75,7 +78,7 @@ public class PrivateDownloadWorker extends Worker {
         JSONObject next=new JSONObject().put("uid",session.getString("uid")).put("idToken",data.getString("id_token"))
             .put("refreshToken",data.getString("refresh_token")).put("expiresAt",System.currentTimeMillis()+seconds*1000);
         synchronized(PrivateVault.class){JSONObject current=PrivateVault.load(context);
-            if(!current.optBoolean("backgroundEnabled")||current.optJSONObject("session")==null||!current.getJSONObject("session").getString("refreshToken").equals(session.getString("refreshToken")))throw new Exception("Session changed");
+            if(!sameProfile(current,profile)||!current.optBoolean("backgroundEnabled")||current.optJSONObject("session")==null||!current.getJSONObject("session").getString("refreshToken").equals(session.getString("refreshToken")))throw new Exception("Session changed");
             current.put("session",next);PrivateVault.save(context,current);}
         return next.getString("idToken");
     }
@@ -84,8 +87,9 @@ public class PrivateDownloadWorker extends Worker {
         Context context=getApplicationContext();NotificationManager manager=context.getSystemService(NotificationManager.class);
         if(Build.VERSION.SDK_INT>=26)manager.createNotificationChannel(new NotificationChannel(TAG,"Analisi private LaMultipla",NotificationManager.IMPORTANCE_DEFAULT));
         Intent intent=new Intent(context,MainActivity.class).putExtra("lamultiplaPrivate",true).setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP|Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        int id=statement.getInt("sequence");PendingIntent open=PendingIntent.getActivity(context,id,intent,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
-        if(NotificationManagerCompat.from(context).areNotificationsEnabled()){NotificationManagerCompat.from(context).notify(TAG,id,
+        boolean shadow=statement.getString("channel").equals("shadow");int id=statement.getInt("sequence")+(shadow?1000000:0);
+        PendingIntent open=PendingIntent.getActivity(context,id,intent,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
+        if(NotificationManagerCompat.from(context).areNotificationsEnabled()){NotificationManagerCompat.from(context).notify(shadow?TAG+"-shadow":TAG,id,
             new NotificationCompat.Builder(context,TAG).setSmallIcon(android.R.drawable.ic_dialog_info).setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
                 .setContentTitle("LaMultipla · analisi privata ricevuta").setContentText("Apri Esperimento. Stake reale 0 €.").setContentIntent(open).setAutoCancel(true).build());diagnostic("NOTIFICATION_POST",null);}
         else diagnostic("NOTIFICATION_DISABLED",null);
@@ -96,7 +100,7 @@ public class PrivateDownloadWorker extends Worker {
         for(int i=0;i<inbox.length();i++){
             JSONObject statement=PrivateProtocol.verify(inbox.getJSONObject(i),profile);long sequence=statement.getLong("sequence");
             synchronized(PrivateVault.class){JSONObject current=PrivateVault.load(context);
-                if(!current.optBoolean("backgroundEnabled"))return;
+                if(!sameProfile(current,profile)||!current.optBoolean("backgroundEnabled"))return;
                 if(sequence<=current.optLong("notifiedThrough",0))continue;
                 // Stable Android notification ID makes a crash after posting harmless.
                 notifyReceived(statement);current.put("notifiedThrough",sequence);PrivateVault.save(context,current);
@@ -105,9 +109,10 @@ public class PrivateDownloadWorker extends Worker {
     }
     @Override public Result doWork() {
         Context context=getApplicationContext();String stage="WORK_START";diagnostic(stage,null);
+        JSONObject profile=null;
         try {
             JSONObject initial=PrivateVault.load(context);if(!initial.optBoolean("backgroundEnabled")||initial.optJSONObject("profile")==null||initial.optJSONObject("session")==null){diagnostic("WORK_DISABLED",null);return Result.success();}
-            stage="SESSION_READ";JSONObject profile=initial.getJSONObject("profile"),trust=profile.getJSONObject("trust");String auth=token(context,profile);
+            stage="SESSION_READ";profile=initial.getJSONObject("profile");JSONObject trust=profile.getJSONObject("trust");String auth=token(context,profile);
             stage="NOTIFICATION_POST";
             pendingNotifications(profile);
             String base="https://firestore.googleapis.com/v1/projects/"+profile.getString("projectId")+"/databases/(default)/documents/users/"+trust.getString("readerUid")+"/channels/"+trust.getString("channel");
@@ -117,7 +122,8 @@ public class PrivateDownloadWorker extends Worker {
                 JSONObject fields=new JSONObject().put("fcmToken",new JSONObject().put("stringValue",fcm)).put("applicationId",new JSONObject().put("stringValue",context.getPackageName()));
                 request("https://firestore.googleapis.com/v1/projects/"+profile.getString("projectId")+"/databases/(default)/documents:commit","POST",auth,
                     new JSONObject().put("writes",new JSONArray().put(new JSONObject().put("update",new JSONObject().put("name",document).put("fields",fields)))));
-                PrivateVault.put(context,"registeredToken",fcm);
+                synchronized(PrivateVault.class){JSONObject state=PrivateVault.load(context);if(!sameProfile(state,profile)||!state.optBoolean("backgroundEnabled"))return Result.success();
+                    state.put("registeredToken",fcm);PrivateVault.save(context,state);}
             }
             stage="HEAD_READ";JSONObject head=request(base+"/head/current","GET",auth,null);if(head==null){if(initial.optLong("sequence",0)>0)throw new Exception("Missing head");diagnostic("WORK_COMPLETE",null);return Result.success();}
             long target=Long.parseLong(head.getJSONObject("fields").getJSONObject("sequence").getString("integerValue"));
@@ -130,7 +136,7 @@ public class PrivateDownloadWorker extends Worker {
                 stage="PACKAGE_VERIFY";JSONObject statement=PrivateProtocol.verify(frame,profile);String hash=PrivateProtocol.hash(frame.getString("statement"));
                 stage="ARCHIVE_SAVE";
                 synchronized(PrivateVault.class){JSONObject state=PrivateVault.load(context);
-                    if(!state.optBoolean("backgroundEnabled"))return Result.success();
+                    if(!sameProfile(state,profile)||!state.optBoolean("backgroundEnabled"))return Result.success();
                     if(statement.getLong("sequence")!=state.optLong("sequence",0)+1 || (state.optLong("sequence",0)==0?!statement.isNull("previousDeliveryHash"):
                         !statement.getString("previousDeliveryHash").equals(state.getString("deliveryHash"))))throw new Exception("Chain");
                     JSONArray inbox=state.optJSONArray("inbox");if(inbox==null)inbox=new JSONArray();if(inbox.length()>=16)throw new Exception("Inbox full");
@@ -144,11 +150,13 @@ public class PrivateDownloadWorker extends Worker {
                 pendingNotifications(profile);
             }
             stage="HEAD_READ";
-            JSONObject end=PrivateVault.load(context);if(current==target&&!end.optString("deliveryHash","").equals(head.getJSONObject("fields").getJSONObject("deliveryHash").getString("stringValue")))throw new Exception("Head conflict");
+            JSONObject end=PrivateVault.load(context);if(!sameProfile(end,profile)||!end.optBoolean("backgroundEnabled"))return Result.success();
+            if(current==target&&!end.optString("deliveryHash","").equals(head.getJSONObject("fields").getJSONObject("deliveryHash").getString("stringValue")))throw new Exception("Head conflict");
             if(current<target)return Result.retry();diagnostic("WORK_COMPLETE",null);return Result.success();
         } catch(Exception e) {
             diagnostic(stage,e);
-            try{PrivateVault.put(context,"lastFailure","PRIVATE_DOWNLOAD_FAILED");}catch(Exception ignored){}
+            try{synchronized(PrivateVault.class){JSONObject state=PrivateVault.load(context);if(profile!=null&&!sameProfile(state,profile))return Result.success();
+                state.put("lastFailure","PRIVATE_DOWNLOAD_FAILED");PrivateVault.save(context,state);}}catch(Exception ignored){}
             return getRunAttemptCount()<5?Result.retry():Result.failure();
         }
     }

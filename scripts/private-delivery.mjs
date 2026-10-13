@@ -13,10 +13,19 @@ import {writeExclusive} from './lib/prospective/store.mjs';
 import {createFcmNotifier,validateFcmCredential} from './lib/private/fcm.mjs';
 import {validatePrivatePairing} from '../shared/private-pairing.mjs';
 import {repairWriterIdentity} from './lib/private/writer-identity.mjs';
-const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),directory=path.join(root,'.local','private-delivery');
+import {privateChannelPaths} from './lib/private/channels.mjs';
+import {prepareShadowProfile} from './lib/private/shadow-profile.mjs';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 function arg(name){const i=process.argv.indexOf(name);if(i<0)return null;const v=process.argv[i+1];if(!v||v.startsWith('--'))throw new Error('Argomento richiesto: '+name);return path.resolve(v);}
 async function main(){
+  const channelIndex=process.argv.indexOf('--channel');
+  const channel=channelIndex<0?'synthetic_shadow':process.argv[channelIndex+1];
+  const paths=privateChannelPaths(root,channel),directory=paths.directory;
   const vault=windowsVault(path.join(directory,'writer.dpapi.json'));
+  if(process.argv.includes('--prepare-shadow')){
+    if(process.platform!=='win32'||process.argv.length!==3)throw new Error('Preparazione shadow: solo --prepare-shadow sul PC Windows');
+    return prepareShadowProfile({root,sourceVault:vault,targetVault:windowsVault(privateChannelPaths(root,'shadow').writer)});
+  }
   const repairInput=arg('--repair-writer');
   if(repairInput){
     if(process.platform!=='win32')throw new Error('Correzione identità consentita solo sul PC Windows');
@@ -29,6 +38,7 @@ async function main(){
   }
   const configPath=arg('--init');
   if(configPath){
+    if(channel!=='synthetic_shadow')throw new Error('Usare la transizione firmata per il canale shadow');
     if(process.platform!=='win32')throw new Error('Inizializzazione consentita solo sul PC Windows');
     return privateLock(directory,async()=>{
       if(await vault.load())throw new Error('Associazione già presente: nessuna chiave sovrascritta');
@@ -52,8 +62,9 @@ async function main(){
     });
   }
   const stored=await vault.load();if(!stored)throw new Error('Associazione privata non configurata');
-  const {config,profile}=stored,trust=profile.trust,outbox=path.join(directory,'outbox');
-  const fcmVault=windowsVault(path.join(directory,'fcm.dpapi.json')),fcmPath=arg('--install-fcm');
+  const {config,profile}=stored,trust=profile.trust,outbox=paths.outbox;
+  if(config.channel!==channel||trust.channel!==channel)throw new Error('Canale e archivio privato incompatibili');
+  const fcmVault=windowsVault(paths.fcm),fcmPath=arg('--install-fcm');
   if(fcmPath){
     if(!path.relative(path.join(root,'.local'),fcmPath)||path.relative(path.join(root,'.local'),fcmPath).startsWith('..')||path.isAbsolute(path.relative(path.join(root,'.local'),fcmPath)))throw new Error('Credenziale FCM richiesta dentro .local');
     return privateLock(directory,async()=>{
@@ -67,7 +78,12 @@ async function main(){
     return {pairingFile:filename};
   }
   const queue=arg('--queue');
-  if(queue){const key=await crypto.subtle.importKey('pkcs8',unbase64url(stored.privateKeyPkcs8),{name:'ECDSA',namedCurve:'P-256'},false,['sign']);
+  if(queue){
+    if(channel==='synthetic_shadow'){
+      try{await fs.access(privateChannelPaths(root,'shadow').writer);throw new Error('Canale sintetico congelato per la transizione: nessuna nuova consegna');}
+      catch(e){if(e.code!=='ENOENT')throw e;}
+    }
+    const key=await crypto.subtle.importKey('pkcs8',unbase64url(stored.privateKeyPkcs8),{name:'ECDSA',namedCurve:'P-256'},false,['sign']);
     const input=JSON.parse(await fs.readFile(queue,'utf8')),generated=input.payload?.generatedAtUtc;
     // No clock override: an old/future forecast cannot be made timely by CLI.
     const kickoffs=(input.payload?.selections??[]).map(s=>Date.parse(s.identity.kickoffUtc)-5*60000);
@@ -75,8 +91,10 @@ async function main(){
     const result=await enqueueDelivery({directory:outbox,envelope:input,trust,privateKey:key,expiresAtUtc:expiry});
     return {sequence:result.record.statement.sequence,deliveryId:result.record.statement.deliveryId,reused:result.reused,actualStakeEUR:0};
   }
-  const session=windowsVault(path.join(directory,'session.dpapi.json'));
-  const auth=createPrivateAuth({apiKey:config.apiKey,expectedUid:config.writerUid},session);
+  const session=windowsVault(paths.session);
+  const provider=createPrivateAuth({apiKey:config.apiKey,expectedUid:config.writerUid},session);
+  const auth={getIdToken:()=>privateLock(path.join(paths.base,'shared-auth'),()=>provider.getIdToken()),
+    signIn:(email,password)=>privateLock(path.join(paths.base,'shared-auth'),()=>provider.signIn(email,password))};
   if(process.argv.includes('--login')){
     return privateLock(directory,()=>promptPrivateLogin(auth));
   }
@@ -88,6 +106,6 @@ async function main(){
     await writeExclusive(diagnostic,{schema:'lamultipla-private-flush-v1',atUtc:new Date().toISOString(),...result});
     return {...result,notifications:notify?'configured':'not_configured',jobsEnabled:false};
   }
-  throw new Error('Usare --init, --repair-writer, --export-pairing, --install-fcm, --login, --queue o --flush');
+  throw new Error('Usare --init, --prepare-shadow, --repair-writer, --export-pairing, --install-fcm, --login, --queue o --flush; canale shadow esplicito con --channel shadow');
 }
 main().then(result=>console.log(JSON.stringify(result,null,2))).catch(error=>{console.error(error.message);process.exitCode=1;});

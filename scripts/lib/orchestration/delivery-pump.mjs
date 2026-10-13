@@ -5,12 +5,14 @@ import {promisify} from 'node:util';
 import {privateLock} from '../private/outbox.mjs';
 import {loadJson,saveJson} from '../private-store.mjs';
 import {digest,readSnapshot,writeExclusive} from '../prospective/store.mjs';
+import {privateChannelPaths} from '../private/channels.mjs';
 const execute=promisify(execFile),validCount=n=>Number.isSafeInteger(n)&&n>=0&&n<=1000000;
 async function optional(filename){try{return await loadJson(filename);}catch(e){if(e.code==='ENOENT')return null;throw e;}}
-export async function flushPrivateCli(root){
+export async function flushPrivateCli(root,channel='synthetic_shadow'){
+  privateChannelPaths(root,channel);
   // Credentials remain in the existing DPAPI adapter. Never echo child output
   // on failure, nor put tokens or keys into argv/environment/logs.
-  let output;try{output=await execute(process.execPath,[path.join(root,'scripts/private-delivery.mjs'),'--flush'],
+  let output;try{output=await execute(process.execPath,[path.join(root,'scripts/private-delivery.mjs'),'--flush',...(channel==='shadow'?['--channel','shadow']:[])],
     {cwd:root,windowsHide:true,timeout:120000,maxBuffer:256*1024});}catch(error){
     const http=String(error.stderr??'').match(/\bHTTP ([45][0-9]{2})\b/),failure=new Error('PRIVATE_FLUSH_FAILED');
     failure.code=error.killed?'PRIVATE_FLUSH_TIMEOUT':http?'HTTP_'+http[1]:'PRIVATE_FLUSH_EXIT';throw failure;
@@ -19,8 +21,8 @@ export async function flushPrivateCli(root){
   if(!validCount(result.acknowledged)||!validCount(result.pending)||!Array.isArray(result.results)||result.jobsEnabled!==false)throw new Error('PRIVATE_FLUSH_INVALID');
   return {acknowledged:result.acknowledged,pending:result.pending,notifications:result.notifications==='configured'?'configured':'not_configured'};
 }
-export async function deliveryPump({root,clock=()=>new Date(),flush=()=>flushPrivateCli(root),afterReceipt=async()=>{}}){
-  const directory=path.join(root,'.local/orchestrator'),outbox=path.join(root,'.local/private-delivery/outbox');
+export async function deliveryPump({root,channel='synthetic_shadow',clock=()=>new Date(),flush=()=>flushPrivateCli(root,channel),afterReceipt=async()=>{}}){
+  const paths=privateChannelPaths(root,channel),directory=paths.orchestration,outbox=paths.outbox;
   return privateLock(directory,async()=>{
     const now=new Date(clock()),at=now.getTime();if(!Number.isFinite(at))throw new Error('ORCHESTRATOR_CLOCK_INVALID');
     const statePath=path.join(directory,'delivery-state.private.json');

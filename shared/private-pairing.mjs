@@ -1,6 +1,6 @@
 import {keyFingerprint} from './private-delivery.mjs';
 import {validateCloudConfig} from './private-cloud.mjs';
-export async function validatePrivatePairing(p,applicationId,fingerprint){
+export async function validatePrivatePairing(p,applicationId,fingerprint,{allowShadowTransition=false}={}){
   const names=['schema','projectId','apiKey','mobileAppId','senderId','deviceId','trust'];
   if(!p||Object.keys(p).sort().join(',')!==names.sort().join(',')||p.schema!=='lamultipla-private-pairing-v1'
     ||typeof p.apiKey!=='string'||!/^[A-Za-z0-9_-]{20,128}$/.test(p.apiKey)
@@ -15,6 +15,6 @@ export async function validatePrivatePairing(p,applicationId,fingerprint){
   if(typeof fingerprint!=='string'||fingerprint.trim().toLowerCase()!==id||await keyFingerprint(p.trust.keys[id])!==id)throw new Error('Fingerprint del PC non corrispondente');
   // Parse the key now; a fingerprint alone cannot certify algorithm/curve.
   await crypto.subtle.importKey('spki',Uint8Array.from(atob(p.trust.keys[id].replaceAll('-','+').replaceAll('_','/')),c=>c.charCodeAt(0)),{name:'ECDSA',namedCurve:'P-256'},false,['verify']);
-  if(applicationId.endsWith('.collaudo')&&p.trust.channel!=='synthetic_shadow')throw new Error('APK di collaudo: solo canale sintetico');
+  if(applicationId.endsWith('.collaudo')&&p.trust.channel!=='synthetic_shadow'&&!(allowShadowTransition===true&&p.trust.channel==='shadow'))throw new Error('APK di collaudo: solo canale sintetico o transizione firmata');
   return structuredClone(p);
 }

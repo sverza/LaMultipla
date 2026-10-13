@@ -23,6 +23,15 @@ public class LaMultiplaPrivatePlugin extends Plugin {
     @PluginMethod public void applicationId(PluginCall call){call.resolve(new JSObject().put("value",getContext().getPackageName()));}
     @PluginMethod public void notificationOpened(PluginCall call){boolean opened=getActivity().getIntent().getBooleanExtra("lamultiplaPrivate",false);getActivity().getIntent().removeExtra("lamultiplaPrivate");call.resolve(new JSObject().put("value",opened));}
     @PluginMethod public void loadProfile(PluginCall call){try{call.resolve(new JSObject().put("value",PrivateVault.load(getContext()).optJSONObject("profile")));}catch(Exception e){call.reject("Archivio privato non leggibile");}}
+    @PluginMethod public void loadRetiredProfile(PluginCall call){try{JSONObject retired=PrivateVault.load(getContext()).optJSONObject("retiredSynthetic");
+        call.resolve(new JSObject().put("value",retired==null?JSONObject.NULL:retired.getJSONObject("profile")));}catch(Exception e){call.reject("Archivio sintetico non leggibile");}}
+    @PluginMethod public void applyShadowTransition(PluginCall call){try{
+        synchronized(PrivateVault.class){JSONObject current=PrivateVault.load(getContext());
+            JSONObject next=PrivateTransition.retiredState(new JSONObject(call.getString("json")),current,System.currentTimeMillis());
+            PrivateVault.save(getContext(),next);}
+        // Reception stays suspended; enabling it is an explicit user action.
+        call.resolve();
+    }catch(Exception e){call.reject("Transizione firmata non valida: sospendi ricezione e completa le analisi in attesa");}}
     @PluginMethod public void saveProfile(PluginCall call){try{
         JSONObject profile=new JSONObject(call.getString("json"));JSONObject trust=profile.getJSONObject("trust");
         if(!trust.getString("applicationId").equals(getContext().getPackageName())||!profile.getString("projectId").matches("^[a-z][a-z0-9-]{4,28}[a-z0-9]$")

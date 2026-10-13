@@ -14,7 +14,7 @@ async function main(){
     const analysis=await analysisTick({root:ROOT,plan,adapters:analysisAdapters(ROOT)});
     // Delivery stays independent: previously queued packages are recovered
     // even when this round waits for a window, credentials or review.
-    const delivery=await deliveryPump({root:ROOT});
+    const delivery=await deliveryPump({root:ROOT,channel:'shadow'});
     return {analysis,delivery,actualStakeEUR:0,tasksRegistered:false};
   }
   throw new Error('ORCHESTRATOR_ARGUMENTS_INVALID');

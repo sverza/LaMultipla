@@ -88,9 +88,9 @@ export function prepareAndroidCollaudo(root, destination = path.join(root, '.loc
     return text;
   });
   modify('android/app/build.gradle', text => replaceOnce(replaceOnce(replaceOnce(text, 'applicationId "it.personale.lamultipla"', `applicationId "${TEST_APP_ID}"`),
-    'versionCode 2','versionCode 4'),'versionName "1.0.1"','versionName "1.0.1-private-protocol"'));
+    'versionCode 2','versionCode 5'),'versionName "1.0.1"','versionName "1.0.1-private-shadow"'));
   modify('android/app/src/main/res/values/strings.xml', text => text.replaceAll('La Multipla', 'LaMultipla TEST APK').replaceAll('it.personale.lamultipla', TEST_APP_ID));
-  modify('app/layout.tsx', text => replaceOnce(text, '<body>{children}</body>', '<body><div role="status" style={{padding:8,textAlign:"center",background:"#ccf068",color:"#10241e",fontWeight:700}}>APK DI COLLAUDO · dati sintetici · stake reale 0 €</div>{children}</body>'));
+  modify('app/layout.tsx', text => replaceOnce(text, '<body>{children}</body>', '<body><div role="status" style={{padding:8,textAlign:"center",background:"#ccf068",color:"#10241e",fontWeight:700}}>APK DI COLLAUDO · analisi sperimentali · stake reale 0 €</div>{children}</body>'));
   modify('package.json', text => {
     const pkg = JSON.parse(text);
     pkg.name = 'lamultipla-private-android-collaudo';
@@ -112,10 +112,10 @@ export function prepareAndroidCollaudo(root, destination = path.join(root, '.loc
   }
   fs.symlinkSync(path.join(root, 'node_modules'), path.join(destination, 'node_modules'), process.platform === 'win32' ? 'junction' : 'dir');
   const result = {
-    purpose: 'SYNTHETIC_ANDROID_V4_TEST_ONLY', destination, applicationId: TEST_APP_ID,
+    purpose: 'PRIVATE_ANDROID_V4_TEST_ONLY', destination, applicationId: TEST_APP_ID,
     sourceCommit: execFileSync('git', ['-C', root, 'rev-parse', 'HEAD'], {encoding: 'utf8'}).trim(),
     sourceHashes, actualStakeEUR: 0, apiRequests: 0, jobsEnabled: false,
-    remoteFeedEnabled: false, privateReceptionRequiresPairing: true, periodicJobsEnabled: false, release: false, sourceUnchanged: true,
+    remoteFeedEnabled: false, privateReceptionRequiresPairing: true, shadowRequiresSignedTransition: true, periodicJobsEnabled: false, release: false, sourceUnchanged: true,
   };
   for (const [name, expected] of Object.entries(sourceHashes)) {
     if (sha(fs.readFileSync(path.join(root, name))) !== expected) throw new Error(`Sorgente cambiato durante preparazione: ${name}`);

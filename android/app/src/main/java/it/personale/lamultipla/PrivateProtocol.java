@@ -10,7 +10,7 @@ import java.util.TimeZone;
 
 final class PrivateProtocol {
     static final int MAX_BYTES = 262144;
-    private static byte[] decode(String value) throws Exception {
+    static byte[] decode(String value) throws Exception {
         if (!value.matches("^[A-Za-z0-9_-]{1,4096}$")) throw new Exception("Encoding");
         byte[] result = Base64.decode(value, Base64.URL_SAFE | Base64.NO_WRAP | Base64.NO_PADDING);
         if (!Base64.encodeToString(result, Base64.URL_SAFE | Base64.NO_WRAP | Base64.NO_PADDING).equals(value)) throw new Exception("Encoding");

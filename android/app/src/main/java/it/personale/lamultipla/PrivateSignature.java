@@ -27,6 +27,12 @@ public final class PrivateSignature {
         return value;
     }
     public static boolean verify(byte[] spki, byte[] raw, String statement) throws Exception {
+        return verifyDomain(spki,raw,statement,"lamultipla-private-delivery-v1\n");
+    }
+    public static boolean verifyTransition(byte[] spki, byte[] raw, String statement) throws Exception {
+        return verifyDomain(spki,raw,statement,"lamultipla-private-pairing-transition-v1\n");
+    }
+    private static boolean verifyDomain(byte[] spki, byte[] raw, String statement, String domain) throws Exception {
         if (raw.length != 64 || spki.length > 256 || statement.length() > 4096) return false;
         ECPublicKey key = (ECPublicKey) KeyFactory.getInstance("EC").generatePublic(new X509EncodedKeySpec(spki));
         if (!key.getParams().getOrder().equals(new BigInteger("ffffffff00000000ffffffffffffffffbce6faada7179e84f3b9cac2fc632551", 16))) return false;
@@ -35,7 +41,7 @@ public final class PrivateSignature {
         System.arraycopy(r, 0, der, 4, r.length); der[4 + r.length] = 2; der[5 + r.length] = (byte)s.length;
         System.arraycopy(s, 0, der, 6 + r.length, s.length);
         Signature verifier = Signature.getInstance("SHA256withECDSA");verifier.initVerify(key);
-        verifier.update(("lamultipla-private-delivery-v1\n" + statement).getBytes(StandardCharsets.UTF_8));
+        verifier.update((domain + statement).getBytes(StandardCharsets.UTF_8));
         return verifier.verify(Arrays.copyOf(der, der.length));
     }
 }

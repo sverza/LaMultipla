@@ -1,12 +1,13 @@
 'use client';
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {isNative,requestNotificationPermission} from './lib/native';
-import {pairPrivate,privateProfile,privateStatus,loginPrivate,logoutPrivate,enablePrivate,receivePrivate,type PrivateStatus} from './lib/private';
+import {pairPrivate,privateProfile,privateStatus,loginPrivate,logoutPrivate,enablePrivate,receivePrivate,transitionPrivateShadow,type PrivateStatus} from './lib/private';
 import type {PrivatePairing} from '../shared/private-pairing.mjs';
 export function PrivateDelivery({visible,onReceived}:{visible:boolean;onReceived:()=>Promise<void>}){
   const [profile,setProfile]=useState<PrivatePairing|null>(null),[status,setStatus]=useState<PrivateStatus|null>(null);
   const [fingerprint,setFingerprint]=useState(''),[email,setEmail]=useState(''),[password,setPassword]=useState('');
   const [notice,setNotice]=useState(''),[busy,setBusy]=useState(false);const input=useRef<HTMLInputElement>(null),checking=useRef(false);
+  const transitionInput=useRef<HTMLInputElement>(null);
   const remaining=useRef(0),retryAfter=useRef(0),retryDelay=useRef(30000);
   const refresh=useCallback(async()=>{setProfile(await privateProfile());setStatus(await privateStatus());},[]);
   const sync=useCallback(async()=>{
@@ -33,6 +34,13 @@ export function PrivateDelivery({visible,onReceived}:{visible:boolean;onReceived
         <button className="secondary wide" disabled={busy} onClick={()=>input.current?.click()}>Abbina il PC una sola volta</button>
         <input hidden ref={input} type="file" accept=".json,application/json" onChange={e=>{const file=e.target.files?.[0];if(file)void action(async()=>{if(file.size>16384)throw new Error();await pairPrivate(JSON.parse(await file.text()),fingerprint);setNotice('PC abbinato. Accedi con l’account privato del telefono.');});e.target.value='';}} /></>:<>
         <p>PC abbinato · canale {profile.trust.channel==='synthetic_shadow'?'collaudo sintetico':'shadow'}.</p>
+        {profile.trust.channel==='synthetic_shadow'&&<>
+          <button disabled={busy||status?.backgroundEnabled||Boolean(status?.pending)} className="secondary wide" onClick={()=>transitionInput.current?.click()}>Configura il canale shadow dal PC</button>
+          <input hidden ref={transitionInput} type="file" accept=".json,application/json" onChange={e=>{const file=e.target.files?.[0];if(file)void action(async()=>{
+            if(file.size>16384)throw new Error();await transitionPrivateShadow(JSON.parse(await file.text()));
+            setNotice('Canale shadow configurato. Test sintetici conservati; accesso salvato; ricezione sospesa.');
+          });e.target.value='';}} />
+        </>}
         <details><summary>Accesso privato</summary><form onSubmit={e=>{e.preventDefault();void action(async()=>{await loginPrivate(email,password);setNotice('Accesso effettuato. Puoi abilitare la ricezione privata.');});}}>
           <label>Email<input type="email" autoComplete="username" value={email} onChange={e=>setEmail(e.target.value)} /></label>
           <label>Password<input type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} /></label><button disabled={busy} className="secondary wide">Accedi</button>

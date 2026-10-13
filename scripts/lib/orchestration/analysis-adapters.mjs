@@ -15,6 +15,8 @@ import {windowsVault} from '../private/windows-vault.mjs';
 import {loadOddsKey} from '../private/odds-key.mjs';
 import {readOutbox} from '../private/outbox.mjs';
 import {parseDecisionEnvelope} from '../../../shared/decision-v4.mjs';
+import {privateChannelPaths} from '../private/channels.mjs';
+import {ensureShadowReception} from '../private/reception-ready.mjs';
 const execute=promisify(execFile);
 const failure=code=>Object.assign(new Error(code),{code});
 async function existing(file){try{return await readSnapshot(file);}catch(e){if(e.code==='ENOENT')return null;throw e;}}
@@ -66,8 +68,9 @@ export function analysisAdapters(root,{clock=()=>new Date(),keyLoader=()=>loadUn
       await inputsUnchanged(plan);
       if(new Date(now)-Date.parse(results.forecast.journal.generatedAtUtc)>24*3600000)throw failure('QUOTE_FORECAST_EXPIRED');
       // Delivery channel must be ready before spending any provider quota.
-      const stored=await windowsVault(path.join(root,'.local/private-delivery/writer.dpapi.json')).load();
+      const stored=await windowsVault(privateChannelPaths(root,'shadow').writer).load();
       if(stored?.profile?.trust?.channel!=='shadow')throw failure('PRIVATE_REAL_CHANNEL_NOT_CONFIGURED');
+      await ensureShadowReception(root,{stored});
       await keyLoader();
     },recover:recoverQuotes,run:async ctx=>{
       const imported=await importQuotes({...quoteOptions,round:ctx.plan.round,directory:path.join(root,'.local/oddspapi'),key:await keyLoader(),clock,acquisitionId:quoteId(ctx)});
@@ -96,15 +99,15 @@ export function analysisAdapters(root,{clock=()=>new Date(),keyLoader=()=>loadUn
         if(digest(payload)!==digest(appPackage(bundle(plan,results,results.decision))))throw failure('ANALYSIS_PACKAGE_INVALID');
       }},
     queue:{recover:async({results})=>{
-      const stored=await windowsVault(path.join(root,'.local/private-delivery/writer.dpapi.json')).load();
+      const stored=await windowsVault(privateChannelPaths(root,'shadow').writer).load();
       if(!stored)throw failure('PRIVATE_REAL_CHANNEL_NOT_CONFIGURED');
-      const records=await readOutbox(path.join(root,'.local/private-delivery/outbox'),stored.profile.trust,{now:clock()});
+      const records=await readOutbox(privateChannelPaths(root,'shadow').outbox,stored.profile.trust,{now:clock()});
       const record=records.find(r=>r.envelope.sha256===results.package.sha256);
       return record?{sequence:record.statement.sequence,deliveryId:record.statement.deliveryId,actualStakeEUR:0}:null;
     },before:({results,now})=>{
       if(new Date(now).getTime()>=Date.parse(results.decision.generatedAtUtc)+30*60000)throw failure('PRIVATE_QUEUE_PACKAGE_EXPIRED');
     },run:async({results})=>{
-      let output;try{output=await execute(process.execPath,[path.join(root,'scripts/private-delivery.mjs'),'--queue',results.package.filename],{cwd:root,windowsHide:true,timeout:30000,maxBuffer:64*1024});}
+      let output;try{output=await execute(process.execPath,[path.join(root,'scripts/private-delivery.mjs'),'--queue',results.package.filename,'--channel','shadow'],{cwd:root,windowsHide:true,timeout:30000,maxBuffer:64*1024});}
       catch{throw failure('PRIVATE_QUEUE_FAILED');}
       let value;try{value=JSON.parse(output.stdout);}catch{throw failure('PRIVATE_QUEUE_INVALID');}
       return {sequence:value.sequence,deliveryId:value.deliveryId,actualStakeEUR:value.actualStakeEUR};
