@@ -30,6 +30,8 @@ import {analysisTick} from '../scripts/lib/orchestration/analysis-workflow.mjs';
 import {progressiveAdapters} from '../scripts/lib/orchestration/progressive-adapters.mjs';
 import {windowsTaskXml} from '../scripts/prepare-windows-task.mjs';
 import {ROOT} from '../scripts/lib/private-store.mjs';
+import {execFile} from 'node:child_process';
+import {promisify} from 'node:util';
 
 const friday='2026-10-16T12:45:00.000Z',saturday='2026-10-17T07:00:00.000Z',sunday='2026-10-18T07:00:00.000Z',monday='2026-10-19T12:45:00.000Z';
 function schedule(){
@@ -303,4 +305,22 @@ test('changed evidence before any paid intent creates a new immutable plan, pres
   const outcome=await readSnapshot(path.join(dir,'0001/outcome.json'));
   assert.equal(outcome.reason,'INPUTS_REVISED_BEFORE_ACQUISITION');assert.equal(outcome.quoteStageStarted,false);
   assert.equal((await readSnapshot(path.join(dir,'0002/plan.json'))).progressive.revision,2);
+});
+test('actual legacy Windows runner refuses a new ordinary future analysis before producer/API work but still pumps queued delivery',async t=>{
+  const root=await fs.mkdtemp(path.join(os.tmpdir(),'lamultipla-legacy-future-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));
+  await fs.cp(path.join(ROOT,'scripts'),path.join(root,'scripts'),{recursive:true});
+  await fs.cp(path.join(ROOT,'shared'),path.join(root,'shared'),{recursive:true});
+  const s=schedule(),now=new Date().toISOString();
+  s.source={officialUrl:'https://www.legaseriea.it/synthetic',officialPdfUrl:'https://www.legaseriea.it/synthetic.pdf',
+    confirmedAtUtc:now,providerObservedAtUtc:now,providerFixturesSha256:'a'.repeat(64)};
+  await fs.mkdir(path.join(root,'.local'),{recursive:true});
+  await fs.writeFile(path.join(root,'.local/schedule.json'),JSON.stringify(s));
+  await fs.writeFile(path.join(root,'.local/study.json'),JSON.stringify({synthetic:true}));
+  const config={schema:'lamultipla-private-analysis-plan-v1',scheduleFile:'.local/schedule.json',studyFile:'.local/study.json'};
+  const file=path.join(root,'.local/legacy-plan.json');await fs.writeFile(file,JSON.stringify(config));
+  const env={...process.env};delete env.ODDSPAPI_API_KEY;
+  let output;try{await promisify(execFile)(process.execPath,['scripts/windows-orchestrator.mjs','--analysis-once',file],{cwd:root,env});assert.fail('Blocked runner must exit nonzero');}
+  catch(error){output=JSON.parse(error.stdout);}
+  assert.equal(output.analysis.reason,'PROGRESSIVE_CONFIG_REQUIRED_FOR_FUTURE_ROUND');assert.equal(output.delivery.state,'idle');
+  await assert.rejects(fs.stat(path.join(root,'.local/oddspapi/quota.json')),{code:'ENOENT'});
 });

@@ -5,6 +5,8 @@ import {loadAnalysisPlan} from './lib/orchestration/analysis-plan.mjs';
 import {analysisAndDeliveryTick} from './lib/orchestration/analysis-delivery-runner.mjs';
 import {digest} from './lib/prospective/store.mjs';
 import {progressiveAndDeliveryTick} from './lib/orchestration/progressive-runner.mjs';
+import {PROGRESSIVE_POLICY} from './lib/orchestration/progressive-policy.mjs';
+import {analysisTick} from './lib/orchestration/analysis-workflow.mjs';
 async function main(){
   if(process.argv[2]==='--progressive-once'&&(process.argv.length===4||process.argv.length===6&&process.argv[4]==='--config-sha256'&&/^[a-f0-9]{64}$/.test(process.argv[5])))
     return progressiveAndDeliveryTick({root:ROOT,filename:process.argv[3],expectedConfigSha256:process.argv[5]??null});
@@ -16,7 +18,9 @@ async function main(){
       ...plan.window,calendarStatus:'LOCAL_SOURCE_CLAIMS_NOT_REVERIFIED_ONLINE',networkRequests:0,oddsApiRequests:0,tasksRegistered:false,actualStakeEUR:0};
   }
   if(process.argv[2]==='--analysis-once'&&(process.argv.length===4||process.argv.length===6&&process.argv[4]==='--plan-sha256'&&/^[a-f0-9]{64}$/.test(process.argv[5])))
-    return analysisAndDeliveryTick({root:ROOT,filename:process.argv[3],expectedPlanSha256:process.argv[5]??null});
+    return analysisAndDeliveryTick({root:ROOT,filename:process.argv[3],expectedPlanSha256:process.argv[5]??null,
+      runAnalysis:args=>Math.min(...args.plan.schedule.events.map(e=>Date.parse(e.kickoffUtc)))>=Date.parse(PROGRESSIVE_POLICY.registeredAtUtc)?
+        Promise.resolve({mode:'PRIVATE_ANALYSIS_WORKFLOW',state:'blocked',reason:'PROGRESSIVE_CONFIG_REQUIRED_FOR_FUTURE_ROUND'}):analysisTick(args)});
   throw new Error('ORCHESTRATOR_ARGUMENTS_INVALID');
 }
 main().then(result=>{

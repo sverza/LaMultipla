@@ -4,7 +4,7 @@ Implementazione del 13 ottobre 2026, successiva a `970b6e7`. [Protocollo nuovo](
 
 ## Percorso e finestre
 
-`windows-orchestrator.mjs --progressive-once CONFIG` esegue il gestore e poi il pump shadow, anche se config/calendario/analisi vengono rifiutati. `--config-sha256 HASH` vincola la configurazione; gli input aggiornati sono fissati nei singoli piani. I comandi precedenti mantengono il percorso storico: il vecchio XML non cambia implicitamente.
+`windows-orchestrator.mjs --progressive-once CONFIG` esegue il gestore e poi il pump shadow, anche se config/calendario/analisi vengono rifiutati. `--config-sha256 HASH` vincola la configurazione; gli input aggiornati sono fissati nei singoli piani. Il vecchio XML non cambia implicitamente: `--analysis-once` rifiuta nuove giornate successive alla registrazione con `PROGRESSIVE_CONFIG_REQUIRED_FOR_FUTURE_ROUND`, prima dei producer, ma conserva il pump delle consegne già accodate. `--once` e l'ispezione restano disponibili. Per giornate nuove usare configurazione/runner progressivi, non attivare il task del piano singolo.
 
 Il gestore osserva il calendario con il collector, riconcilia stagione, squadre e fixture con CC0 e manifest ufficialmente riconfermati, calcola i residui e prepara piani versionati. Conferme ufficiali ancora input privati verificati: CC0/provider non le inventano. Tutti i dieci ID restano l'identità della giornata; `screeningFixtureIds` identifica soltanto il sottoinsieme della rivalutazione. Una combinazione può attraversare più giorni.
 
@@ -40,10 +40,10 @@ Scaduti solo archivio, senza notifica tardiva. Firma/parser impediscono estensio
 
 ## Verifiche e collaudo originale residuo
 
-20 nuove prove sintetiche: venerdì→sabato, proposta immediata, giorni diversi, NO BET fino alla chiusura, evidenze mancanti, crash dopo ogni ricevuta, restart, DST/rinvii, prezzi alterati/scaduti, queue tardiva, intento ambiguo, coorte immutabile, finale unico, primo avvio tardivo, backup/import/ACK, capacità, task disabilitato e nuovo piano quando gli input cambiano prima di un intento quote. Test importer/calendar precedenti coprono ledger condiviso e quota. Non sono validazione statistica o prove di redditività.
+21 nuove prove sintetiche: venerdì→sabato, proposta immediata, giorni diversi, NO BET fino alla chiusura, evidenze mancanti, crash dopo ogni ricevuta, restart, DST/rinvii, prezzi alterati/scaduti, queue tardiva, intento ambiguo, coorte immutabile, finale unico, primo avvio tardivo, backup/import/ACK, capacità, task disabilitato, nuovo piano per input cambiati prima delle quote e rifiuto effettivo del runner precedente per giornate nuove. Test importer/calendar precedenti coprono ledger condiviso e quota. Non sono validazione statistica o prove di redditività.
 
 Regole provate solo sull'emulatore demo locale: ruoli, sequenze, finale immutabile, ACK, registrazione legacy/nuova, capacità/campi arbitrari rifiutati. Vecchio emulatore Windows eseguito con JVM in inglese per evitare un difetto della sua diagnostica italiana, senza cambiare locale del PC/prodotto. Nessun progetto reale contattato.
 
-Controlli conclusivi: **251/251 test Node, zero skip**, lint zero errori (un warning preesistente), build Next/TypeScript e `:app:compileDebugJavaWithJavac` superati su Windows. Compilate le classi native aggiornate senza credenziali Firebase, packaging, firma o installazione APK. Le prove strumentali sul Samsung per il nuovo schema/capacità restano separate.
+Controlli conclusivi: **252/252 test Node, zero skip**, lint zero errori (un warning preesistente), build Next/TypeScript e `:app:compileDebugJavaWithJavac` superati su Windows. Compilate le classi native aggiornate senza credenziali Firebase, packaging, firma o installazione APK. Le prove strumentali sul Samsung per il nuovo schema/capacità restano separate.
 
 Prima prova originale: manifest/hashes riconfermati dopo il collector, dataset e lacune dichiarate, evidenze contestuali/liquidazione/prezzi riferite al report effettivo, registrazione shadow, finestra utile e autorizzazione specifica a OddsPapi. Nuovi stati: anche client compatibile e collaudo nativo. Nessuna compilazione/installazione di un nuovo APK sul Samsung eseguita qui. Il rischio dell'automazione legacy su main resta separato; il nuovo percorso non la richiama e non scrive il feed pubblico.

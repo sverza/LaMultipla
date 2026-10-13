@@ -4,7 +4,7 @@
 
 Implementati gestore persistente, nuovo protocollo futuro, piani residui, revisioni shadow fuori dalla coorte originale, finale unico e margini 150/135/120 minuti. V4 preservato; schema separato per aggiornamenti e NO BET finale senza modello fittizio, capacità del ricevitore richiesta. [Rapporto completo](punto11-gestione-progressiva.md).
 
-20 nuove prove sintetiche, **251/251 test Node, zero skip**, lint senza errori (warning preesistente), build web/TypeScript riuscita. Regole/capacità anche sull'emulatore Firestore demo locale; ruoli e campi arbitrari rifiutati. Nessuna validazione statistica attribuita a queste prove.
+21 nuove prove sintetiche, **252/252 test Node, zero skip**, lint senza errori (warning preesistente), build web/TypeScript riuscita. Regole/capacità anche sull'emulatore Firestore demo locale; ruoli e campi arbitrari rifiutati. Nessuna validazione statistica attribuita a queste prove.
 
 Compilazione Java Android delle classi aggiornate superata sul Windows in isolamento, `:app:compileDebugJavaWithJavac`, senza configurazione Firebase privata, packaging/firma/installazione. Nessuna nuova prova strumentale sul Samsung attribuita a questo incremento.
 
