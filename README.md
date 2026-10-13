@@ -35,6 +35,8 @@ Il raccoglitore `scripts/private-calendar.mjs` incrocia stagione, giornata, squa
 
 Il [gestore progressivo](docs/punto11-gestione-progressiva.md) collega il collector a giornate riconfermate, piani versionati e rivalutazioni delle partite residue, anche su giorni diversi. Il primo forecast scientifico resta immutabile, le revisioni shadow separate; NO BET provvisorio non chiude il ciclo e una proposta ammissibile viene finalizzata subito. Anticipo minimo due ore, con margini per calcolo/queue e prezzi da ricontrollare. Stati nuovi richiedono un ricevitore compatibile; v4 precedente rimane leggibile. Primo collaudo OddsPapi reale ancora da eseguire. Nessun task o nuovo APK attivato. [Protocollo](docs/protocollo-analisi-progressive-v1.md), [verifica originale del 15 ottobre](docs/verifica-originale-15-ottobre.md).
 
+Preparazione del 13 ottobre: [fonti risultati e diritti](docs/fonti-risultati-seriea-2026-27.md), [prima prova originale G7](docs/preparazione-prima-prova-g7.md). `original-g6-check.mjs --inspect` verifica gli originali; `--record` è bloccato fino al15 ottobre e conserva i pending. Evidenze supplementari in quarantena, nessuna sostituzione CC0 o modifica dei modelli. Config progressivo G7 predisposto localmente, riconferme/input/cloud-client ancora da completare.
+
 ## Pubblicazione PWA su GitHub Pages
 
 Il workflow `Pubblica su GitHub Pages` parte automaticamente a ogni push sul ramo `main`.

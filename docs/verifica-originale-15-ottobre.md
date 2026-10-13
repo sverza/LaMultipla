@@ -11,3 +11,24 @@ Verifica della fonte pubblica il 13 ottobre alle 19:01 UTC (21:01 Europe/Rome): 
 5. Osservazioni/valutazioni successive versionate. Revisioni o rimozioni della fonte richiedono controllo; forecast e baseline non cambiano. Fonte alternativa soltanto dopo studio separato di provenienza temporale, diritti e protocollo.
 
 La carenza impedisce scoring completo e rende parziali forma/storico aggiornati. Cutoff e assunzioni di disponibilità invariati: nessun dato imputato. Nessun trigger, promemoria automatico o valutazione privata reale eseguita durante questa implementazione.
+
+## Preparazione effettiva sul PC — 13 ottobre
+
+`C:\LaMultipla` verificato sul branch della PR2. File originali localizzati, envelope/hash e tutte le dieci entry verificati in sola lettura; baseline compatibile e legata all'entry Inter–Parma. Journal generato il10/10 alle06:22:04.963 UTC, cutoff 1 ottobre. Directory results/evaluations non ancora presenti: nessuna valutazione originale attestata oggi.
+
+Un nuovo wrapper circoscritto evita i placeholder e registra anche un controllo incompleto:
+
+```powershell
+Set-Location C:\LaMultipla
+node scripts/original-g6-check.mjs --inspect
+# Eseguire soltanto dal 15 ottobre Europe/Rome:
+node scripts/original-g6-check.mjs --record
+```
+
+`--inspect` è locale/read-only, verifica gli hash originali anche dopo la scadenza senza scoring. `--record` controlla la data reale prima di qualsiasi lettura/rete/scrittura: bloccato prima del14/10 22:00 UTC. Nessuna opzione CLI per simulare un'altra data. Il rifiuto è stato verificato sul PC il13, nessun intent G6 creato.
+
+Dal15: intent esclusivo, acquisizione gratuita CC0 fissata a commit/licenza, copie esatte metadata/LICENSE/JSON, envelope osservazione e valutazione tramite **l'evaluator originale invariato**. Baseline solo quella compatibile fissata, hash byte dei due originali ricontrollati prima dello scoring; anomalie bloccano. Controllo in `.local/model/prospective/checks/<journalId>/<uuid>/check.json`, valutazione nel percorso prospettico usuale, link/hash fra gli output. Non sovrascrive né ricostruisce forecast, quote o baseline.
+
+Se CC0 ancora privo di G6: zero settled/dieci pending, metriche sul campione effettivamente osservato, record della data. Se rete/licenza/parser falliscono: `CHECK_RECORDED_SOURCE_UNAVAILABLE`, pending per fonte indisponibile e **nessuna valutazione scientifica fittizia**. Verificare il record e il motivo; un crash lascia l'intent senza check completo, non attestazione di esecuzione riuscita. Nuova esecuzione produce nuova osservazione/controllo, non cancella la precedente. Copie parziali/intent conservati per audit.
+
+Ora esiste riscontro ufficiale per tutte le dieci gare nel CU47 del13 ottobre, ma non è stato importato come CC0 o usato per scoring. [Ricognizione, termini e confine supplementare](fonti-risultati-seriea-2026-27.md). Mancante nella fonte originaria e inesistente in assoluto sono concetti diversi. L'eventuale valutazione supplementare richiede scelta metodologica separata e diritti verificati; il controllo originale del15 resta obbligatorio anche pending.

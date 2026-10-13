@@ -1,5 +1,7 @@
 # Punto 11 — gestione progressiva della giornata
 
+Preparazione originale successiva: [risultati e diritti](fonti-risultati-seriea-2026-27.md), [preflight G7 sul PC](preparazione-prima-prova-g7.md), [controllo G6 del15](verifica-originale-15-ottobre.md). Nuovi strumenti di preparazione separati; calendario/quote originali, cloud e nuovi stati Samsung non ancora collaudati insieme. Nessuna attivazione.
+
 Implementazione del 13 ottobre 2026, successiva a `970b6e7`. [Protocollo nuovo](protocollo-analisi-progressive-v1.md). Parametri, protocolli statistici e journal originali non sono migrati.
 
 ## Percorso e finestre
