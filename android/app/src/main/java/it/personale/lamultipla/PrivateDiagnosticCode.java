@@ -5,7 +5,7 @@ public final class PrivateDiagnosticCode {
     private PrivateDiagnosticCode() {}
     private static final java.util.List<String> STAGES=Arrays.asList("FIREBASE_INIT","HINT_RECEIVED","HINT_DISABLED","HINT_VERIFY","HINT_VERIFIED","HINT_ALREADY_ARCHIVED",
         "FCM_TOKEN_CHANGED","WORK_ENQUEUE","WORK_QUEUED","WORK_START","WORK_DISABLED","SESSION_READ","SESSION_REFRESH","DEVICE_REGISTER","HEAD_READ","EVENT_READ",
-        "PACKAGE_VERIFY","ARCHIVE_SAVE","NOTIFICATION_POST","NOTIFICATION_DISABLED","NOTIFICATION_EXPIRED","WORK_COMPLETE","BACKGROUND_ENABLE","FCM_REGISTER");
+        "PACKAGE_VERIFY","ARCHIVE_SAVE","INBOX_CONSUME","NOTIFICATION_POST","NOTIFICATION_DISABLED","NOTIFICATION_EXPIRED","WORK_COMPLETE","BACKGROUND_ENABLE","FCM_REGISTER");
     private static final java.util.List<String> DETAILS=Arrays.asList("Encoding","Time","Clock","Signature","Identity","Audience","Manifest","Hash","Payload","Contract",
         "Fields","Frame","Statement size","Statement type","Protected pilot","Login needed","Session changed","Session","Chain","Inbox full","Head","Head conflict","Rollback","Missing head","Missing event","Frozen final");
     public static String format(String stage,Throwable error) {

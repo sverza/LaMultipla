@@ -17,6 +17,25 @@ import {syntheticDecisionBundle,syntheticNow} from './fixtures/decision.mjs';
 import {appPackage} from '../scripts/lib/decision/app-package.mjs';
 import {envelope} from '../scripts/lib/prospective/store.mjs';
 const applicationId='it.personale.lamultipla.collaudo',readerUid='SYNTHETIC_READER',projectId='demo-private-android',deviceId='synthetic-device-01';
+test('actual Java receipt reader accepts Integer and Long without coercing invalid values or overflowing',async t=>{
+  let compiler='javac',prefix=[];
+  try{execFileSync(compiler,['-version'],{stdio:'pipe'});}catch{compiler='java';prefix=['-m','jdk.compiler/com.sun.tools.javac.Main'];}
+  const directory=await fs.mkdtemp(path.join(os.tmpdir(),'lamultipla-receipt-sequence-'));t.after(()=>fs.rm(directory,{recursive:true,force:true}));
+  const source=fileURLToPath(new URL('../android/app/src/main/java/it/personale/lamultipla/PrivateReceiptSequence.java',import.meta.url));
+  const main=`import it.personale.lamultipla.PrivateReceiptSequence;
+public class ReceiptTest {public static void main(String[] args)throws Exception{
+for(Object value:new Object[]{Integer.valueOf(1),Integer.valueOf(4),Long.valueOf(4),Integer.valueOf(1000000)}){
+if(PrivateReceiptSequence.read(value)!=((Number)value).longValue())throw new AssertionError("Integer receipt changed");}
+for(Object value:new Object[]{null,"4",Boolean.TRUE,Double.valueOf(4),Double.valueOf(4.5),Double.NaN,Integer.valueOf(0),Integer.valueOf(-1),Integer.valueOf(1000001),Long.valueOf(4294967300L)}){
+try{PrivateReceiptSequence.read(value);throw new AssertionError("Invalid receipt accepted");}catch(Exception expected){if(!"Chain".equals(expected.getMessage()))throw expected;}}
+System.out.print("PASS");}}`;
+  await fs.writeFile(path.join(directory,'ReceiptTest.java'),main);
+  execFileSync(compiler,[...prefix,'-d',directory,source,path.join(directory,'ReceiptTest.java')],{stdio:'pipe'});
+  assert.equal(execFileSync('java',['-cp',directory,'ReceiptTest'],{encoding:'utf8'}),'PASS');
+  const plugin=await fs.readFile(fileURLToPath(new URL('../android/app/src/main/java/it/personale/lamultipla/LaMultiplaPrivatePlugin.java',import.meta.url)),'utf8');
+  assert.match(plugin,/PrivateReceiptSequence\.read\(call\.getData\(\)\.opt\("sequence"\)\)/);
+  assert.doesNotMatch(plugin,/call\.getLong\("sequence"/);
+});
 test('actual Java diagnostic formatter retains fixed failure stages but never secret messages or arbitrary input',async t=>{
   let compiler='javac',prefix=[];
   try{execFileSync(compiler,['-version'],{stdio:'pipe'});}catch{compiler='java';prefix=['-m','jdk.compiler/com.sun.tools.javac.Main'];
@@ -30,11 +49,12 @@ System.out.println(PrivateDiagnosticCode.format("HINT_VERIFY",new Exception("Clo
 System.out.println(PrivateDiagnosticCode.format("HEAD_READ",new Exception("HTTP_403")));
 System.out.println(PrivateDiagnosticCode.format("SESSION_READ",new IllegalStateException("https://example.test/?api_key=SYNTHETIC_SECRET token=SYNTHETIC_TOKEN user=SYNTHETIC_UID")));
 System.out.println(PrivateDiagnosticCode.format("SYNTHETIC_SECRET",new Exception("HTTP_403 token=SYNTHETIC_TOKEN")));
+System.out.println(PrivateDiagnosticCode.format("INBOX_CONSUME",new Exception("Chain")));
 }}`;
   await fs.writeFile(path.join(directory,'DiagnosticTest.java'),main);
   execFileSync(compiler,[...prefix,'-d',directory,source,path.join(directory,'DiagnosticTest.java')],{stdio:'pipe'});
   const result=execFileSync('java',['-cp',directory,'DiagnosticTest'],{encoding:'utf8'}).trim();
-  assert.deepEqual(result.split(/\r?\n/),['HINT_RECEIVED','HINT_VERIFY_FAILED:Exception:Clock','HEAD_READ_FAILED:Exception:HTTP_403','SESSION_READ_FAILED:IllegalStateException','UNKNOWN_FAILED:Exception']);
+  assert.deepEqual(result.split(/\r?\n/),['HINT_RECEIVED','HINT_VERIFY_FAILED:Exception:Clock','HEAD_READ_FAILED:Exception:HTTP_403','SESSION_READ_FAILED:IllegalStateException','UNKNOWN_FAILED:Exception','INBOX_CONSUME_FAILED:Exception:Chain']);
   assert.doesNotMatch(result,/SYNTHETIC|https|api_key|token=/);
 });
 async function setup(){

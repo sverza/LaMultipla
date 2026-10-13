@@ -88,7 +88,7 @@ export function prepareAndroidCollaudo(root, destination = path.join(root, '.loc
     return text;
   });
   modify('android/app/build.gradle', text => replaceOnce(replaceOnce(replaceOnce(text, 'applicationId "it.personale.lamultipla"', `applicationId "${TEST_APP_ID}"`),
-    'versionCode 2','versionCode 5'),'versionName "1.0.1"','versionName "1.0.1-private-shadow"'));
+    'versionCode 2','versionCode 6'),'versionName "1.0.1"','versionName "1.0.1-private-receipt"'));
   modify('android/app/src/main/res/values/strings.xml', text => text.replaceAll('La Multipla', 'LaMultipla TEST APK').replaceAll('it.personale.lamultipla', TEST_APP_ID));
   modify('app/layout.tsx', text => replaceOnce(text, '<body>{children}</body>', '<body><div role="status" style={{padding:8,textAlign:"center",background:"#ccf068",color:"#10241e",fontWeight:700}}>APK DI COLLAUDO · analisi sperimentali · stake reale 0 €</div>{children}</body>'));
   modify('package.json', text => {

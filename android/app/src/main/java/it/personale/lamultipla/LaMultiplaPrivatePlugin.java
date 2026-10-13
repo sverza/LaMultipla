@@ -89,11 +89,12 @@ public class LaMultiplaPrivatePlugin extends Plugin {
         }call.resolve();
     }catch(Exception e){android.util.Log.w("LaMultiplaPrivateDiag",PrivateDiagnosticCode.format("ARCHIVE_SAVE",e));call.reject("Archivio privato non coerente");}}
     @PluginMethod public void consume(PluginCall call){try{
-        long n=call.getLong("sequence",0L);String hash=call.getString("deliveryHash");
+        long n=PrivateReceiptSequence.read(call.getData().opt("sequence"));String hash=call.getString("deliveryHash");
+        if(hash==null||!hash.matches("^[a-f0-9]{64}$"))throw new Exception("Hash");
         synchronized(PrivateVault.class){JSONObject s=PrivateVault.load(getContext());JSONArray before=s.optJSONArray("inbox"),after=new JSONArray();boolean found=n==s.optLong("sequence",0)&&hash.equals(s.optString("deliveryHash",""));
             if(before!=null)for(int i=0;i<before.length();i++){JSONObject frame=before.getJSONObject(i),statement=new JSONObject(frame.getString("statement"));
                 if(statement.getLong("sequence")==n&&PrivateProtocol.hash(frame.getString("statement")).equals(hash))found=true;
                 if(statement.getLong("sequence")>n)after.put(frame);}
             if(!found)throw new Exception();s.put("inbox",after);PrivateVault.save(getContext(),s);}call.resolve();
-    }catch(Exception e){call.reject("Ricevuta locale non coerente");}}
+    }catch(Exception e){android.util.Log.w("LaMultiplaPrivateDiag",PrivateDiagnosticCode.format("INBOX_CONSUME",e));call.reject("Ricevuta locale non coerente");}}
 }
