@@ -1,4 +1,5 @@
 // Shared by Node and the app. No Node imports, network calls or betting authorization.
+import {ROUND_STATE_SCHEMA,validateRoundState} from './round-state.mjs';
 const fail=message=>{throw new Error('Pacchetto v4 non valido: '+message);};
 const object=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
 const fields=(v,keys,label)=>{if(!object(v)||Object.keys(v).some(k=>!keys.includes(k))||keys.some(k=>!Object.hasOwn(v,k)))fail(label+' contiene campi mancanti o non ammessi');};
@@ -16,8 +17,8 @@ export async function jsonSha256(value){
   if(!globalThis.crypto?.subtle)fail('verifica SHA256 indisponibile: usare HTTPS o localhost');
   return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(value)))),b=>b.toString(16).padStart(2,'0')).join('');
 }
-export function isExperimentalInput(v){return object(v)&&(v.schema==='lamultipla-app-decision-v4'||v.schema==='lamultipla-public-decision-receipt-v1'
-  ||v.schema==='lamultipla-prospective-envelope-v1'&&['lamultipla-app-decision-v4','lamultipla-public-decision-receipt-v1'].includes(v.payload?.schema));}
+export function isExperimentalInput(v){return object(v)&&(v.schema===ROUND_STATE_SCHEMA||v.schema==='lamultipla-app-decision-v4'||v.schema==='lamultipla-public-decision-receipt-v1'
+  ||v.schema==='lamultipla-prospective-envelope-v1'&&['lamultipla-app-decision-v4','lamultipla-public-decision-receipt-v1',ROUND_STATE_SCHEMA].includes(v.payload?.schema));}
 export function validateDecisionV4(p){
   fields(p,['schema','id','round','generatedAtUtc','status','mode','sourceData','delivery','actualStakeEUR','nominalStakeEUR','operational',
     'source','model','selections','combined','shadowCause','reasonCodes','exclusions','counts','phases','final'],'root');
@@ -91,7 +92,8 @@ export function validateDecisionV4(p){
 export async function parseDecisionEnvelope(input){
   fields(input,['schema','sha256','payload'],'envelope');
   if(input.schema!=='lamultipla-prospective-envelope-v1'||!hash(input.sha256)||input.sha256!==await jsonSha256(input.payload))fail('hash snapshot');
-  validateDecisionV4(input.payload);return structuredClone(input);
+  if(input.payload?.schema===ROUND_STATE_SCHEMA)validateRoundState(input.payload);else validateDecisionV4(input.payload);
+  return structuredClone(input);
 }
 export function assertNotPlayable(){fail('simulazioni e NO BET non possono diventare giocate; autorizzazione operativa assente');}
 export const stateLabels=Object.freeze({simulation:'MULTIPLA SIMULATA',no_bet:'NO BET',draft:'Bozza',approved:'Approvata',played:'Giocata effettiva'});
@@ -113,7 +115,7 @@ export function validatePublicReceipt(p){
   return p;
 }
 export async function parseExperimentalEnvelope(input){
-  if(input?.schema==='lamultipla-prospective-envelope-v1'&&input.payload?.schema==='lamultipla-app-decision-v4')return parseDecisionEnvelope(input);
+  if(input?.schema==='lamultipla-prospective-envelope-v1'&&['lamultipla-app-decision-v4',ROUND_STATE_SCHEMA].includes(input.payload?.schema))return parseDecisionEnvelope(input);
   if(input?.schema==='lamultipla-prospective-envelope-v1'){
     fields(input,['schema','sha256','payload'],'envelope ricevuta');
     if(!hash(input.sha256)||input.sha256!==await jsonSha256(input.payload))fail('hash ricevuta');

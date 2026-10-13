@@ -1,5 +1,7 @@
 # Orchestratore Windows — primo componente eseguibile
 
+Incremento successivo del 13 ottobre: `--progressive-once CONFIG` gestisce tentativi sulle partite residue; `--progressive-config` prepara solo XML disabilitato con configurazione vincolata. [Finestre e limiti](punto11-gestione-progressiva.md). Nessuna preparazione precedente riscritta o task attivato.
+
 Stato aggiornato dopo recupero Codex del 13 ottobre: [raccoglitore calendario](punto11-calendario-automatico.md) implementato e verificato con dati sintetici, ancora separato dal runner del piano singolo. XML analitico già validato sul PC alle 12:57, disabilitato e senza registrazione; questa evidenza è recuperata dalla cronologia Work. L'inventario Windows in sola lettura non rileva task LaMultipla registrati. Le sezioni e i conteggi precedenti documentano le rispettive fasi storiche, non ulteriori collaudi del codice attuale.
 
 13 ottobre 2026. Implementato e collaudato su Windows il **recupero delle consegne private già accodate**. Aggiunto il coordinamento persistente delle fasi analitiche con adapter esistenti e test sintetici: [analisi persistente e limiti](punto11-analisi-persistente.md). Il ciclo completo di tutte le giornate resta aperto: scoperta calendario, canale reale, fonti contestuali e risultati. `shadow.mjs` rimane l’unica autorità decisionale. Stake reale 0 €, nessuna chiamata reale OddsPapi eseguita nello sviluppo, task Windows non registrati/attivati.

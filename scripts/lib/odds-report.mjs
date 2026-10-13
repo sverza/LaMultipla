@@ -37,8 +37,12 @@ export function validateRound(round) {
       || round.fixtureIds.some(id => typeof id !== 'string' || !id.trim()) || new Set(round.fixtureIds).size !== 10)) {
     throw new SafeError('Conferma giornata: fornire esattamente 10 fixtureIds distinti');
   }
+  if(round.screeningFixtureIds!==undefined&&(round.progressiveProtocol!=='analysis-progressive-v1'||!round.fixtureIds
+    ||!Array.isArray(round.screeningFixtureIds)||round.screeningFixtureIds.length<2||round.screeningFixtureIds.length>10
+    ||new Set(round.screeningFixtureIds).size!==round.screeningFixtureIds.length
+    ||round.screeningFixtureIds.some(id=>!round.fixtureIds.includes(id))))throw new SafeError('Residui progressive non verificati');
   return { season: round.season, matchday: round.matchday, fromUtc: round.fromUtc, toUtc: round.toUtc,
-    fixtureIds: round.fixtureIds ?? null };
+    fixtureIds: round.fixtureIds ?? null,...(round.screeningFixtureIds?{screeningFixtureIds:round.screeningFixtureIds,progressiveProtocol:round.progressiveProtocol}:{}) };
 }
 
 function italianUrl(raw) {
@@ -78,10 +82,11 @@ export function buildReport(rawFixtures, rawCatalog, { round, observedAt = new D
   const candidates = [...fixtures.values()].filter(f => Number(f.tournamentId) === TOURNAMENT_ID
     && time(f.startTime) && Date.parse(f.startTime) >= Date.parse(target.fromUtc) && Date.parse(f.startTime) < Date.parse(target.toUtc));
   // Without fixtureIds this is discovery only, never a silently inferred matchday.
-  const selected = candidates.filter(f => !target.fixtureIds || target.fixtureIds.includes(String(f.fixtureId)))
+  const expectedIds=target.screeningFixtureIds??target.fixtureIds;
+  const selected = candidates.filter(f => !expectedIds || expectedIds.includes(String(f.fixtureId)))
     .sort((a, b) => Date.parse(a.startTime) - Date.parse(b.startTime) || String(a.fixtureId).localeCompare(String(b.fixtureId)));
-  const missingFixtureIds = target.fixtureIds?.filter(id => !selected.some(f => String(f.fixtureId) === id)) ?? [];
-  const roundVerified = Boolean(target.fixtureIds && !missingFixtureIds.length && selected.length === 10 && !conflictingFixtures.size);
+  const missingFixtureIds = expectedIds?.filter(id => !selected.some(f => String(f.fixtureId) === id)) ?? [];
+  const roundVerified = Boolean(target.fixtureIds && !missingFixtureIds.length && selected.length === expectedIds.length && !conflictingFixtures.size);
   if (!roundVerified) anomalies.push({ issue: 'round_not_confirmed_or_partial', missingFixtureIds, found: selected.length });
   const selections = [], coverage = [], familyCounts = new Map();
   for (const f of selected) {

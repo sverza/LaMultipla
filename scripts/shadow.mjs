@@ -20,12 +20,16 @@ import {buildContext,contextGate} from './lib/context/dossier.mjs';
 import {contextIdentity} from './lib/context/identity.mjs';
 import {validateBundle} from './lib/context/evidence.mjs';
 import {GENERAL_POLICY,assertFutureRound} from './lib/decision/policy.mjs';
+import {privateInput} from './lib/orchestration/analysis-plan.mjs';
+import {persistProgressiveDecision,closeProgressiveRound,commitFinal,attemptDirectory} from './lib/shadow/progressive.mjs';
+import {validateRoundIdentity,PROGRESSIVE_POLICY} from './lib/orchestration/progressive-policy.mjs';
 
 const {values}=parseArgs({options:{help:{type:'boolean'},cycle:{type:'boolean'},'live-odds':{type:'boolean'},'refresh-data':{type:'boolean'},
   preview:{type:'boolean'},journal:{type:'string'},study:{type:'string'},report:{type:'string'},assessment:{type:'string'},
   dataset:{type:'string'},schedule:{type:'string'},round:{type:'string'},'max-legs':{type:'string'},'combined-prices':{type:'string'},
   inspect:{type:'string'},evaluate:{type:'string'},results:{type:'string'},progress:{type:'boolean'},
-  'extension-journal':{type:'string'},'extension-study':{type:'string'},context:{type:'string'},'context-evidence':{type:'string'},'context-dataset':{type:'string'}},strict:true});
+  'extension-journal':{type:'string'},'extension-study':{type:'string'},context:{type:'string'},'context-evidence':{type:'string'},'context-dataset':{type:'string'},
+  'progressive-plan':{type:'string'},'close-progressive':{type:'boolean'},'progressive-history':{type:'string'}},strict:true});
 const directory=path.join(ROOT,'.local/shadow');
 const clock=()=>new Date();
 const files=async folder=>{try{return(await fs.readdir(folder)).filter(n=>n.endsWith('.json')).map(n=>path.join(folder,n));}catch(e){if(e.code==='ENOENT')return [];throw e;}};
@@ -39,6 +43,20 @@ async function engineIdentity(){
     generalProtocolSha256:sha256((await fs.readFile(path.join(ROOT,GENERAL_POLICY.protocolPath),'utf8')).replace(/\r\n/g,'\n'))};
 }
 async function main(){
+  const progressivePlan=values['progressive-plan']?await readSnapshot(await privateInput(ROOT,values['progressive-plan'])):null;
+  if(progressivePlan){
+    validateRoundIdentity(progressivePlan.schedule);
+    if(progressivePlan.progressive&&progressivePlan.progressive.protocolDocumentSha256!==sha256((await fs.readFile(path.join(ROOT,PROGRESSIVE_POLICY.protocolPath),'utf8')).replace(/\r\n/g,'\n')))
+      throw new Error('PROGRESSIVE_PROTOCOL_CHANGED');
+    if(values.cycle||values.preview||values.evaluate||values.progress||values.inspect)throw new Error('Progressive plan requires dedicated local mode');
+    if(values['close-progressive']){
+      const history=await readSnapshot(await privateInput(ROOT,values['progressive-history']));
+      const snapshot=await closeProgressiveRound(ROOT,progressivePlan,history);console.log(JSON.stringify({state:snapshot.phase,actualStakeEUR:0}));return;
+    }
+    const previous=path.join(attemptDirectory(ROOT,progressivePlan),'decision.json');
+    try{const saved=await readSnapshot(previous);if(saved.final)await commitFinal(ROOT,saved);console.log(JSON.stringify({recovered:true,final:saved.final}));return;}
+    catch(e){if(e.code!=='ENOENT')throw e;}
+  }else if(values['close-progressive']||values['progressive-history'])throw new Error('Progressive plan required');
   if(values.help){console.log('Local: --journal FILE --study FILE --report FILE [--assessment FILE] [--preview]');
     console.log('Cycle: --cycle --study FILE --round FILE --schedule FILE (--report FILE | --live-odds) [--refresh-data]');
     console.log('Context: --context SNAPSHOT or --context-evidence LOCAL_NOTES; otherwise league-only dossier is generated, with missing themes explicit. Local mode: --context-dataset SNAPSHOT binds the updated history to the frozen journal.');
@@ -55,7 +73,7 @@ async function main(){
       await writeExclusive(filename,output);console.log('Valutazione shadow privata:',filename);console.log(JSON.stringify({candidatesSettled:output.candidatesSettled,simulation:output.simulation}));return;
     }
     if(values.progress){
-      const decisions=await Promise.all((await files(path.join(directory,'decisions'))).map(readSnapshot));
+      const decisions=(await Promise.all((await files(path.join(directory,'decisions'))).map(readSnapshot))).filter(d=>d.schema==='lamultipla-shadow-decision-v1');
       const evaluations=await Promise.all((await files(path.join(directory,'evaluations'))).map(readSnapshot));
       const output=shadowProgress(decisions,evaluations,clock()),filename=path.join(directory,'progress',digest(output)+'.json');
       await writeExclusive(filename,output);console.log('Progressione shadow privata:',filename);console.log(JSON.stringify(output,null,2));return;
@@ -113,10 +131,11 @@ async function main(){
     const decision=createDecision({journal,report,study:registry.study,assessment,maxLegs,combinedPrices,now:clock(),context,
       provenance:{...await engineIdentity(),repositoryCommit:registry.identity.repositoryCommit,repositoryDirty:registry.identity.repositoryDirty,journalPath,reportPath,
         quoteAcquisition:report.acquisition??null,mode:values.cycle?'cycle':'local',
-        sourceData:report.source.mode==='synthetic_test'?'synthetic_test':'local_original_artifacts'}});
+        sourceData:report.source.mode==='synthetic_test'?'synthetic_test':'local_original_artifacts'},
+      progressive:progressivePlan?.decisionMetadata??null});
     if(extension){decision.experimentalMarkets=experimentalScreen({...extension,report,assessment,now:clock()});
       for(const r of decision.experimentalMarkets.records)r.contextState=decision.contextGate.entries.find(e=>e.fixtureId===r.fixtureId)?.state??'CONTEXT_REVIEW_REQUIRED';}
-    const frozen=await persistDecision(decision,directory,{preview:values.preview});
+    const frozen=progressivePlan?await persistProgressiveDecision(decision,ROOT,progressivePlan,{now:clock()}):await persistDecision(decision,directory,{preview:values.preview});
     console.log(values.preview?'Anteprima shadow privata:':'Decisione shadow congelata:',frozen.filename);
     console.log(JSON.stringify({sha256:frozen.sha256,decision:decision.decision,cause:decision.noBetCause,...decision.opportunities.counts,
       combinations:decision.selector.counts.combinations,proposal:decision.selector.selected?.id??null,actualStakeEUR:0,

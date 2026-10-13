@@ -12,7 +12,8 @@ export function verifyDecisionBundle({decision,journal,report,study,assessment={
     throw new Error('Operational/publication flags cannot be enabled by editing JSON');
   if(!Number.isFinite(Date.parse(decision.generatedAtUtc)))throw new Error('Invalid decision generation time');
   const inputs={journal,report,study,assessment,context:decision.context,now:decision.generatedAtUtc,maxLegs:decision.selector.maxLegs,
-    combinedPrices:decision.selector.combinations.map(c=>c.actualPriceVerification).filter(Boolean),provenance:decision.provenance};
+    combinedPrices:decision.selector.combinations.map(c=>c.actualPriceVerification).filter(Boolean),provenance:decision.provenance,
+    progressive:decision.progressive??null};
   const rebuilt=createDecision(inputs);
   for(const field of ['id','modelVersion','journalId','round','opportunities','contextGate','selectionGate','selector','decision','noBetCause','policy','policySha256'])
     if(digest(rebuilt[field])!==digest(decision[field]))throw new Error(`Replayed decision mismatch: ${field}`);

@@ -46,7 +46,7 @@ export async function enablePrivate(enabled:boolean){
   if(!enabled){await Native.setBackground({enabled:false});return;}
   const c=await getClient();
   await activatePrivateReception({ensureSession:()=>c.auth.getIdToken(),setBackground:enabled=>Native.setBackground({enabled}),
-    registerDevice:async()=>c.cloud.registerDevice(c.profile.deviceId,(await Native.fcmToken()).value,c.profile.trust.applicationId)});
+    registerDevice:async()=>c.cloud.registerDevice(c.profile.deviceId,(await Native.fcmToken()).value,c.profile.trust.applicationId,1)});
 }
 export async function logoutPrivate(){await Native.setBackground({enabled:false});const c=await getClient();await c.auth.signOut();client=null;}
 export async function receivePrivate(onImported:()=>Promise<void>){

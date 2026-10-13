@@ -10,5 +10,5 @@ publish:(frame:DeliveryFrame)=>Promise<{accepted:boolean;duplicate:boolean}>;
 acknowledge:(deviceId:string,sequence:number,hash:string)=>Promise<void>;
 ack:(deviceId:string)=>Promise<{sequence:number;deliveryHash:string}|null>;
 device:(deviceId:string)=>Promise<{fcmToken:string;applicationId:string}|null>;
-registerDevice:(deviceId:string,fcmToken:string,applicationId:string)=>Promise<void>;
+registerDevice:(deviceId:string,fcmToken:string,applicationId:string,roundStateProtocol?:number)=>Promise<void>;
 };

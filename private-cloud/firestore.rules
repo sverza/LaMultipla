@@ -67,7 +67,8 @@ service cloud.firestore {
         allow get: if supported(channel) && member(reader);
         allow list, delete: if false;
         allow create, update: if supported(channel) && readerIs(reader) && device.matches('^[a-z0-9-]{8,64}$')
-          && request.resource.data.keys().hasOnly(['fcmToken','applicationId'])
+          && request.resource.data.keys().hasOnly(['fcmToken','applicationId','roundStateProtocol'])
+          && (!('roundStateProtocol' in request.resource.data) || request.resource.data.roundStateProtocol == 1)
           && request.resource.data.fcmToken is string && request.resource.data.fcmToken.size() <= 4096
           && (request.resource.data.applicationId == 'it.personale.lamultipla' || request.resource.data.applicationId == 'it.personale.lamultipla.collaudo');
       }

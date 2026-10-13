@@ -1,5 +1,15 @@
 # Punto 11 — stato del collaudo, 11 ottobre 2026
 
+## Gestione progressiva — incremento del 13 ottobre
+
+Implementati gestore persistente, nuovo protocollo futuro, piani residui, revisioni shadow fuori dalla coorte originale, finale unico e margini 150/135/120 minuti. V4 preservato; schema separato per aggiornamenti e NO BET finale senza modello fittizio, capacità del ricevitore richiesta. [Rapporto completo](punto11-gestione-progressiva.md).
+
+20 nuove prove sintetiche, **251/251 test Node, zero skip**, lint senza errori (warning preesistente), build web/TypeScript riuscita. Regole/capacità anche sull'emulatore Firestore demo locale; ruoli e campi arbitrari rifiutati. Nessuna validazione statistica attribuita a queste prove.
+
+Compilazione Java Android delle classi aggiornate superata sul Windows in isolamento, `:app:compileDebugJavaWithJavac`, senza configurazione Firebase privata, packaging/firma/installazione. Nessuna nuova prova strumentale sul Samsung attribuita a questo incremento.
+
+Restano: manifest ufficiali aggiornati, primo provider reale autorizzato, contesto/liquidazione/prezzo combinato effettivamente verificati, collaudo originale. Nuovi stati richiedono regole/client compatibili e prove native; nessun deploy cloud o nuovo APK installato. Valutazione G6 separata dal 15 ottobre, risultati mancanti pending, originali e baseline intatti. Nessun task attivato.
+
 ## Stato del recupero Codex — 13 ottobre 2026
 
 Codice calendario recuperato dalla cronologia Work in un worktree isolato basato su `164392f`, includendo le patch successive all'ultimo indice e riconciliando l'aggiornamento documentale fallito. I conteggi e i «da collaudare» delle sezioni precedenti restano evidenze datate; per il calendario corrente vedere [rapporto dedicato](punto11-calendario-automatico.md).

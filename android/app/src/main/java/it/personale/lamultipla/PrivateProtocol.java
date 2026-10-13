@@ -56,7 +56,7 @@ final class PrivateProtocol {
         String packageJson = frame.getString("packageJson");if (!hash(packageJson).equals(s.getString("packageSha256"))) throw new Exception("Payload");
         JSONObject e = new JSONObject(packageJson),p=e.getJSONObject("payload"),round=p.getJSONObject("round"),op=p.getJSONObject("operational");
         if (!e.getString("schema").equals("lamultipla-prospective-envelope-v1") || !e.getString("sha256").equals(s.getString("envelopeSha256"))
-            || !p.getString("schema").equals("lamultipla-app-decision-v4") || !p.getString("mode").equals("experimental") || p.getDouble("actualStakeEUR") != 0
+            || !(p.getString("schema").equals("lamultipla-app-decision-v4") || p.getString("schema").equals("lamultipla-app-round-state-v1")) || !p.getString("mode").equals("experimental") || p.getDouble("actualStakeEUR") != 0
             || op.getBoolean("authorized") || op.getBoolean("publicationAllowed") || !op.getString("decision").equals("NO_BET")
             || !round.getString("season").equals(s.getString("season")) || round.getInt("matchday")!=s.getInt("matchday")
             || !p.getString("status").equals(s.getString("status")) || !p.getString("generatedAtUtc").equals(s.getString("generatedAtUtc"))

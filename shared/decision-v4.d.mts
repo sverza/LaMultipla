@@ -8,7 +8,8 @@ export type AppDecisionV4={schema:'lamultipla-app-decision-v4';id:string;round:{
  source:{decisionSha256:string;journalSha256:string;reportSha256:string;studySha256:string;assessmentSha256:string;generalProtocolVersion:string};
  model:{version:string;status:'experimental_not_operational';codeSha256:string;datasetSha256:string;protocolSha256:string;trainingCutoffUtc:string;forecastGeneratedAtUtc:string};
  selections:V4Selection[];combined:V4Combined|null;shadowCause:string|null;reasonCodes:string[];exclusions:Record<string,number>;counts:Record<string,number>;phases:{step:number;state:string}[]};
-export type DecisionEnvelope={schema:'lamultipla-prospective-envelope-v1';sha256:string;payload:AppDecisionV4};
+import type {RoundState} from './round-state.mjs';
+export type DecisionEnvelope={schema:'lamultipla-prospective-envelope-v1';sha256:string;payload:AppDecisionV4|RoundState};
 export function jsonSha256(value:unknown):Promise<string>;
 export function validateDecisionV4(value:unknown):AppDecisionV4;
 export function parseDecisionEnvelope(value:unknown):Promise<DecisionEnvelope>;
@@ -18,6 +19,6 @@ export function assertNotPlayable():never;
 export function reasonLabel(code:string):string;
 export const stateLabels:Record<string,string>;
 export type PublicReceipt={schema:'lamultipla-public-decision-receipt-v1';available:false;id:string;season:string;matchday:number;generatedAtUtc:string;decision:'NO_BET';cause:string;shadowDecision:string;shadowCause:string|null;modelVersion:string;policyVersion:string;decisionSha256:string;status:string;actualStakeEUR:0;publicationAuthorized:false;sourceData:string};
-export type ExperimentalEnvelope={schema:'lamultipla-prospective-envelope-v1';sha256:string;payload:AppDecisionV4|PublicReceipt};
+export type ExperimentalEnvelope={schema:'lamultipla-prospective-envelope-v1';sha256:string;payload:AppDecisionV4|PublicReceipt|RoundState};
 export function validatePublicReceipt(value:unknown):PublicReceipt;
 export function parseExperimentalEnvelope(value:unknown):Promise<ExperimentalEnvelope>;

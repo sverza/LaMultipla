@@ -4,7 +4,10 @@ import {deliveryPump} from './lib/orchestration/delivery-pump.mjs';
 import {loadAnalysisPlan} from './lib/orchestration/analysis-plan.mjs';
 import {analysisAndDeliveryTick} from './lib/orchestration/analysis-delivery-runner.mjs';
 import {digest} from './lib/prospective/store.mjs';
+import {progressiveAndDeliveryTick} from './lib/orchestration/progressive-runner.mjs';
 async function main(){
+  if(process.argv[2]==='--progressive-once'&&(process.argv.length===4||process.argv.length===6&&process.argv[4]==='--config-sha256'&&/^[a-f0-9]{64}$/.test(process.argv[5])))
+    return progressiveAndDeliveryTick({root:ROOT,filename:process.argv[3],expectedConfigSha256:process.argv[5]??null});
   if(process.argv.length===3&&process.argv[2]==='--once')return {mode:'PRIVATE_DELIVERY_PUMP_ONLY',...await deliveryPump({root:ROOT}),
     analysisEngineEnabled:false,actualStakeEUR:0,oddsApiRequests:0,tasksRegistered:false};
   if(process.argv.length===4&&process.argv[2]==='--inspect-plan'){

@@ -13,6 +13,7 @@ import {contextGate} from '../context/dossier.mjs';
 import {selectionGate} from '../decision/gates.mjs';
 import {governance} from '../decision/governance.mjs';
 import {privateLock} from '../private/process-lock.mjs';
+import {PROGRESSIVE_POLICY,validateAttemptMetadata} from '../orchestration/progressive-policy.mjs';
 
 export function decisionPath(directory,season,matchday) {
   if(!/^\d{4}\/\d{2}$/.test(season)||!Number.isInteger(matchday)||matchday<1||matchday>38)throw new Error('Invalid decision round');
@@ -33,10 +34,14 @@ export function validateCycleSchedule(round,schedule,now) {
       ||!Number.isFinite(Date.parse(e.kickoffUtc))||Date.parse(e.kickoffUtc)<Date.parse(round.fromUtc)||Date.parse(e.kickoffUtc)>=Date.parse(round.toUtc))
     ||events.every(e=>Date.parse(e.kickoffUtc)<=clock+POLICY.freezeBufferMinutes*60000))throw new Error('Schedule/round must identify ten distinct confirmed fixtures before acquisition');
 }
-export function createDecision({journal,report,study,assessment={},maxLegs=4,combinedPrices=[],now=new Date(),provenance={},context=null}) {
+export function createDecision({journal,report,study,assessment={},maxLegs=4,combinedPrices=[],now=new Date(),provenance={},context=null,progressive=null}) {
   const opportunities=screenOpportunities({journal,report,study,assessment,now}),gate=contextGate(context,journal,now);
-  const eligible=opportunities.candidates.filter(c=>gate.eligibleFixtureIds.includes(c.fixtureId));
-  const contextualInput={...opportunities,candidates:eligible,state:opportunities.candidates.length&&!eligible.length?'CONTEXT_REVIEW_REQUIRED':opportunities.state};
+  if(progressive)validateAttemptMetadata(progressive,journal,now);
+  const timely=progressive?opportunities.candidates.filter(c=>progressive.eligibleFixtureIds.includes(c.fixtureId)
+    &&Date.parse(c.kickoffUtc)>new Date(now).getTime()+PROGRESSIVE_POLICY.analysisLeadMinutes*60000):opportunities.candidates;
+  const eligible=timely.filter(c=>gate.eligibleFixtureIds.includes(c.fixtureId));
+  const contextualInput={...opportunities,candidates:eligible,state:progressive&&opportunities.candidates.length&&!timely.length?
+    'TIMING_OPPORTUNITIES_EXHAUSTED':timely.length&&!eligible.length?'CONTEXT_REVIEW_REQUIRED':opportunities.state};
   const selection=selectionGate(opportunities,report,assessment,gate,now);
   const approved=eligible.filter(c=>selection.eligibleQuoteIds.includes(c.quoteId));
   const candidateInput={...contextualInput,candidates:approved,state:eligible.length&&!approved.length?'SELECTION_REVIEW_REQUIRED':contextualInput.state};
@@ -47,6 +52,7 @@ export function createDecision({journal,report,study,assessment={},maxLegs=4,com
     policy:POLICY,policySha256:digest(POLICY),modelVersion:journal.modelVersion,journalId:journal.id,journalSha256:digest(journal),reportSha256:digest(report),
     studySha256:digest(study),assessmentSha256:digest(assessment),provenance,opportunities,context,contextGate:gate,selectionGate:selection,contextPolicyVersion:gate.policyVersion,selector,decision:selector.decision,
     noBetCause:selector.cause,experimental:true,operationallyApproved:false,actualStakeEUR:0,noPublication:true};
+  if(progressive){decision.progressive=progressive;decision.id+='-attempt-'+progressive.attemptId;}
   decision.governance=governance(decision);return decision;
 }
 export async function freezeForwardForecast({report,schedule,registry,dataset=registry.dataset,root,clock=()=>new Date()}) {

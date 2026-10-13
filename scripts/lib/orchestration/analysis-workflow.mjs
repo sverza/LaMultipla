@@ -3,6 +3,7 @@ import {privateLock} from '../private/outbox.mjs';
 import {optionalJson,saveJson} from '../private-store.mjs';
 import {digest,readSnapshot,writeExclusive} from '../prospective/store.mjs';
 import {assertFutureRound} from '../decision/policy.mjs';
+import {attemptDirectory} from '../shadow/progressive.mjs';
 
 export const ANALYSIS_STAGES=Object.freeze(['dataset','forecast','quotes','decision','package','queue']);
 async function optionalSnapshot(file){try{return await readSnapshot(file);}catch(e){if(e.code==='ENOENT')return null;throw e;}}
@@ -13,7 +14,7 @@ async function exclusiveSame(file,value){try{await writeExclusive(file,value);}c
 // probability. Only the shadow CLI adapter may produce the final decision.
 export async function analysisTick({root,plan,adapters,clock=()=>new Date(),afterReceipt=async()=>{}}){
   assertFutureRound(plan.round);
-  const directory=path.join(root,'.local/orchestrator/analysis',`${plan.round.season.replace('/','-')}-round-${String(plan.round.matchday).padStart(2,'0')}`);
+  const directory=plan.progressive?attemptDirectory(root,plan):path.join(root,'.local/orchestrator/analysis',`${plan.round.season.replace('/','-')}-round-${String(plan.round.matchday).padStart(2,'0')}`);
   return privateLock(directory,async()=>{
     const at=new Date(clock()),now=at.getTime(),planSha256=digest(plan);
     if(!Number.isFinite(now)||!Number.isFinite(Date.parse(plan.window?.opensAtUtc))||!Number.isFinite(Date.parse(plan.window?.closesAtUtc))
@@ -42,7 +43,9 @@ export async function analysisTick({root,plan,adapters,clock=()=>new Date(),afte
         if(receipt.schema!=='lamultipla-analysis-stage-receipt-v1'||receipt.planSha256!==planSha256||receipt.stage!==stage||receipt.inputSha256!==inputSha256
           ||!Number.isFinite(Date.parse(receipt.completedAtUtc))||Date.parse(receipt.completedAtUtc)>new Date(clock()).getTime())throw new Error('ANALYSIS_RECEIPT_INVALID');
         await adapter.validate(receipt.result,{plan,results,now:new Date(clock())});
-        results[stage]=receipt.result;inputSha256=digest(receipt);continue;
+        results[stage]=receipt.result;inputSha256=digest(receipt);
+        if(plan.progressive&&stage==='decision'&&!receipt.result.final)return report('attempt_recorded',stage);
+        continue;
       }
       let intent=await optionalSnapshot(intentFile);
       if(intent&&(intent.planSha256!==planSha256||intent.inputSha256!==inputSha256||intent.stage!==stage
@@ -61,7 +64,8 @@ export async function analysisTick({root,plan,adapters,clock=()=>new Date(),afte
             await writeExclusive(intentFile,intent);context.intent=intent;}
           result=await adapter.run(context);
         }catch(error){
-          const reason=/^(?:ANALYSIS_[A-Z_]+|QUOTE_[A-Z_]+|PRIVATE_[A-Z_]+)$/.test(error.code??'')?error.code:'ANALYSIS_STAGE_FAILED';
+          const reason=/^(?:ANALYSIS_[A-Z_]+|QUOTE_[A-Z_]+|PRIVATE_[A-Z_]+|PROGRESSIVE_[A-Z_]+)$/.test(error.code??'')?error.code:'ANALYSIS_STAGE_FAILED';
+          if(reason==='PROGRESSIVE_SCIENTIFIC_CALENDAR_INCOMPLETE')return report('review_required',stage,null,reason);
           if(stage==='quotes'&&intent||reason==='PRIVATE_QUEUE_PACKAGE_EXPIRED')return report('review_required',stage,null,reason);
           state.failures=Math.min(state.failures+1,1000000);
           return report('retry_required',stage,new Date(new Date(clock()).getTime()+Math.min(60,5*2**Math.min(state.failures-1,4))*60000).toISOString(),reason);
@@ -72,6 +76,7 @@ export async function analysisTick({root,plan,adapters,clock=()=>new Date(),afte
         startedAtUtc:intent.startedAtUtc,completedAtUtc:new Date(clock()).toISOString()};
       await writeExclusive(file,receipt);await afterReceipt(stage);
       results[stage]=result;inputSha256=digest(receipt);state.failures=0;
+      if(plan.progressive&&stage==='decision'&&!result.final)return report('attempt_recorded',stage);
     }
     return report('queued','queue');
   });

@@ -40,6 +40,11 @@ await assert.rejects(publisher.registerDevice('synthetic-device','SYNTHETIC_FCM_
 await reader.registerDevice('synthetic-device','SYNTHETIC_FCM_TEST_ONLY',trust.applicationId);
 assert.equal((await publisher.device('synthetic-device')).fcmToken,'SYNTHETIC_FCM_TEST_ONLY');
 const patch=async(document,fields,identity)=>nativeFetch(endpoint+'/'+prefix+'/'+document,{method:'PATCH',headers:{Authorization:'Bearer '+token(identity),'Content-Type':'application/json'},body:JSON.stringify({fields})});
+await reader.registerDevice('synthetic-device','SYNTHETIC_FCM_TEST_ONLY',trust.applicationId,1);
+assert.equal((await publisher.device('synthetic-device')).roundStateProtocol,1);
+await assert.rejects(publisher.registerDevice('synthetic-device','SYNTHETIC_WRITER_ROTATION_FORBIDDEN',trust.applicationId,1),/403/);
+assert.equal((await patch('devices/synthetic-device',{fcmToken:{stringValue:'SYNTHETIC_FCM_TEST_ONLY'},applicationId:{stringValue:trust.applicationId},roundStateProtocol:{integerValue:'2'}},uid)).status,403);
+assert.equal((await patch('devices/synthetic-device',{fcmToken:{stringValue:'SYNTHETIC_FCM_TEST_ONLY'},applicationId:{stringValue:trust.applicationId},admin:{booleanValue:true}},uid)).status,403);
 assert.equal((await patch('events/1',{sequence:{integerValue:'1'}},writer)).status,403);
 assert.equal((await patch('head/current',{sequence:{integerValue:'8'},deliveryId:{stringValue:'f'.repeat(64)},deliveryHash:{stringValue:'f'.repeat(64)}},writer)).status,403);
 const finalPayload=appPackage(syntheticDecisionBundle('no_value'));finalPayload.final=true;

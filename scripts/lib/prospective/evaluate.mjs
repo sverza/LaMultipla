@@ -8,6 +8,7 @@ export function score1X2(p, outcome) {
     brier:p.reduce((sum,v,i)=>sum+(v-Number(i===outcome))**2,0)};
 }
 export function evaluateJournal(journal, results, {evaluatedAtUtc=new Date().toISOString(),markets=[]}={}) {
+  if(journal.provenance?.cohortEligible===false)throw new Error('Shadow revision excluded from original scientific cohort');
   if (journal.schema!=='lamultipla-prospective-journal-v1' || results.schema!=='lamultipla-result-observations-v1'
     || results.license!=='CC0-1.0' || results.source!=='openfootball/football.json' || !/^[a-f0-9]{40}$/.test(results.sourceCommit)
     || !Number.isFinite(Date.parse(results.acquiredAtUtc)) || !Number.isFinite(Date.parse(evaluatedAtUtc))
@@ -48,6 +49,7 @@ export function evaluateJournal(journal, results, {evaluatedAtUtc=new Date().toI
 export function progressiveMetrics(journals,evaluations) {
   const seen=new Set(),records=[],marketRecords=[],rounds=[],conflicts=[];
   for (const journal of [...journals].sort((a,b)=>a.generatedAtUtc.localeCompare(b.generatedAtUtc))) {
+    if(journal.provenance?.cohortEligible===false)throw new Error('Shadow revision cannot enter scientific progression');
     const versions=evaluations.filter(e=>e.journalId===journal.id&&e.journalSha256===digest(journal)).sort((a,b)=>a.evaluatedAtUtc.localeCompare(b.evaluatedAtUtc));
     const settled=new Map();
     for (const ev of versions) for (const r of ev.records) {

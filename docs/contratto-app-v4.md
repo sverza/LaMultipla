@@ -1,5 +1,7 @@
 # Contratto app v4 — revisione 1, 11 ottobre2026
 
+Estensione compatibile del 13 ottobre: proposte ancora v4, più schema distinto `lamultipla-app-round-state-v1` per stati senza forecast/quote inventati. Parser/backup nuovi leggono entrambi; il vecchio APK riceve solo v4 finché non dichiara capacità `roundStateProtocol:1`. [Dettagli, notifiche e autorizzazioni residue](punto11-gestione-progressiva.md). Nessuna migrazione degli esperimenti esistenti o aggiornamento del Samsung eseguito.
+
 ## Percorso implementato
 
 `shadow.mjs` resta l'unico produttore della decisione. `decision.mjs --app-package` verifica gli hash degli input e ricostruisce screening, gate, selettore e governance all'orologio originale, poi produce un envelope privato `lamultipla-prospective-envelope-v1` con SHA256 e payload `lamultipla-app-decision-v4`. Non acquisisce quote, non riscrive journal/decisioni, non pubblica. Una scrittura già esistente è rifiutata, mai sostituita.

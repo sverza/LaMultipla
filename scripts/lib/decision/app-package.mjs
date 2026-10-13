@@ -3,6 +3,7 @@ import {quoteIdentity} from '../availability.mjs';
 import {verifyDecisionBundle} from './delivery.mjs';
 import {assertFutureRound} from './policy.mjs';
 import {validateDecisionV4} from '../../../shared/decision-v4.mjs';
+import {PROGRESSIVE_POLICY} from '../orchestration/progressive-policy.mjs';
 export function appPackage(bundle){
   assertFutureRound(bundle.decision?.round);
   const verification=verifyDecisionBundle(bundle),{decision:d,journal:j,report,assessment={}}=bundle,c=d.selector.selected;
@@ -29,5 +30,9 @@ export function appPackage(bundle){
     shadowCause:d.noBetCause,reasonCodes:d.governance.shadow.reasons,counts:d.governance.shadow.counts,
     exclusions:{...Object.fromEntries([...new Set(d.opportunities.screening.flatMap(s=>s.reasons))].map(reason=>[reason,d.opportunities.screening.filter(s=>s.reasons.includes(reason)).length])),...d.selectionGate.reasonCounts},
     phases:d.governance.phases.map(s=>({step:s.step,state:s.state}))};
+  if(d.progressive){
+    p.source.generalProtocolVersion=PROGRESSIVE_POLICY.version;
+    p.reasonCodes.push(c?'proposta_shadow_definitiva':'no_bet_provvisorio','ricontrollare_prezzi_prima_di_ogni_eventuale_giocata');
+  }
   return validateDecisionV4(p);
 }

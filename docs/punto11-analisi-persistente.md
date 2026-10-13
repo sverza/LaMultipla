@@ -1,5 +1,7 @@
 # Punto 11 — fasi analitiche persistenti
 
+Fase successiva implementata: [gestore progressivo](punto11-gestione-progressiva.md) e [protocollo nuovo](protocollo-analisi-progressive-v1.md). Il runner aggiunge `--progressive-once`; il vecchio piano singolo mantiene il comportamento storico e non viene attivato/migrato. Collector, piani residui, revisioni shadow, finale unico e recupero consegne collegati nel nuovo percorso, con conferme ufficiali ancora necessarie. I «restano» precedenti documentano le rispettive consegne.
+
 Aggiornamento recupero Codex, 13 ottobre: il [raccoglitore calendario](punto11-calendario-automatico.md) è ora implementato e verificato separatamente; il runner non lo richiama e non genera automaticamente piani per nuove giornate. Riconferma ufficiale, primo collaudo provider, storico/results aggiornati e raccordo al gestore delle giornate restano aperti. La sola validazione COM del task analitico è già stata confermata dall'utente alle 12:57, senza registrazione; il precedente riferimento «da validare» descrive la consegna prima di questa prova. Nessuna modifica alla policy temporale o al pilot originale.
 
 13 ottobre 2026. Nuovo componente eseguibile oltre al pump di consegna collaudato su Windows. Non attiva task, non crea trigger, non pubblica schedine. Non costituisce ancora l’automazione completa di ogni giornata. Nuovi artefatti soltanto sotto `.local/`; stake reale 0 € e modello sperimentale.

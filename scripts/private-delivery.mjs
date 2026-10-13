@@ -15,6 +15,8 @@ import {validatePrivatePairing} from '../shared/private-pairing.mjs';
 import {repairWriterIdentity} from './lib/private/writer-identity.mjs';
 import {privateChannelPaths} from './lib/private/channels.mjs';
 import {prepareShadowProfile} from './lib/private/shadow-profile.mjs';
+import {ensureShadowReception} from './lib/private/reception-ready.mjs';
+import {proposalExpiry} from './lib/orchestration/progressive-policy.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 function arg(name){const i=process.argv.indexOf(name);if(i<0)return null;const v=process.argv[i+1];if(!v||v.startsWith('--'))throw new Error('Argomento richiesto: '+name);return path.resolve(v);}
 async function main(){
@@ -85,9 +87,14 @@ async function main(){
     }
     const key=await crypto.subtle.importKey('pkcs8',unbase64url(stored.privateKeyPkcs8),{name:'ECDSA',namedCurve:'P-256'},false,['sign']);
     const input=JSON.parse(await fs.readFile(queue,'utf8')),generated=input.payload?.generatedAtUtc;
+    if(input.payload?.schema==='lamultipla-app-round-state-v1'){
+      if(channel!=='shadow')throw new Error('Stati progressivi solo sul canale shadow');
+      await ensureShadowReception(root,{stored,requiredRoundState:true});
+    }
     // No clock override: an old/future forecast cannot be made timely by CLI.
     const kickoffs=(input.payload?.selections??[]).map(s=>Date.parse(s.identity.kickoffUtc)-5*60000);
-    const expiry=new Date(Math.min(Date.parse(generated)+30*60000,...kickoffs)).toISOString();
+    const expiry=input.payload?.schema==='lamultipla-app-round-state-v1'||input.payload?.source?.generalProtocolVersion==='analysis-progressive-v1'?
+      proposalExpiry(input.payload):new Date(Math.min(Date.parse(generated)+30*60000,...kickoffs)).toISOString();
     const result=await enqueueDelivery({directory:outbox,envelope:input,trust,privateKey:key,expiresAtUtc:expiry});
     return {sequence:result.record.statement.sequence,deliveryId:result.record.statement.deliveryId,reused:result.reused,actualStakeEUR:0};
   }

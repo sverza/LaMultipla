@@ -71,13 +71,14 @@ export function createPrivateCloud(config,{getIdToken,fetchImpl=fetch}={}) {
   }
   async function ack(deviceId){if(!/^[a-z0-9-]{8,64}$/.test(deviceId))throw new Error('Dispositivo non valido');const value=decode(await getDoc(`${prefix}/acks/${deviceId}`));if(value){sequenceId(value.sequence);if(!/^[a-f0-9]{64}$/.test(value.deliveryHash))throw new Error('ACK non valido');}return value;}
   async function device(deviceId){if(!/^[a-z0-9-]{8,64}$/.test(deviceId))throw new Error('Dispositivo non valido');return decode(await getDoc(`${prefix}/devices/${deviceId}`));}
-  async function registerDevice(deviceId,fcmToken,applicationId){
+  async function registerDevice(deviceId,fcmToken,applicationId,roundStateProtocol=0){
+    if(![0,1].includes(roundStateProtocol))throw new Error('Protocollo ricevitore non valido');
     if(!/^[a-z0-9-]{8,64}$/.test(deviceId)||typeof fcmToken!=='string'||!fcmToken||fcmToken.length>4096
       ||!['it.personale.lamultipla','it.personale.lamultipla.collaudo'].includes(applicationId))throw new Error('Registrazione privata non valida');
     const path=`${prefix}/devices/${deviceId}`,old=await getDoc(path);
-    const matches=doc=>{const value=decode(doc);return value?.fcmToken===fcmToken&&value.applicationId===applicationId;};
+    const matches=doc=>{const value=decode(doc);return value?.fcmToken===fcmToken&&value.applicationId===applicationId&&(value.roundStateProtocol??0)===roundStateProtocol;};
     if(matches(old))return;
-    try{await request(':commit',{method:'POST',data:{writes:[write(path,{fcmToken,applicationId},old?{updateTime:old.updateTime}:{exists:false})]}});}
+    try{await request(':commit',{method:'POST',data:{writes:[write(path,{fcmToken,applicationId,...(roundStateProtocol?{roundStateProtocol}:{})},old?{updateTime:old.updateTime}:{exists:false})]}});}
     catch(error){
       // Native token rotation can race the foreground CAS; a lost response can
       // also follow a successful commit. Confirm exact desired values once.

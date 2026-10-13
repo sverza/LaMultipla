@@ -83,6 +83,7 @@ public class PrivateDownloadWorker extends Worker {
         return next.getString("idToken");
     }
     private void notifyReceived(JSONObject statement) throws Exception {
+        if(statement.getString("kind").equals("preview")&&statement.getString("status").equals("no_bet"))return;
         if(PrivateProtocol.time(statement.getString("expiresAtUtc"))<=System.currentTimeMillis()){diagnostic("NOTIFICATION_EXPIRED",null);return;}
         Context context=getApplicationContext();NotificationManager manager=context.getSystemService(NotificationManager.class);
         if(Build.VERSION.SDK_INT>=26)manager.createNotificationChannel(new NotificationChannel(TAG,"Analisi private LaMultipla",NotificationManager.IMPORTANCE_DEFAULT));
@@ -91,7 +92,9 @@ public class PrivateDownloadWorker extends Worker {
         PendingIntent open=PendingIntent.getActivity(context,id,intent,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
         if(NotificationManagerCompat.from(context).areNotificationsEnabled()){NotificationManagerCompat.from(context).notify(shadow?TAG+"-shadow":TAG,id,
             new NotificationCompat.Builder(context,TAG).setSmallIcon(android.R.drawable.ic_dialog_info).setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
-                .setContentTitle("LaMultipla · analisi privata ricevuta").setContentText("Apri Esperimento. Stake reale 0 €.").setContentIntent(open).setAutoCancel(true).build());diagnostic("NOTIFICATION_POST",null);}
+                .setContentTitle(statement.getString("status").equals("simulation")?"LaMultipla · proposta shadow":
+                    statement.getString("kind").equals("final")?"LaMultipla · NO BET definitivo":"LaMultipla · aggiornamento sperimentale")
+                .setContentText("Apri Esperimento. Stake reale 0 €.").setContentIntent(open).setAutoCancel(true).build());diagnostic("NOTIFICATION_POST",null);}
         else diagnostic("NOTIFICATION_DISABLED",null);
     }
     private void pendingNotifications(JSONObject profile) throws Exception {
@@ -116,14 +119,15 @@ public class PrivateDownloadWorker extends Worker {
             stage="NOTIFICATION_POST";
             pendingNotifications(profile);
             String base="https://firestore.googleapis.com/v1/projects/"+profile.getString("projectId")+"/databases/(default)/documents/users/"+trust.getString("readerUid")+"/channels/"+trust.getString("channel");
-            String fcm=initial.optString("fcmToken","");if(!fcm.isEmpty()&&!fcm.equals(initial.optString("registeredToken",""))){
+            String fcm=initial.optString("fcmToken","");if(!fcm.isEmpty()&&(!fcm.equals(initial.optString("registeredToken",""))||initial.optInt("registeredRoundStateProtocol",0)!=1)){
                 stage="DEVICE_REGISTER";
                 String document="projects/"+profile.getString("projectId")+"/databases/(default)/documents/users/"+trust.getString("readerUid")+"/channels/"+trust.getString("channel")+"/devices/"+profile.getString("deviceId");
-                JSONObject fields=new JSONObject().put("fcmToken",new JSONObject().put("stringValue",fcm)).put("applicationId",new JSONObject().put("stringValue",context.getPackageName()));
+                JSONObject fields=new JSONObject().put("fcmToken",new JSONObject().put("stringValue",fcm)).put("applicationId",new JSONObject().put("stringValue",context.getPackageName()))
+                    .put("roundStateProtocol",new JSONObject().put("integerValue","1"));
                 request("https://firestore.googleapis.com/v1/projects/"+profile.getString("projectId")+"/databases/(default)/documents:commit","POST",auth,
                     new JSONObject().put("writes",new JSONArray().put(new JSONObject().put("update",new JSONObject().put("name",document).put("fields",fields)))));
                 synchronized(PrivateVault.class){JSONObject state=PrivateVault.load(context);if(!sameProfile(state,profile)||!state.optBoolean("backgroundEnabled"))return Result.success();
-                    state.put("registeredToken",fcm);PrivateVault.save(context,state);}
+                    state.put("registeredToken",fcm).put("registeredRoundStateProtocol",1);PrivateVault.save(context,state);}
             }
             stage="HEAD_READ";JSONObject head=request(base+"/head/current","GET",auth,null);if(head==null){if(initial.optLong("sequence",0)>0)throw new Exception("Missing head");diagnostic("WORK_COMPLETE",null);return Result.success();}
             long target=Long.parseLong(head.getJSONObject("fields").getJSONObject("sequence").getString("integerValue"));

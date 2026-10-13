@@ -65,7 +65,7 @@ export async function signDelivery(envelope, options, privateKey) {
   const s = {...options,schema:'lamultipla-private-statement-v1',season:p.round.season,matchday:p.round.matchday,
     kind:p.final?'final':'preview',status:p.status,envelopeSha256:verified.sha256,
     generatedAtUtc:p.generatedAtUtc,packageSha256:await textSha256(packageJson)};
-  s.deliveryId = await deliveryId(s); validateStatement(s);
+  s.deliveryId = await deliveryId(s); validateStatement(s);validateUsefulExpiry(p,s);
   if (s.channel === 'synthetic_shadow' ? p.sourceData !== 'synthetic_test' : p.sourceData === 'synthetic_test') return fail('canale/dati incompatibili');
   const statement = canonical(s);
   const signature = base64url(await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},privateKey,bytes(DOMAIN+statement)));
@@ -87,6 +87,7 @@ export async function verifyDelivery(frame, trust, {now=new Date(), archiveExpir
   if (!await crypto.subtle.verify({name:'ECDSA',hash:'SHA-256'},key,signature,bytes(DOMAIN+frame.statement))) return fail('firma non valida');
   if (await textSha256(frame.packageJson) !== s.packageSha256) return fail('contenuto alterato');
   const envelope = await parseDecisionEnvelope(JSON.parse(frame.packageJson)), p = envelope.payload;
+  validateUsefulExpiry(p,s);
   if (envelope.sha256 !== s.envelopeSha256 || p.round.season !== s.season || p.round.matchday !== s.matchday
     || p.generatedAtUtc !== s.generatedAtUtc || p.status !== s.status || (p.final?'final':'preview') !== s.kind
     || (s.channel === 'synthetic_shadow' ? p.sourceData !== 'synthetic_test' : p.sourceData === 'synthetic_test')) return fail('pacchetto/manifest incoerenti');
@@ -94,4 +95,11 @@ export async function verifyDelivery(frame, trust, {now=new Date(), archiveExpir
   const expired = clock >= Date.parse(s.expiresAtUtc);
   if (expired && !archiveExpired) return fail('consegna scaduta');
   return {frame:structuredClone(frame),statement:s,envelope,expired,deliveryHash:await textSha256(frame.statement)};
+}
+function validateUsefulExpiry(p,s){
+  if(p.source?.generalProtocolVersion==='analysis-progressive-v1'&&p.status==='simulation'){
+    const lastUseful=Math.min(Date.parse(p.generatedAtUtc)+30*60000,...p.selections.map(x=>Date.parse(x.identity.kickoffUtc)-120*60000));
+    if(Date.parse(s.expiresAtUtc)>lastUseful||p.selections.some(x=>Date.parse(p.generatedAtUtc)>=Date.parse(x.identity.kickoffUtc)-150*60000))
+      fail('proposta progressiva oltre la finestra utile');
+  }
 }
