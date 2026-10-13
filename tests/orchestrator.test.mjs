@@ -65,5 +65,7 @@ test('Windows validator normalizes only in memory and uses validate-only on nati
   const script=await fs.readFile(new URL('../scripts/validate-windows-task.ps1',import.meta.url),'utf8');
   assert.match(script,/NewTask\(0\)/);assert.match(script,/\$nativeDefinition\.XmlText = \$comText/);
   assert.match(script,/RegisterTask\(\$name, \$nativeXml, 1, \$null, \$null, 3, \$null\)/);
+  assert.match(script,/ValidateSet\('Delivery', 'Analysis'\)/);
+  assert.match(script,/--plan-sha256 \[a-f0-9\]\{64\}/);
   assert.doesNotMatch(script,/Register-ScheduledTask|Set-Content|WriteAllText|Out-File|\.DeleteTask\(/);
 });

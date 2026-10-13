@@ -1,4 +1,7 @@
-param([Parameter(Mandatory=$true)][string]$TaskXmlPath)
+param(
+    [Parameter(Mandatory=$true)][string]$TaskXmlPath,
+    [ValidateSet('Delivery', 'Analysis')][string]$TaskKind = 'Delivery'
+)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $privateRoot = [IO.Path]::GetFullPath((Join-Path $root '.local/orchestrator/task-preparations'))
@@ -24,7 +27,10 @@ try {
     throw "Parser Windows non riuscito ($code). Nessun task registrato."
 }
 $folder = $service.GetFolder('\')
-$name = 'LaMultipla private delivery shadow'
+$name = if ($TaskKind -eq 'Analysis') { 'LaMultipla private analysis shadow' } else { 'LaMultipla private delivery shadow' }
+if ($TaskKind -eq 'Analysis' -and $definition.Task.Actions.Exec.Arguments -notmatch '--analysis-once .* --plan-sha256 [a-f0-9]{64}$') {
+    throw 'Preparazione analitica senza piano vincolato: nessun task registrato.'
+}
 function Exists-PreparedTask {
     try { $null = $folder.GetTask($name); return $true } catch { return $false }
 }
