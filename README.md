@@ -64,6 +64,8 @@ L'importatore Node acquisisce privatamente sul PC le quote pre-match `bet365.it`
 
 La [diagnostica multimercato separata](docs/g7-audit-multimercato.md) permette di consultare 1X2, Over/Under1.5/2.5/3.5 e Goal/No Goal dai forecast v2 congelati, con probabilità, intervalli e screening sul report quote già acquisito. Produce JSON/HTML privati, senza nuove chiamate OddsPapi o consegne nell'app. I nuovi mercati restano sperimentali e non entrano nel selettore 1X2; soglie, governance e coorte scientifica rimangono invariate.
 
+La [roadmap multimercato proposta](docs/roadmap-multimercato-verificabile.md) distingue tutti i mercati osservati, mapping, dati necessari, licenze e gate scientifici. Il census privato riusa soltanto acquisizioni esistenti. I benchmark dei modelli e il limite di prestazioni della diagnostica a pieno volume sono separati dalla validazione predittiva; nuovi adapter e famiglie attendono approvazione.
+
 Istruzioni Windows, contratto di analisi e limiti: [importatore privato OddsPapi](docs/oddspapi-private-import.md). Non inserire chiavi o risposte API in `public/`, nel sorgente o negli artifact di GitHub.
 
 ## Contratto legacy di consegna v3
