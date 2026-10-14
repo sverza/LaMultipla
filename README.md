@@ -62,6 +62,8 @@ npm run build
 
 L'importatore Node acquisisce privatamente sul PC le quote pre-match `bet365.it` di Serie A, con cache, controllo del piano Free e riserva sulla quota. I prezzi vengono passati a uno screening che richiede stime indipendenti, contesto e verifica manuale finale; può concludere NO BET e non pubblica schedine. Il motore privato dispone di modelli indipendenti con validazione retrospettiva 1X2; la validazione futura e l’autorizzazione operativa sono ancora incomplete. L’app è il tracker, non il motore statistico.
 
+La [diagnostica multimercato separata](docs/g7-audit-multimercato.md) permette di consultare 1X2, Over/Under1.5/2.5/3.5 e Goal/No Goal dai forecast v2 congelati, con probabilità, intervalli e screening sul report quote già acquisito. Produce JSON/HTML privati, senza nuove chiamate OddsPapi o consegne nell'app. I nuovi mercati restano sperimentali e non entrano nel selettore 1X2; soglie, governance e coorte scientifica rimangono invariate.
+
 Istruzioni Windows, contratto di analisi e limiti: [importatore privato OddsPapi](docs/oddspapi-private-import.md). Non inserire chiavi o risposte API in `public/`, nel sorgente o negli artifact di GitHub.
 
 ## Contratto legacy di consegna v3
