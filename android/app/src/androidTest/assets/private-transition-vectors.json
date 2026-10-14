@@ -1,0 +1,44 @@
+{
+  "purpose": "SYNTHETIC_TEST_ONLY",
+  "nowUtc": "2026-10-13T00:00:00.000Z",
+  "current": {
+    "profile": {
+      "schema": "lamultipla-private-pairing-v1",
+      "projectId": "demo-transition-test",
+      "apiKey": "SYNTHETIC_API_KEY_FOR_NATIVE_TESTS",
+      "mobileAppId": "1:123:android:abcdef123456",
+      "senderId": "123",
+      "deviceId": "synthetic-device-01",
+      "trust": {
+        "readerUid": "SYNTHETIC_READER",
+        "applicationId": "it.personale.lamultipla.collaudo",
+        "channel": "synthetic_shadow",
+        "keys": {
+          "0c4a77105d3346c4d527c0eae8ed0a1ae69fa4e4e261b99d18d73a8fb772ed05": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAETd14Adzbi3JOJEa5L-QQfR03t8KJxt_B9jWTkDtJPhctBD3pY2rTXrsL4CudBzZEv3O_6DmMG8CSF_KEgcKAtQ"
+        }
+      }
+    },
+    "sequence": 4,
+    "deliveryHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "backgroundEnabled": false,
+    "inbox": [],
+    "notifiedThrough": 4,
+    "registeredToken": "SYNTHETIC_FCM",
+    "fcmToken": "SYNTHETIC_FCM",
+    "finals": {
+      "SYNTHETIC": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "session": {
+      "uid": "SYNTHETIC_READER",
+      "idToken": "SYNTHETIC_ID_TOKEN",
+      "refreshToken": "SYNTHETIC_REFRESH_TOKEN",
+      "expiresAt": 123456
+    }
+  },
+  "frame": {
+    "schema": "lamultipla-private-pairing-transition-v1",
+    "statement": "{\"applicationId\":\"it.personale.lamultipla.collaudo\",\"expectedDeliveryHash\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"expectedSequence\":4,\"expiresAtUtc\":\"2026-10-19T00:00:00.000Z\",\"fromChannel\":\"synthetic_shadow\",\"fromDeviceId\":\"synthetic-device-01\",\"generatedAtUtc\":\"2026-10-12T00:00:00.000Z\",\"keyId\":\"0c4a77105d3346c4d527c0eae8ed0a1ae69fa4e4e261b99d18d73a8fb772ed05\",\"profileSha256\":\"1f2cc6a04684caa71568def3f3d6847292904c4241d6cc18f2800e5c4aa99ea1\",\"projectId\":\"demo-transition-test\",\"readerUid\":\"SYNTHETIC_READER\",\"schema\":\"lamultipla-private-pairing-transition-statement-v1\",\"toChannel\":\"shadow\"}",
+    "signature": "67twp_sbJrucqg73vUiHIOC4sRcvHq5KacS5p_13cLqrY6DV-Us_tCyWPVntZV1hxcRQ-Rr25Zrz3XxpNxWsTw",
+    "profileJson": "{\"schema\":\"lamultipla-private-pairing-v1\",\"projectId\":\"demo-transition-test\",\"apiKey\":\"SYNTHETIC_API_KEY_FOR_NATIVE_TESTS\",\"mobileAppId\":\"1:123:android:abcdef123456\",\"senderId\":\"123\",\"deviceId\":\"synthetic-device-02\",\"trust\":{\"readerUid\":\"SYNTHETIC_READER\",\"applicationId\":\"it.personale.lamultipla.collaudo\",\"channel\":\"shadow\",\"keys\":{\"0c4a77105d3346c4d527c0eae8ed0a1ae69fa4e4e261b99d18d73a8fb772ed05\":\"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAETd14Adzbi3JOJEa5L-QQfR03t8KJxt_B9jWTkDtJPhctBD3pY2rTXrsL4CudBzZEv3O_6DmMG8CSF_KEgcKAtQ\"}}}"
+  }
+}

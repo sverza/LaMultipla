@@ -7,6 +7,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(LaMultiplaNativePlugin.class);
+        registerPlugin(LaMultiplaPrivatePlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

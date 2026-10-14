@@ -1,0 +1,53 @@
+# Orchestratore Windows — primo componente eseguibile
+
+Incremento successivo del 13 ottobre: `--progressive-once CONFIG` gestisce tentativi sulle partite residue; `--progressive-config` prepara solo XML disabilitato con configurazione vincolata. [Finestre e limiti](punto11-gestione-progressiva.md). Nessuna preparazione precedente riscritta o task attivato.
+
+Stato aggiornato dopo recupero Codex del 13 ottobre: [raccoglitore calendario](punto11-calendario-automatico.md) implementato e verificato con dati sintetici, ancora separato dal runner del piano singolo. XML analitico già validato sul PC alle 12:57, disabilitato e senza registrazione; questa evidenza è recuperata dalla cronologia Work. L'inventario Windows in sola lettura non rileva task LaMultipla registrati. Le sezioni e i conteggi precedenti documentano le rispettive fasi storiche, non ulteriori collaudi del codice attuale.
+
+13 ottobre 2026. Implementato e collaudato su Windows il **recupero delle consegne private già accodate**. Aggiunto il coordinamento persistente delle fasi analitiche con adapter esistenti e test sintetici: [analisi persistente e limiti](punto11-analisi-persistente.md). Il ciclo completo di tutte le giornate resta aperto: scoperta calendario, canale reale, fonti contestuali e risultati. `shadow.mjs` rimane l’unica autorità decisionale. Stake reale 0 €, nessuna chiamata reale OddsPapi eseguita nello sviluppo, task Windows non registrati/attivati.
+
+## Esecuzione e stato
+
+`node scripts/windows-orchestrator.mjs --once` esegue una sola verifica. Riusa `private-delivery.mjs --flush`, DPAPI e l’outbox immutabile esistenti. Non genera nuove analisi, non accoda altri file, non richiede password se la sessione del PC è ancora rinnovabile. Dopo crash di una richiesta ripete il trasporto idempotente, senza rigenerare ID/firme/pacchetti. Il lock esistente riconosce il processo proprietario sullo stesso host e recupera i partecipanti terminati; nessuna esecuzione contemporanea del pump.
+
+Stato privato: `.local/orchestrator/delivery-state.private.json`. Ricevute locali di conferma: `.local/orchestrator/receipts/{tipHash}.json`. La ricevuta immutabile precede l’aggiornamento dello stato: se il processo si interrompe tra queste scritture, il successivo avvio recupera la conferma senza una nuova richiesta. Una conferma memorizzata per l’ultimo frame permette di evitare polling cloud quando tutta l’outbox è confermata. Nuove consegne determinano una nuova verifica.
+
+ACK ancora mancante: nuovo tentativo dopo cinque minuti. Errore: backoff persistente 5/10/20/30 minuti. Timeout del figlio a due minuti; output grezzo/credenziali mai nei log. Diagnostica conserva solo codici fissi o HTTP 4xx/5xx. Orologio arretrato, outbox non contigua, stato/ricevuta incompatibili o ACK fuori sequenza bloccano il percorso. Il trasporto originale conserva scadenze e archivia i pacchetti scaduti senza notifica retroattiva.
+
+Lo stato del pump è metadato locale, non una nuova attestazione indipendente: la fiducia resta nella firma PC e negli ACK autenticati del trasporto già verificato. Il test PC spento ha confermato consegna 4 e ACK dopo riaccensione; non prova ancora un avvio del pump tramite scheduler.
+
+## Preparazione Windows senza attivazione
+
+`node scripts/prepare-windows-task.mjs` crea una nuova sottocartella privata con XML disabilitato e hash. Legge il SID corrente solo sul PC, senza pubblicarlo. Il task preparato usa la stessa identità Windows/DPAPI, token interattivo e privilegi ordinari. Prevede login e controllo ogni cinque minuti mentre il PC è acceso e l’utente è connesso; rete richiesta, avvii simultanei ignorati, nessun risveglio automatico e limite di esecuzione quattro minuti. Non funziona prima dell’accesso Windows e non è un servizio sempre disponibile.
+
+`scripts/validate-windows-task.ps1 -TaskXmlPath FILE` valida l’XML con COM e il solo flag `TASK_VALIDATE_ONLY = 1`. Controlla che la preparazione sia disabilitata e che l’esistenza del nome task non cambi. **Nessun `Register-ScheduledTask`, create/update/enable o importazione persistente.** Attivazione futura solo dopo autorizzazione finale, quando la configurazione completa sarà concretamente revisionabile.
+
+Nuova variante `node scripts/prepare-windows-task.mjs --analysis-plan PLAN`: legge gli input privati del piano e produce una nuova preparazione `private-analysis.disabled.xml`, senza modificare quella delle sole consegne. Azione `--analysis-once PLAN --plan-sha256 HASH`: pin del piano completo e dei contenuti, stesso SID/DPAPI, privilegi ordinari, login e ripetizione ogni cinque minuti. Esecuzione massima dieci minuti per le fasi del motore e consegna, istanze sovrapposte ignorate, rete richiesta, nessun risveglio. Nessuna chiave/token nel task. Per la sola validazione COM usare `-TaskKind Analysis`; nome predisposto `LaMultipla private analysis shadow`. Il validatore conserva il solo flag 1 e controlla la presenza del pin, senza registrazione.
+
+Il vecchio task preparato resta delivery-only e disabilitato. Il nuovo XML non rappresenta ancora il ciclo completo delle giornate: agisce sul piano privato specificato, con finestre/deadline e checkpoint del workflow. Non crea forecast anticipati se il PC riparte tardi. Errori di piano o replay non bloccano la consegna di pacchetti già accodati; il runner salva diagnostica separata. Calendar discovery, aggiornamento verificato degli input, fonti contestuali e risultati restano componenti da completare prima dell'attivazione finale.
+
+Sola validazione del nuovo XML analitico confermata sul Windows dell'utente il 13 ottobre alle 12:57 Europe/Rome: parser nativo/COM accettano, preparazione rimane disabilitata e nessun task registrato. Hash file invariato. La prova non avvia il motore né acquisisce quote. Raccoglitore [calendario automatico](punto11-calendario-automatico.md) implementato separatamente, ancora da collegare e collaudare sul PC.
+
+Fonti Microsoft: [RegisterTask / sola validazione](https://learn.microsoft.com/en-us/windows/win32/taskschd/taskfolder-registertask), [schema ufficiale](https://learn.microsoft.com/en-us/windows/win32/taskschd/task-scheduler-schema), [ripetizione del trigger](https://learn.microsoft.com/en-us/windows/win32/taskschd/taskschedulerschema-repetition-triggerbasetype-element). La validazione Windows COM resta una prova sul PC; il container non possiede Task Scheduler.
+
+## Collaudo e limiti
+
+`node scripts/orchestrator-selftest.mjs` usa una nuova cartella sintetica privata e adapter, verifica waiting ACK/backoff, recupero dopo interruzione tra ricevuta e stato, assenza di nuovo flush dopo conferma. Non legge vault o outbox reali, non usa rete/API/task; elimina solo la propria nuova cartella a esito riuscito. Non attesta connessione reale o spegnimento Windows.
+
+Sette nuove prove host coprono checkpoint dopo interruzione, backoff tra istanze, intento in-flight, esclusione tra esecuzioni, nuovo frame, ACK/stato/orologio/ricevuta/outbox invalidi, self-test e XML disabilitato/privilegi/escaping. Il recupero dei lock dopo morte del processo è coperto dai test precedenti del lock condiviso. Per il collaudo Windows usare prima il self-test, poi preparazione/validazione; esecuzione singola del pump reale soltanto dopo verifica dello stato. Nessun task persistente viene attivato da questi comandi.
+
+Da completare: riconoscimento/verifica autonoma di calendario e stagione, checkpoint delle fasi del motore, gestore delle scadenze pre-kickoff, acquisizioni limitate, dossier/fonti e revisione mirata, generazione/pacchetto/accodamento automatici, risultati e metriche. Non presentare il pump come analisi automatica già pronta. Il journal originale della sesta giornata resta separato, immutabile e da valutare dal 15 ottobre Europe/Rome.
+
+Verifica host: suite 181/181, nessun test saltato; lint senza errori (warning preesistente). Self-test del nuovo componente superato. XML generato validato contro lo XSD ufficiale Microsoft con `lxml`; sola validazione COM e comportamento su NTFS restano da verificare sul PC Windows. Nessuna build APK nuova necessaria per questi componenti PC.
+
+
+## Collaudo Windows e confine COM — 13 ottobre, 00:39 Europe/Rome
+
+Self-test reale Windows superato: recupero della ricevuta, idempotenza/backoff, zero rete/API, outbox reale invariata e nessun task registrato. La prima validazione COM rifiuta l’XML con HRESULT `0x8004131A`. La prova successiva in memoria isola la dichiarazione XML: originale rifiutato, testo senza dichiarazione accettato da `TaskDefinition.XmlText`, poi XML riserializzato dal componente nativo validato con `TASK_VALIDATE_ONLY`, senza registrazione. Non attribuire questo esito alle credenziali o alle impostazioni del task.
+
+Il generatore omette ora la dichiarazione di encoding all’interfaccia stringa COM. Il validatore accetta anche preparazioni precedenti: rimuove soltanto la dichiarazione nella copia in memoria, usa `NewTask(0)`/`XmlText` per riserializzare nativamente e conserva file/hash originali. Verifica disabilitazione prima e dopo il parser, poi valida con il solo flag 1. Non riscrive XML privati, non crea task persistenti. Il validatore aggiornato sul file precedente resta da riconfermare sul PC. Fonte: [TaskDefinition.XmlText](https://learn.microsoft.com/en-us/windows/win32/taskschd/taskdefinition-xmltext) e prova comparativa riferita dall’utente.
+
+
+## Conferma finale sul PC — 13 ottobre, 00:44 Europe/Rome
+
+Validatore aggiornato eseguito sulla preparazione precedente: Windows valida, sola validazione e normalizzazione in memoria confermate; nessun task registrato, preparazione disabilitata, hash originale conservato. Poi due processi consecutivi di `windows-orchestrator.mjs --once` sull’outbox di collaudo reale: entrambi ACK 4/pending 0. Primo `networkAttempted: true`, secondo `networkAttempted: false`. Ricevuta e stato persistenti recuperati fra processi, senza nuovo login né nuovo invio. `analysisEngineEnabled: false`, stake/API OddsPapi/task tutti zero. Preparazione e recupero consegne Windows collaudati; collegamento delle fasi analitiche ancora aperto.

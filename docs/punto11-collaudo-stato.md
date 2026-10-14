@@ -1,0 +1,186 @@
+# Punto 11 — stato del collaudo, 11 ottobre 2026
+
+## Preparazione Samsung/G7 — 14 ottobre
+
+APK privato versione7 e APK test compilati, stesso package/certificato del collaudo precedente; regole progressive verificate sull'emulatore Firestore e suite 266/266. Android emulator non avviabile: due prove strumentali ancora da eseguire sul Samsung. Il canale reale richiede aggiornamento della capacità `roundStateProtocol:1`; nessun deploy/installazione eseguito. Backup con otto esperimenti e originali G6 integri. [Artefatti, limiti e sequenza delle autorizzazioni](punto11-collaudo-progressivo-g7.md).
+
+## Gestione progressiva — incremento del 13 ottobre
+
+Implementati gestore persistente, nuovo protocollo futuro, piani residui, revisioni shadow fuori dalla coorte originale, finale unico e margini 150/135/120 minuti. V4 preservato; schema separato per aggiornamenti e NO BET finale senza modello fittizio, capacità del ricevitore richiesta. [Rapporto completo](punto11-gestione-progressiva.md).
+
+21 nuove prove sintetiche, **252/252 test Node, zero skip**, lint senza errori (warning preesistente), build web/TypeScript riuscita. Regole/capacità anche sull'emulatore Firestore demo locale; ruoli e campi arbitrari rifiutati. Nessuna validazione statistica attribuita a queste prove.
+
+Compilazione Java Android delle classi aggiornate superata sul Windows in isolamento, `:app:compileDebugJavaWithJavac`, senza configurazione Firebase privata, packaging/firma/installazione. Nessuna nuova prova strumentale sul Samsung attribuita a questo incremento.
+
+Restano: manifest ufficiali aggiornati, primo provider reale autorizzato, contesto/liquidazione/prezzo combinato effettivamente verificati, collaudo originale. Nuovi stati richiedono regole/client compatibili e prove native; nessun deploy cloud o nuovo APK installato. Valutazione G6 separata dal 15 ottobre, risultati mancanti pending, originali e baseline intatti. Nessun task attivato.
+
+## Stato del recupero Codex — 13 ottobre 2026
+
+Codice calendario recuperato dalla cronologia Work in un worktree isolato basato su `164392f`, includendo le patch successive all'ultimo indice e riconciliando l'aggiornamento documentale fallito. I conteggi e i «da collaudare» delle sezioni precedenti restano evidenze datate; per il calendario corrente vedere [rapporto dedicato](punto11-calendario-automatico.md).
+
+| Stato | Evidenza attuale |
+|---|---|
+| Recuperato e implementato | Discovery CC0/provider, collector privato, CLI, budget condiviso, cache e recupero senza retry di intenti ambigui |
+| Testato su Windows in isolamento | 15 test calendario, 29 con l'importatore; suite completa **231/231**, zero skip; lint zero errori e solo warning preesistente `combinedPlayedOdd`; build Next/TypeScript riuscita |
+| Correzioni di portabilità | Fixture licenza sintetica LF su checkout CRLF; mock `--import` del test prospettico come URL file, senza modifica dei forecast o della CLI di produzione |
+| Verificato online senza provider | Fonte pubblica fissata a commit/hash, 380 incontri, ultimo FT 20 settembre; otto risultati G6 mancanti secondo la disponibilità assunta data+48h |
+| Già collaudato prima del blocco | XML analitico validato COM sul PC alle 12:57, disabilitato, nessun task registrato; prova recuperata dalla cronologia, non ripetuta |
+| Ancora da collaudare/integrare | Prima risposta `/fixtures` con account reale, riconferma ufficiale, piani autonomi e raccordo allo scheduler, risultati recenti, primo ciclo prospettico e consegna di dati originali |
+
+Nessuna richiesta OddsPapi reale, credenziale privata, registrazione/attivazione task, nuovo APK, schedina o deploy durante questo recupero. I test usano cartelle temporanee sintetiche; nessuna lettura o riscrittura dei journal/backup privati del checkout principale. La valutazione originale dal **15 ottobre 2026 Europe/Rome** rimane separata e obbligatoria: forecast e baseline G6 invariati.
+
+### Rischio legacy verificato in sola lettura
+
+La cronologia della precedente app registra il 13 ottobre un'esecuzione di `pubblica-schedina-serie-a`, conclusa senza pubblicazione perché fuori dalla finestra di 48 ore. Il prompt legacy prevede scritture di `public/latest-slip.json`, push diretto su `main` e pubblicazione Pages; è distinto da «Schedina Serie A 2.1 - audit», dichiarato sospeso. Lo stato attuale della prima automazione non è certificato dall'evento storico: non dedurne la sospensione della seconda. Nessuna automazione modificata o riattivata durante il recupero.
+
+Collector e runner nuovi non richiamano l'automazione legacy, non dipendono dal feed pubblico e non scrivono su `main`. Il workflow PR verifica codice, mentre Pages parte su push a `main`: una futura esecuzione legacy rimane un rischio esterno concreto di pubblicazione. Chiarirne lo stato prima di qualsiasi attivazione del ciclo continuativo; il task nuovo rimane disabilitato.
+
+Analisi progressive, NO BET provvisorio/definitivo, versionamento e anticipo di almeno due ore sono requisiti successivi registrati nel rapporto calendario, **non implementati** in questo recupero.
+
+Base remota prima del recupero: `977ec415cb3051eadbf2110d5070ba68676a65af`, PR #2 in bozza. Punto 10 completato come implementazione sperimentale: 114 test superati e CI verde sul commit consegnato. Questo checkpoint raccoglie il lavoro successivo autorizzato alla consegna nella Fase 0; non attribuire al nuovo commit la CI del precedente.
+
+Nessun merge, deploy, rilascio di produzione, pubblicazione di schedine o nuova automazione. Stake reale 0 €. Vecchio trigger sospeso secondo lo stato già accertato; nessuna API di gestione automazioni invocata durante il collaudo. Snapshot originali della sesta giornata non riscritti.
+
+## Collaudo sintetico completato
+
+Le prove fisiche sul PC e sul Samsung Galaxy S24 Ultra sono confermate dall'utente. Non sono test del dispositivo eseguiti dal container.
+
+| Verifica | Windows | PWA installata | APK di collaudo |
+|---|---|---|---|
+| Import quattro pacchetti sintetici v4 | Superata | Superata | Superata |
+| MULTIPLA_SIMULATA, NO BET motivati, ricevuta redatta | Superata | Superata | Superata |
+| Esperimenti separati dalle giocate | 4 esperimenti / 0 schedine | 4 / 0 | 4 / 0 |
+| Persistenza dopo chiusura e riapertura | Superata | Superata | Superata |
+| Backup v4, restore in archivio vuoto, deduplicazione | Superata | Superata | Superata |
+| Rifiuto payload alterato con hash invariato | Non attestata in questa sequenza | Superata, restano 4 | Superata, restano 4 |
+| Apertura, navigazione, esportazione senza rete | Non oggetto della prova desktop | Superata dopo correzione SW | Superata |
+| Integrità backup offline verificata sul PC | — | Superata | Superata |
+
+Compatibilità v3 sul PC provata con storico vuoto, preservando gli esperimenti: non attesta migrazione completa dei dati legacy. I prezzi osservati e le probabilità della prova positiva sono sintetici e non dimostrano accuratezza o valore su partite reali.
+
+Backup privati verificati sul PC:
+
+- `.local/android-v4-backup-before-restore-2026-10-11.json` e `.local/android-v4-backup-offline-2026-10-11.json`: PWA, versione 4, quattro esperimenti, zero schedine.
+- `.local/android-apk-v4-backup-before-restore-2026-10-11.json` e `.local/android-apk-v4-backup-offline-2026-10-11.json`: APK, `parseBackup` superato per tutti gli elementi, versione 4, quattro esperimenti, zero schedine, `backgroundSync: false`.
+
+I backup non sono allegati al repository pubblico.
+
+## Correzione offline PWA
+
+La prima apertura offline mostrava HTML senza stile e pulsanti non operativi. `public/sw.js` v9 precache anche CSS e JS referenziati dal documento iniziale; fallback HTML solo per navigazioni. L'utente ha applicato la correzione al server locale e confermato la prova offline riuscita.
+
+Sei test mirati Node del service worker superati: root/basepath, installazione incompleta, fallback navigazione, feed senza copia obsoleta, preservazione di altre cache, scritture runtime. Nessun nuovo test browser offline nel container attestato; verifica reale sul telefono. Nella Fase 0 autorizzata per recuperare e pubblicare il lavoro locale, la suite completa è stata eseguita una volta sulle modifiche da consegnare: 123/123 test superati (114 precedenti e nove nuovi). Lint zero errori, solo il warning preesistente `combinedPlayedOdd`.
+
+## APK nativo separato: prova completata
+
+L'APK resta il prodotto principale previsto; la PWA è aggiuntiva. L'app originale `it.personale.lamultipla` non è stata aggiornata o azzerata.
+
+`scripts/prepare-android-v4-collaudo.mjs` prepara manualmente una nuova copia `.local/android-v4-collaudo`, package `it.personale.lamultipla.collaudo`, nome `LaMultipla TEST APK`, FileProvider separato e banner esplicito. Esclude credenziali/dati locali/feed/correzioni storiche, riusa le dipendenze, rifiuta destinazioni esistenti. Nella sola copia forza l'anteprima, blocca feed/aggiornamenti e rimuove servizio periodico e comandi che possono creare job. Necessario perché il plugin originale può schedulare un job già durante `getStatus`. Nessuna modifica/cancellazione dei job originali.
+
+Windows: sorgente `977ec41`, 75 file verificati, `sourceUnchanged: true`, job/feed/release disabilitati, API 0. Prima preparazione interrotta prima della scrittura per CRLF; script corretto e poi riuscito. Tre test mirati dello script, lint, build web e sync della copia superati nel container.
+
+Sul PC: Java 21, SDK 36, Build Tools 35.0.0; build web, sync Capacitor e `assembleDebug` riusciti. Gradle ha installato Platform-Tools nella radice SDK privata; ADB precedente resta separato. APK 7.302.355 byte, SHA256 `ac8772413343bdc73dc3b068dc66474b39ccd1a92b7cd630f2b3149bc4e6fbe6`. Manifest compilato: package/nome/provider separati, nessun servizio o avvio automatico. Installazione e prove native completate; restore da vuoto dopo backup validato, azzerando esclusivamente il package di test.
+
+Ultimo controllo read-only `dumpsys jobscheduler it.personale.lamultipla.collaudo`: sezione Registered filtrata `None.`. Intestazione 785 jobs globale, non conteggio del package di test. Backup offline integro, sincronizzazione disabilitata.
+
+Limite: chooser Android di condivisione aperto, ma lettura FileProvider da parte di un'app destinataria esterna non provata. Backup recuperato senza modificarne i byte dalla cache del package debug via ADB. Consegna automatica, notifiche v4 e autenticità del produttore restano da implementare/collaudare. Versione/timestamp dell'APK originale non acquisiti: non attestare confronto prima/dopo.
+
+## Prova prospettica reale aperta
+
+Calendario privato settima giornata: dieci eventi, primo kickoff registrato 16 ottobre 2026 ore 18:45 UTC / 20:45 Europe/Rome; SHA `805b16b7a75c304d4665ce7415e3f93fec2ade4d853233cb0e7b1c2d34b4ae0e`. Riconfermare alla fonte ufficiale prima del freeze. Nessun forecast/report quote della settima giornata prodotto.
+
+Sviluppo v2 privato completato, mercati validati vuoti e uso operativo non approvato. Non ripetere tuning/confronto storico. Nuovo storico osservato e verificato prima del freeze; refit mensile resta con cutoff 1 ottobre, senza risultati successivi nel training. I nuovi dati possono aggiornare il contesto secondo policy.
+
+Prima della prova: calendario/identità, storico, codice registrato, quota API corrente; freeze nuovo entro 24 ore, quote successive al forecast e fresche entro 30 minuti, contesto/regole/prezzi attestati quando richiesti, buffer pre-kickoff 5 minuti. Riutilizzare artefatti idonei; non sovrascrivere forecast scaduti. Finale unico, replay prima dell'import. MULTIPLA_SIMULATA o NO BET validi; stake reale 0 €.
+
+## Obbligo separato dal 15 ottobre
+
+Journal originale `2026-27-round-06-goals-v1-b630b78`, SHA già verificato sul PC `6500cb65e321568c033bfec90e90fee97b43b6fb489f07e9daf4b15adc3a9070`. Baseline `lamultipla-market-baseline-v1` verificata indipendentemente sul PC: journal associato corretto, SHA `199386b326542ab68d7f7f18c80ac1b691f9e335db40a9c00070f552076d9990`, integrità confermata. Non ripetere questi controlli senza motivo.
+
+Dal 15 ottobre Europe/Rome: risultati verificati e valutazione append-only secondo [validazione prospettica v1](validazione-prospettica-v1.md). Nessun nuovo forecast/quote del pilot. Nessun promemoria/job creato.
+
+## Consegna e blocchi
+
+Proposta ancora non attivata: [motore Windows e consegna privata a costo zero](punto11-consegna-privata.md). GitHub conserva codice/verifiche; non possiede file/credenziali del PC. Firma, REST privato, outbox, import/cursore atomici e regole sono ora implementati e collaudati con dati sintetici/emulatore; integrazione APK/FCM, orchestratore e collaudo reale del trasporto restano da completare. Non è ancora un servizio automatico operativo.
+
+L'utente conferma che il PC può restare acceso spesso. Il progetto prevede futura ripartenza al suo accesso Windows, recuperando solo attività ancora temporalmente valide; nessun task creato ora. Il PC deve comunque essere disponibile nella finestra utile prima dei kickoff.
+
+L'11 ottobre l'utente riferisce di avere già chiarito con OddsPapi il giorno precedente: uso privato, senza distribuzione pubblica/a pagamento, consentito. Il percorso privato procede su questa conferma; nessun nuovo contatto o richiesta di conferma obbligatoria. Non estendere il chiarimento alla pubblicazione di dati o ricevute reali nel repository pubblico. La risposta originale del provider non è stata acquisita in questa sessione.
+
+Restano evidenze umane richieste dalle policy attuali, futura configurazione account/destinatari, sviluppo della consegna e autorizzazione all'attivazione. Sviluppo locale sintetico può proseguire nel frattempo.
+
+Audit Windows: 27 vulnerabilità, 1 bassa/3 moderate/21 alte/2 critiche. Analisi e correzioni mirate aperte; nessun `audit fix --force`. Nessuna modifica ai workflow o alle automazioni.
+
+## Recupero del lavoro locale — Fase 0
+
+Checkout Windows verificato dall'utente: branch della PR, HEAD `977ec41`, nessun commit successivo o file non tracciato da recuperare; unica modifica `public/sw.js`. Il suo SHA256 coincide con la correzione di questo ambiente: `d24627cc76854bc69ddcddf27093593b1e5567b38fe07a9a6dbe18dc1d954b25`. `.local/`, `.next/`, `node_modules/`, `out/` e `next-env.d.ts` risultano ignorati anche sul PC.
+
+Consegna preparata con sei percorsi espliciti: SW, preparatore APK, due test e i due documenti del punto 11. Revisione del contenuto e scansione credenziali senza rilevamenti; nessun report reale, journal, forecast, backup, token o dato personale riservato incluso. Nessun `git add -f`, reset o pulizia dei file privati. Suite 123/123, lint zero errori e warning preesistente, build Next/TypeScript completata. Le prove del telefono non vengono ripetute.
+
+## Primo blocco del trasporto privato — 11 ottobre
+
+Recupero precedente pubblicato in `cd313130d078801e138c5ce627e51abd7fca5417`; PR #2 ancora in bozza e verifica CI #15 verde. Il successivo blocco aggiunge firma P-256, outbox, REST Auth/Firestore, ricevitore con cursore atomico, regole verificate in emulatore e adapter DPAPI/CLI manuale. Suite completa 140/140 superata, lint zero errori (warning preesistente), build riuscita. Le 17 nuove prove usano esclusivamente fixture sintetiche; i test Firestore separati usano un progetto demo locale e l'emulatore viene spento dopo la prova.
+
+DPAPI non è collaudabile nel container Linux: predisposto `scripts/private-vault-selftest.mjs`, che sul PC crea soltanto una cartella di prova nuova dentro `.local`, verifica cifratura/lettura/rifiuto alterazioni, poi elimina esclusivamente tale cartella. Non richiede credenziali o account cloud. Non ripetere i collaudi manuali v4/PWA/APK già superati: questo è un nuovo componente.
+
+Nessuna consegna cloud/FCM reale o integrazione APK del nuovo trasporto attestata. Orchestratore, Task Scheduler non attivato, contesto automatico, risultati e prova end-to-end su Samsung restano lavori aperti. Il journal originale rimane una valutazione separata obbligatoria dal 15 ottobre, senza modificarne gli snapshot.
+
+## Aggiornamento DPAPI e ricezione privata
+
+DPAPI collaudato sul PC Windows dall’utente: `encryptedOnDisk`, `sameUserRoundTrip`, `tamperingRejected` tutti veri, zero richieste API e nessun job attivato. Nuovo codice APK/FCM preparato; il precedente APK offline resta una prova del contratto v4, non del nuovo trasporto. Build e collaudo sul Samsung del nuovo APK restano aperti. Vedere `punto11-ricezione-android.md`.
+
+
+## Recupero trasporto dopo la diagnostica — 12 ottobre
+
+APK diagnostico aggiornato sul Samsung senza perdere abbinamento o analisi simulata. Prima consegna recuperata manualmente con ACK, seconda senza notifica: nessuna ricezione autonoma attestata. Identificati nel codice la ricostruzione non compatibile dei byte JSON Android e un replay incompleto dopo import IndexedDB seguito da errore nativo; corretti senza toccare snapshot, chiavi o report privati. Nuovi test host e test strumentali predisposti: dettagli e limiti in [ricezione Android](punto11-ricezione-android.md). Compilazione/esecuzione delle prove strumentali e ricezione automatica su dispositivo ancora aperte. Nessun task Windows o automazione periodica attivato.
+
+
+Il 12 ottobre alle 23:54 Europe/Rome l’utente conferma compilazione delle sole varianti app, verifica identità/firme, aggiornamento del package di collaudo e installazione del package test. I due test strumentali del protocollo sul Galaxy terminano con **OK (2 tests)**. Sono aggiuntivi alle 174 prove host e non attestano ancora notifiche o ricezione autonoma. Fonte: output Windows/Android condiviso dall’utente; nessun dato privato del progetto cloud incluso nel rapporto.
+
+
+## Trasporto privato end-to-end — 13 ottobre
+
+Recupero automatico delle prime due consegne all’apertura dell’APK, senza nuovo login: cursore/ACK 2, pending 0. Nuova consegna sintetica NO BET per revisione mancante, app in background: notifica immediata riferita dall’utente; apertura, import v4 della giornata sintetica 9 e ACK 3/pending 0 confermati. Primo percorso PC → cloud privato → notifica Android → Esperimento → ACK attestato. Telefono offline, reti distinte, PC spento/riavvio e backup successivo restano da collaudare. Orchestratore Windows e Task Scheduler non ancora implementati/attivati; modello non autorizzato al gioco.
+
+
+Consegna 4 MULTIPLA_SIMULATA: telefono inizialmente offline, poi dati mobili con Wi-Fi/USB disattivati e PC spento. Notifica immediata riferita dall’utente; dopo riaccensione/accesso PC, ACK 4/pending 0. Recupero dal cloud e stato persistente del produttore confermati; avvio automatico del motore Windows non attestato. Primo componente eseguibile del futuro orchestratore: recupero periodico delle sole consegne, con stato/retry/lock; preparazione Task Scheduler disabilitata e sola validazione COM da collaudare sul PC. Nessun task registrato. Vedere [orchestratore Windows](punto11-orchestratore-windows.md).
+
+
+Self-test Windows del recupero consegne superato il 13 ottobre. Prima validazione COM rifiutata per XML malformato; prova comparativa senza dichiarazione XML accettata, riserializzazione nativa e sola validazione riuscite, nessun task registrato. Generatore/validatore corretti senza modificare la preparazione privata originale; riconferma dello script aggiornato ancora necessaria.
+
+
+Il 13 ottobre alle 00:44 Europe/Rome il validatore aggiornato sul PC conferma sola validazione COM, normalizzazione in memoria, preparazione disabilitata e nessun task registrato. Due esecuzioni separate del recupero consegne reale confermano ACK 4/pending 0: prima richiesta di rete, seconda solo ricevuta locale. Nessun nuovo login/invio, nessuna API OddsPapi o analisi attivata. Componente Windows delle consegne collaudato, motore analitico ancora da collegare.
+
+Il 13 ottobre alle 01:16 Europe/Rome l’utente conferma **12/12 nuovi test di orchestrazione su Windows**, zero errori/skip: checkpoint di ogni fase, processo terminato durante lock, report completo prima della ricevuta, tentativo ambiguo senza ripetizione, scadenza e protezione del pilot, simulazione/NO BET firmati con adapter sintetici. Non prova ancora un’acquisizione OddsPapi reale o il ciclo autonomo di una giornata. Commit analitico `64af475` e correzione portabilità `111bd35` pubblicati, Actions verdi, PR in bozza. La provenienza del calendario futuro contiene URL ufficiali verificati separatamente; nessuno snapshot originale riscritto.
+
+Configurazione chiave unattended predisposta tramite finestra Windows incollabile, SecureString/DPAPI e salvataggio esclusivo compatibile con il lettore esistente. Le prove host usano solo cifrato/chiave sintetici e adapter: verifica reale di salvataggio/decrittazione sul PC ancora necessaria. Nessuna chiave o richiesta API inclusa nelle prove; dettagli in [analisi persistente](punto11-analisi-persistente.md).
+
+Il 13 ottobre alle 01:24–01:25 Europe/Rome l’utente conferma installazione della chiave OddsPapi via finestra, salvataggio cifrato e decrittazione. Successivo processo `--inspect`: configurazione/lettura unattended confermate senza finestra, rete/API o task. `providerValidated: false`: prova locale, non verifica del piano presso il provider. Implementazione della transizione al canale shadow e nuova copia APK predisposte; prove sul PC/Samsung ancora aperte. Vedere [canale shadow](punto11-canale-shadow.md).
+
+## Preparazione shadow e nuovi test Android — 13 ottobre
+
+Profilo PC shadow preparato con successo a partire da `721afb6`: stessa chiave di firma, quattro consegne sintetiche confermate, archivio precedente conservato, nessuna rete/API, ricezione ancora sospesa e nessun task registrato. File di transizione e identità cloud rimangono privati.
+
+Sul Windows dell'utente: nuova copia APK versione 5, build web/TypeScript, sync Capacitor e build delle sole varianti app/debug e app/debugAndroidTest riusciti. Verificati package di collaudo, nome e certificato precedente per entrambi gli APK; installazioni con aggiornamento riuscite. Sul Samsung, soltanto la nuova classe `PrivateTransitionInstrumentedTest` termina alle 11:54 Europe/Rome con **OK (2 tests)**. Le prove usano stato sintetico e non scrivono nel vault o nell'archivio effettivo: attestano parser/firma/transizione e rifiuto degli stati non ammessi, non ancora il cambio reale di profilo. Applicazione una tantum, conservazione effettiva dell'archivio e registrazione Android shadow restano da verificare.
+
+Alle 11:58–12:03 Europe/Rome, otto esperimenti ancora presenti ma due frame nell'inbox nativa. Recupero fallito con messaggio generico; accesso salvato e log senza errori nativi utili. Revisione del codice Capacitor installato identifica `getLong` incompatibile con il numero JSON `Integer` della ricevuta, che diventa zero. Correzione con validazione rigorosa dei tipi/limiti e diagnostica del consumo; nuovo test Java host e due test strumentali sul vero bridge predisposti. Non attribuire il recupero a sessione scaduta né considerarlo riuscito prima della nuova prova fisica. Archivio, pacchetti, chiave e transizione privata conservati; ricezione sospesa.
+
+## Conferma della correzione e del canale shadow — 13 ottobre
+
+Correzione `f356e56`, Actions verde: 209 test host, lint e build superati. Nuova copia versione 6 compilata su Windows, APK app/test verificati con stesso certificato e aggiornati sul Samsung. Alle 12:15 Europe/Rome la sola classe nuova `PrivateReceiptInstrumentedTest`: **OK (2 tests)**. Alle 12:20 recupero effettivo nell'APK: zero frame nell'inbox, archivio aggiornato/ricevuta 4 e otto esperimenti senza duplicati. Log senza nuovi errori; nessuna nuova autenticazione necessaria.
+
+Backup aggiornato privato `.local/android-apk-v4-backup-before-shadow-2026-10-13.json`: formato v4, parser/integrità verificati, otto esperimenti distinti, zero schedine e `backgroundSync: false`. Non allegato al repository. Conserva le analisi, non credenziali o ricevute/cursore del trasporto nel vault.
+
+Alle 12:38 transizione firmata applicata sul Samsung, senza perdere accesso o otto esperimenti: canale shadow, ricezione sospesa e inbox zero. Alle 12:40 l'utente abilita esplicitamente la ricezione; controllo autenticato PC `ensureShadowReception`: registrazione shadow confermata, stake reale 0 €, richieste OddsPapi 0, task Windows 0. Telefono attivo e nessun pacchetto in attesa. Queste prove attestano il cambio effettivo di profilo e la registrazione, non ancora un'analisi reale prodotta o consegnata. File di transizione, identità cloud e backup conservati privati. L'APK principale non aggiornato.
+
+Alle 12:44, piano privato della settima giornata creato/verificato sul PC: `PRIVATE_ANALYSIS_PREFLIGHT`, finestra locale 16 ottobre 17:45–18:40 UTC, primo kickoff 18:45 UTC; nessuna rete, OddsPapi o task. Provenienza dichiarata locale, nessuna riconferma online implicita. Non eseguito il workflow, nessun piano/forecast congelato da questa verifica.
+
+Nuovo runner corregge il confine fra analisi e consegna: anche errori di caricamento/input/lock/replay dell'analisi lasciano eseguire il pump shadow. Pin del piano completo opzionale nel CLI e obbligatorio nel task analitico preparato; diagnostica locale redatta, nessun secondo decisore. Variante XML analitica disabilitata, login più controllo ogni cinque minuti, da validare sul Windows reale senza registrarla. Sette prove host sintetiche aggiuntive predisposte per indipendenza dei fallimenti, pin degli input e limiti/sicurezza dell'XML; nessuna prova nativa COM del nuovo XML attestata ancora.
+
+Verifica nell'ambiente di sviluppo del runner/preparazione analitica: **216/216 test host superati**, nessun test saltato, lint senza errori (warning preesistente), build web/TypeScript superata. Le sette prove nuove usano adapter sintetici; non chiamano provider, non registrano task e non sostituiscono la validazione COM sul PC. Nessuna modifica Android necessaria per questi componenti Windows.
+
+Alle 12:57 Europe/Rome l'utente conferma preparazione dell'XML analitico sul piano privato G7 e sola validazione COM: piano vincolato, controlli ogni cinque minuti/login, limite dieci minuti, engine non abilitato, XML disabilitato e nessun task registrato. Hash file originale invariato fra generazione e validazione; identità Windows e hash del piano non pubblicati. Commit `164392f`, Actions verde e PR in bozza.
+
+Implementati scoperta e raccolta private del calendario con riscontro CC0/provider, senza quote: [calendario automatico](punto11-calendario-automatico.md). Undici nuove prove sintetiche passate, budget/counter condivisi con l'acquisizione quote. Fonte pubblica e documentazione API consultate; nessuna chiamata reale OddsPapi né integrazione implicita nel task già preparato. Prima acquisizione Windows e collegamento al gestore automatico delle giornate restano aperti.
+
+Verifica host del calendario: **227/227 test superati**, nessuno saltato, lint senza errori (warning preesistente). Build web/TypeScript superata; componenti Android e sorgenti della build web invariati dalle ultime correzioni del raccoglitore. Nuove risposte/calendar fixture dei test tutte sintetiche. Controlli del calendario reale sul PC ancora da eseguire; nessun output OddsPapi reale incluso nel commit.

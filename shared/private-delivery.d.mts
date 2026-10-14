@@ -1,0 +1,16 @@
+import type {DecisionEnvelope} from './decision-v4.mjs';
+export type DeliveryStatement={schema:'lamultipla-private-statement-v1';channel:'synthetic_shadow'|'shadow';keyId:string;readerUid:string;applicationId:string;sequence:number;previousDeliveryHash:string|null;season:string;matchday:number;kind:'preview'|'final';status:'simulation'|'no_bet';envelopeSha256:string;packageSha256:string;deliveryId:string;generatedAtUtc:string;expiresAtUtc:string};
+export type DeliveryFrame={schema:'lamultipla-private-delivery-v1';statement:string;signature:string;packageJson:string};
+export type DeliveryTrust={readerUid:string;applicationId:string;channel:'synthetic_shadow'|'shadow';keys:Record<string,string>};
+export type VerifiedDelivery={frame:DeliveryFrame;statement:DeliveryStatement;envelope:DecisionEnvelope;expired:boolean;deliveryHash:string};
+export const FRAME_SCHEMA:string;
+export const MAX_FRAME_BYTES:number;
+export function canonical(value:unknown):string;
+export function base64url(value:ArrayBuffer|Uint8Array):string;
+export function unbase64url(value:string):Uint8Array;
+export function textSha256(value:string|Uint8Array):Promise<string>;
+export function keyFingerprint(spki:string):Promise<string>;
+export function deliveryId(statement:Partial<DeliveryStatement>):Promise<string>;
+export function validateStatement(value:unknown):DeliveryStatement;
+export function signDelivery(envelope:unknown,options:Pick<DeliveryStatement,'channel'|'keyId'|'readerUid'|'applicationId'|'sequence'|'previousDeliveryHash'|'expiresAtUtc'>,key:CryptoKey):Promise<DeliveryFrame>;
+export function verifyDelivery(frame:unknown,trust:DeliveryTrust,options?:{now?:Date|string;archiveExpired?:boolean}):Promise<VerifiedDelivery>;

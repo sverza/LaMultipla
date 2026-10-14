@@ -562,3 +562,14 @@ html[data-theme='dark'] .pick-card.lost .pick-main > b { background: #4a2925; co
 .model-band b{text-align:right}
 .analysis-empty.compact{margin:8px 0;padding:10px}
 @media(max-width:700px){.model-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.model-panels{grid-template-columns:1fr}}
+
+/* Experimental decisions are visually and financially separate from historical slips. */
+.experiment-card { margin: 18px 0; padding: 22px; border: 1px solid var(--line, #c7ced5); border-radius: 18px; background: var(--card, transparent); overflow-wrap: anywhere; }
+.experiment-card h2 { margin: 10px 0; font-size: 1.4rem; }
+.experiment-card p { margin: 10px 0; line-height: 1.6; }
+.experiment-warning { border-left: 3px solid #c48b24; padding-left: 12px; }
+.experiment-selection { padding: 12px 0; border-top: 1px solid var(--line, #c7ced5); }
+.experiment-card pre { white-space: pre-wrap; font-size: 11px; max-height: 360px; overflow: auto; }
+.experiment-card code { font-size: 11px; }
+.experiment-card summary, .experiment-import summary { cursor: pointer; padding: 12px 0; font-weight: 600; }
+.experiment-import textarea { width: 100%; min-height: 180px; border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--field); color: var(--ink); font: 12px/1.5 monospace; }
