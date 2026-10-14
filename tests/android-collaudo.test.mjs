@@ -18,8 +18,9 @@ test('APK test copy isolates identity, jobs and data while preserving native sha
     const result = prepareAndroidCollaudo(root, destination);
     assert.equal(result.applicationId, TEST_APP_ID);
     assert.match(read(destination, 'android/app/build.gradle'), /applicationId "it.personale.lamultipla.collaudo"/);
-    assert.match(read(destination, 'android/app/build.gradle'), /versionCode 6/);
-    assert.match(read(destination, 'android/app/build.gradle'), /versionName "1.0.1-private-receipt"/);
+    assert.match(read(destination, 'android/app/build.gradle'), /versionCode 7/);
+    assert.match(read(destination, 'android/app/build.gradle'), /versionName "1.0.1-private-progressive"/);
+    assert.equal(result.roundStateProtocol,1);
     for (const file of [
       'android/app/src/main/java/it/personale/lamultipla/PrivateReceiptSequence.java',
       'android/app/src/androidTest/java/it/personale/lamultipla/PrivateReceiptInstrumentedTest.java',

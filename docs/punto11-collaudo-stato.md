@@ -1,5 +1,9 @@
 # Punto 11 — stato del collaudo, 11 ottobre 2026
 
+## Preparazione Samsung/G7 — 14 ottobre
+
+APK privato versione7 e APK test compilati, stesso package/certificato del collaudo precedente; regole progressive verificate sull'emulatore Firestore e suite 266/266. Android emulator non avviabile: due prove strumentali ancora da eseguire sul Samsung. Il canale reale richiede aggiornamento della capacità `roundStateProtocol:1`; nessun deploy/installazione eseguito. Backup con otto esperimenti e originali G6 integri. [Artefatti, limiti e sequenza delle autorizzazioni](punto11-collaudo-progressivo-g7.md).
+
 ## Gestione progressiva — incremento del 13 ottobre
 
 Implementati gestore persistente, nuovo protocollo futuro, piani residui, revisioni shadow fuori dalla coorte originale, finale unico e margini 150/135/120 minuti. V4 preservato; schema separato per aggiornamenti e NO BET finale senza modello fittizio, capacità del ricevitore richiesta. [Rapporto completo](punto11-gestione-progressiva.md).

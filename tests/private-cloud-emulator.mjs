@@ -5,6 +5,7 @@ import {signDelivery,base64url,keyFingerprint,verifyDelivery} from '../shared/pr
 import {syntheticDecisionBundle,syntheticNow} from './fixtures/decision.mjs';
 import {appPackage} from '../scripts/lib/decision/app-package.mjs';
 import {envelope} from '../scripts/lib/prospective/store.mjs';
+import {progressiveDeliveryVectors} from './fixtures/progressive-delivery.mjs';
 const project='demo-lamultipla-private',host='127.0.0.1:8087';
 if(process.env.FIRESTORE_EMULATOR_HOST!==host)throw new Error('Local demo emulator required');
 const uid='SYNTHETIC_READER',writer='SYNTHETIC_WRITER',database=`projects/${project}/databases/(default)/documents`;
@@ -54,4 +55,19 @@ const later=await signDelivery(envelope(appPackage(syntheticDecisionBundle('miss
 await assert.rejects(publisher.publish(later),/Finale/);
 const forbidden=await nativeFetch(endpoint+`/users/${uid}/access/config`,{method:'PATCH',headers:{Authorization:'Bearer '+token(uid),'Content-Type':'application/json'},
   body:JSON.stringify({fields:{writerUid:{stringValue:uid}}})});assert.equal(forbidden.status,403);
-console.log(JSON.stringify({sourceData:'SYNTHETIC_TEST_ONLY',project,tests:'rules_auth_roles_atomic_chain_immutable_final_ack',cloudRequests:0,production:false}));
+const progressiveReader='SYNTHETIC_ROUND_STATE_READER',vectors=await progressiveDeliveryVectors('2026-10-14T09:00:00.000Z',{readerUid:progressiveReader});
+assert.equal((await nativeFetch(endpoint+`/users/${progressiveReader}/access/config`,{method:'PATCH',headers:{Authorization:'Bearer owner','Content-Type':'application/json'},
+  body:JSON.stringify({fields:{writerUid:{stringValue:writer}}})})).status,200);
+const roundCloud=identity=>createPrivateCloud({...config,readerUid:progressiveReader},{getIdToken:async()=>token(identity),fetchImpl:emulatorFetch});
+const roundPublisher=roundCloud(writer),roundReader=roundCloud(progressiveReader);
+await roundReader.registerDevice('synthetic-round-device','SYNTHETIC_FCM',trust.applicationId,1);
+for(const c of vectors.cases){
+  assert.equal((await roundPublisher.publish(c.frame)).accepted,true);
+  assert.equal((await roundPublisher.publish(c.frame)).duplicate,true);
+  const s=await verifyDelivery(c.frame,vectors.profile.trust,{now:vectors.nowUtc});
+  assert.equal((await roundReader.event(s.statement.sequence)).frame.signature,c.frame.signature);
+  await roundReader.acknowledge('synthetic-round-device',s.statement.sequence,s.deliveryHash);
+}
+assert.equal((await roundPublisher.ack('synthetic-round-device')).sequence,5);
+assert.equal((await roundPublisher.device('synthetic-round-device')).roundStateProtocol,1);
+console.log(JSON.stringify({sourceData:'SYNTHETIC_TEST_ONLY',project,tests:'rules_auth_roles_atomic_chain_immutable_final_ack_round_states_and_proposal',roundStateFrames:5,cloudRequests:0,production:false}));

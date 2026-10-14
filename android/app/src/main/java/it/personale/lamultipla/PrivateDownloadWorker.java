@@ -83,8 +83,8 @@ public class PrivateDownloadWorker extends Worker {
         return next.getString("idToken");
     }
     private void notifyReceived(JSONObject statement) throws Exception {
-        if(statement.getString("kind").equals("preview")&&statement.getString("status").equals("no_bet"))return;
-        if(PrivateProtocol.time(statement.getString("expiresAtUtc"))<=System.currentTimeMillis()){diagnostic("NOTIFICATION_EXPIRED",null);return;}
+        if(PrivateNotificationPolicy.silent(statement))return;
+        if(PrivateNotificationPolicy.expired(statement,System.currentTimeMillis())){diagnostic("NOTIFICATION_EXPIRED",null);return;}
         Context context=getApplicationContext();NotificationManager manager=context.getSystemService(NotificationManager.class);
         if(Build.VERSION.SDK_INT>=26)manager.createNotificationChannel(new NotificationChannel(TAG,"Analisi private LaMultipla",NotificationManager.IMPORTANCE_DEFAULT));
         Intent intent=new Intent(context,MainActivity.class).putExtra("lamultiplaPrivate",true).setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP|Intent.FLAG_ACTIVITY_CLEAR_TOP);
@@ -92,8 +92,7 @@ public class PrivateDownloadWorker extends Worker {
         PendingIntent open=PendingIntent.getActivity(context,id,intent,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
         if(NotificationManagerCompat.from(context).areNotificationsEnabled()){NotificationManagerCompat.from(context).notify(shadow?TAG+"-shadow":TAG,id,
             new NotificationCompat.Builder(context,TAG).setSmallIcon(android.R.drawable.ic_dialog_info).setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
-                .setContentTitle(statement.getString("status").equals("simulation")?"LaMultipla · proposta shadow":
-                    statement.getString("kind").equals("final")?"LaMultipla · NO BET definitivo":"LaMultipla · aggiornamento sperimentale")
+                .setContentTitle(PrivateNotificationPolicy.title(statement))
                 .setContentText("Apri Esperimento. Stake reale 0 €.").setContentIntent(open).setAutoCancel(true).build());diagnostic("NOTIFICATION_POST",null);}
         else diagnostic("NOTIFICATION_DISABLED",null);
     }

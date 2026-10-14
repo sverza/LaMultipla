@@ -88,7 +88,7 @@ export function prepareAndroidCollaudo(root, destination = path.join(root, '.loc
     return text;
   });
   modify('android/app/build.gradle', text => replaceOnce(replaceOnce(replaceOnce(text, 'applicationId "it.personale.lamultipla"', `applicationId "${TEST_APP_ID}"`),
-    'versionCode 2','versionCode 6'),'versionName "1.0.1"','versionName "1.0.1-private-receipt"'));
+    'versionCode 2','versionCode 7'),'versionName "1.0.1"','versionName "1.0.1-private-progressive"'));
   modify('android/app/src/main/res/values/strings.xml', text => text.replaceAll('La Multipla', 'LaMultipla TEST APK').replaceAll('it.personale.lamultipla', TEST_APP_ID));
   modify('app/layout.tsx', text => replaceOnce(text, '<body>{children}</body>', '<body><div role="status" style={{padding:8,textAlign:"center",background:"#ccf068",color:"#10241e",fontWeight:700}}>APK DI COLLAUDO · analisi sperimentali · stake reale 0 €</div>{children}</body>'));
   modify('package.json', text => {
@@ -114,7 +114,7 @@ export function prepareAndroidCollaudo(root, destination = path.join(root, '.loc
   const result = {
     purpose: 'PRIVATE_ANDROID_V4_TEST_ONLY', destination, applicationId: TEST_APP_ID,
     sourceCommit: execFileSync('git', ['-C', root, 'rev-parse', 'HEAD'], {encoding: 'utf8'}).trim(),
-    sourceHashes, actualStakeEUR: 0, apiRequests: 0, jobsEnabled: false,
+    sourceHashes, versionCode:7, roundStateProtocol:1, actualStakeEUR: 0, apiRequests: 0, jobsEnabled: false,
     remoteFeedEnabled: false, privateReceptionRequiresPairing: true, shadowRequiresSignedTransition: true, periodicJobsEnabled: false, release: false, sourceUnchanged: true,
   };
   for (const [name, expected] of Object.entries(sourceHashes)) {
