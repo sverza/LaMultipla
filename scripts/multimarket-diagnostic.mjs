@@ -7,7 +7,8 @@ import {ROOT,loadJson,withLock} from './lib/private-store.mjs';
 import {privateInput} from './lib/orchestration/analysis-plan.mjs';
 import {readSnapshot,writeExclusive,digest} from './lib/prospective/store.mjs';
 import {requireRegisteredCode} from './lib/engine/registry.mjs';
-import {buildMultimarketDiagnostic} from './lib/diagnostics/multimarket.mjs';
+import {buildMultimarketDiagnosticOptimized as buildMultimarketDiagnostic} from './lib/diagnostic-performance/multimarket.mjs';
+import {diagnosticPerformanceIdentity} from './lib/diagnostic-performance/identity.mjs';
 import {diagnosticHtml} from './lib/diagnostics/html.mjs';
 import {diagnosticPreflight,freezeIndependentDiagnostic} from './lib/diagnostics/freeze.mjs';
 import {controlledSelectorScenarios,selectorFunnel} from './lib/diagnostics/selector-audit.mjs';
@@ -45,12 +46,14 @@ async function main(){
       });
     }
     if(!values.journal)throw new Error('DIAGNOSTIC_JOURNAL_REQUIRED');
+    await diagnosticPerformanceIdentity(ROOT);
     payload=buildMultimarketDiagnostic({journal:await sealed(values.journal),study,now,
       report:values['odds-report']?await raw(values['odds-report']):null,assessment:values.assessment?await raw(values.assessment):{},
       context:values.context?await sealed(values.context):null,decision:values.decision?await sealed(values.decision):null});
   }
   return withLock(directory,async()=>{
     payload.codeIdentity=await diagnosticIdentity(ROOT);
+    if(payload.schema==='lamultipla-multimarket-diagnostic-v1')payload.performanceAdapter=await diagnosticPerformanceIdentity(ROOT);
     const filename=path.join(directory,'reports',digest(payload)+'.json');await writeExclusive(filename,payload);
     let htmlFile=null;if(payload.schema==='lamultipla-multimarket-diagnostic-v1'){
       htmlFile=filename.replace(/\.json$/,'.html');await fs.writeFile(htmlFile,diagnosticHtml(payload),{flag:'wx',mode:0o600});}

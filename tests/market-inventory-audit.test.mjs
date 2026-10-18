@@ -9,6 +9,8 @@ test('census retains every observed type, null/inactive prices and exact raw/rep
  const args=inputs(),before=digest(args),a=inventoryMarkets(args);
  assert.deepEqual(new Set(a.observedMarketTypes),new Set(args.reports[0].report.selections.map(q=>q.marketType)));
  assert.equal(a.counts.reportRows,args.reports[0].report.selections.length);assert.equal(a.providerRequests,0);assert.equal(a.decision,null);assert.equal(digest(args),before);
+ assert.deepEqual(new Set(a.familyCensus.filter(r=>r.observed).map(r=>r.marketType)),new Set(a.observedMarketTypes));
+ for(const r of a.reportMatrix){assert.equal(r.readiness.price.numericAboveOne,r.counts.priced);assert.equal(r.readiness.settlement.bookmakerRules,'NOT_ATTESTED_BY_CENSUS');assert.equal(r.readiness.operationallyApproved,false);}
  assert.ok(a.reportMatrix.some(r=>r.marketNames.includes('Corners')&&r.assessment.family==='unclassified'&&r.counts.automaticallyMapped===0));assert.ok(a.reportMatrix.some(r=>r.playerProp===true));
 });
 test('offline confirmation and reinterpretation never inflate observations, even when requested fixtureIds differ',()=>{

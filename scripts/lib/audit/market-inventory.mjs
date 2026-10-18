@@ -77,12 +77,32 @@ export function inventoryMarkets({reports,rawSnapshots=[],catalog,now=new Date()
    issueCounts:g.issueCounts,mappingState:g.automaticallyMapped?'EXISTING_PARSER_HANDLES_SOME_ROWS':g.marketType==='doublechance'&&g.names.has('Double Chance Full Time')?'EXACT_NAME_MISMATCH_NO_SILENT_ALIAS':
    g.marketType==='spreads'?'MANUAL_SIDE_LINE_MAPPING_REQUIRED':'NOT_AUTOMATICALLY_MAPPED',assessment:familyAssessment(g.marketType,g.period,sorted(g.names).join(' / '))}));}
  const reportMatrix=finish(groups),rawMatrix=finish(rawGroups),observedTypes=sorted(new Set([...reportMatrix,...rawMatrix].map(g=>g.marketType))),catalogTypes=sorted(new Set(football.map(d=>d.marketType)));
+ for(const row of [...reportMatrix,...rawMatrix]){
+  const bound=row.observationIds.every(id=>observations.get(id)?.catalogMatchesCache),known=row.marketIds.every(id=>byId.has(id)&&!catalogConflicts.has(id));
+  const selector=row.marketType==='1x2'&&row.period==='fulltime'&&row.playerProp===false&&row.marketNames.includes('Full Time Result')&&row.counts.automaticallyMapped>0;
+  row.readiness={catalogTypePresent:catalogTypes.includes(row.marketType),catalogIdentity:known&&bound?'IDS_FOUND_SOURCE_HASH_BOUND':'MISSING_CONFLICTING_OR_UNBOUND_CATALOG',observed:true,
+   price:{numericAboveOne:row.counts.priced,providerSelectionActive:row.counts.selectionActiveTrue,currentAvailability:'NOT_CERTIFIED_BY_HISTORICAL_CENSUS'},
+   mathematicalModel:row.counts.automaticallyMapped>0?'GOAL_GRID_PAYOFF_IMPLEMENTED':row.assessment.family==='goals'?'GOAL_GRID_BASE_AVAILABLE_MAPPING_PENDING':'NO_IMPLEMENTED_MODEL_FOR_TARGET',
+   validation:{goalsV1:selector?'RETROSPECTIVE_ONLY_OPERATION_BLOCKED':'NO_AUTOMATIC_MARKET_VALIDATION',
+    dc:row.assessment.family==='goals'?'MARKET_SPECIFIC_PROSPECTIVE_GATES_PENDING':'MODEL_NOT_IMPLEMENTED_FOR_TARGET',
+    bivariate:row.assessment.family==='goals'?'MARKET_SPECIFIC_PROSPECTIVE_GATES_PENDING':'MODEL_NOT_IMPLEMENTED_FOR_TARGET'},
+   settlement:{payoffMappedRows:row.counts.automaticallyMapped,bookmakerRules:'NOT_ATTESTED_BY_CENSUS',manualTicket:'NOT_ATTESTED_BY_CENSUS'},
+   selector:selector?'EXISTING_1X2_SHADOW_PATH_REQUIRES_ALL_OTHER_GATES':'EXCLUDED_FROM_CURRENT_SELECTOR',operationallyApproved:false};
+ }
+ const familyCensus=sorted(new Set([...catalogTypes,...observedTypes])).map(type=>{
+  const reportRows=reportMatrix.filter(r=>r.marketType===type),rawRows=rawMatrix.filter(r=>r.marketType===type);
+  return {marketType:type,catalogPresent:catalogTypes.includes(type),observed:observedTypes.includes(type),
+   reportRows:reportRows.reduce((n,r)=>n+r.counts.rows,0),rawRows:rawRows.reduce((n,r)=>n+r.counts.rows,0),
+   reportPricedRows:reportRows.reduce((n,r)=>n+r.counts.priced,0),rawPricedRows:rawRows.reduce((n,r)=>n+r.counts.priced,0),
+   reportGroups:reportRows.length,rawGroups:rawRows.length,periods:sorted(new Set([...reportRows,...rawRows].map(r=>r.period))),
+   settlement:'PER_GROUP_READINESS_NO_GLOBAL_RULES_CERTIFICATION',selector:type==='1x2'?'CHECK_EXACT_PERIOD_NAME_AND_GROUP_GATES':'EXCLUDED_FROM_CURRENT_SELECTOR'};
+ });
  const categoryChecks=[['European handicap','spreads-european'],['Corner handicap','spreads-corners'],['Bookings handicap','spreads-bookings'],
    ['Player offsides','players-offsides'],['Player saves alternate encoding','players-saves'],['Early payout','2up'],['Multigol','multigoal'],['BetBuilder','betbuilder']]
    .map(([category,type])=>({category,marketType:type,observed:observedTypes.includes(type),catalogOnly:catalogTypes.includes(type)&&!observedTypes.includes(type),
      catalogPresent:catalogTypes.includes(type),presenceState:observedTypes.includes(type)?'OBSERVED':catalogTypes.includes(type)?'CATALOG_ONLY_NOT_BET365_AVAILABILITY_PROOF':'NOT_OBSERVED_IN_THESE_INPUTS'}));
- return {schema:'lamultipla-market-inventory-audit-v1',generatedAtUtc:new Date(now).toISOString(),catalogSha256:digest(catalog),catalog:{definitions:definitions.length,footballDefinitions:football.length,
-   footballMarketTypes:catalogTypes,conflictingIds:sorted(catalogConflicts)},observations:[...observations.values()],observedMarketTypes:observedTypes,reportMatrix,rawMatrix,categoryChecks,
+ return {schema:'lamultipla-market-inventory-audit-v1',censusVersion:2,generatedAtUtc:new Date(now).toISOString(),catalogSha256:digest(catalog),catalog:{definitions:definitions.length,footballDefinitions:football.length,
+   footballMarketTypes:catalogTypes,conflictingIds:sorted(catalogConflicts)},observations:[...observations.values()],observedMarketTypes:observedTypes,familyCensus,reportMatrix,rawMatrix,categoryChecks,
    counts:{inputReports:reports.length,uniqueAcquisitionObservations:observations.size,duplicateOrReinterpretationReports:reports.length-observations.size,
      reportMarketTypes:new Set(reportMatrix.map(g=>g.marketType)).size,allReturnedBet365MarketTypes:observedTypes.length,reportRows:reportMatrix.reduce((n,g)=>n+g.counts.rows,0),
      rawRows:rawMatrix.reduce((n,g)=>n+g.counts.rows,0),returnedFixtureIdentities:rawCoverage.size,reportAutomaticallyMapped:reportMatrix.reduce((n,g)=>n+g.counts.automaticallyMapped,0)},
@@ -92,7 +112,7 @@ export function inventoryMarkets({reports,rawSnapshots=[],catalog,now=new Date()
 }
 export function inventoryMarkdown(a){
  const escape=v=>String(v??'unknown').replace(/\|/g,'/').replace(/[\r\n]/g,' ');
- const table=rows=>rows.map(r=>`| ${escape(r.marketType)} / ${escape(r.period)} / ${escape(r.marketNames.join('; '))} | sì | ${r.counts.automaticallyMapped}/${r.counts.rows}; ${escape(r.mappingState)} | ${r.fixtureCoverage.length} fixture | ${escape(r.assessment.model)} | ${escape(r.assessment.dataset)} | ${escape(r.assessment.sourceCandidates.join('; '))} | ${escape(r.assessment.settlement)} | ${escape(r.assessment.validation)} | ${escape(r.assessment.difficulty)} | ${escape(r.assessment.priority)} |`).join('\n');
- const header='| Tipo / periodo | Presenza | Mapping automatico | Copertura | Modello | Dataset | Fonti / condizioni | Liquidazione | Validazione | Difficoltà | Priorità |\n|---|---|---|---|---|---|---|---|---|---|---|';
+ const table=rows=>rows.map(r=>`| ${escape(r.marketType)} / ${escape(r.period)} / ${escape(r.marketNames.join('; '))} | catalogo=${r.readiness.catalogTypePresent}; osservato=sì; prezzi=${r.counts.priced} | ${r.counts.automaticallyMapped}/${r.counts.rows}; ${escape(r.mappingState)} | ${r.fixtureCoverage.length} fixture | ${escape(r.readiness.mathematicalModel)}; ${escape(r.assessment.model)} | ${escape(r.assessment.dataset)} | ${escape(r.assessment.sourceCandidates.join('; '))} | ${escape(r.readiness.settlement.bookmakerRules)}; ${escape(r.assessment.settlement)} | ${escape(r.assessment.validation)} | ${escape(r.readiness.selector)} | ${escape(r.assessment.difficulty)} | ${escape(r.assessment.priority)} |`).join('\n');
+ const header='| Tipo / periodo | Catalogo / osservato / prezzi | Mapping automatico | Copertura | Modello | Dataset | Fonti / condizioni | Liquidazione | Validazione | Selettore | Difficoltà | Priorità |\n|---|---|---|---|---|---|---|---|---|---|---|---|';
  return `# Inventario privato delle acquisizioni esistenti\n\n${a.generatedAtUtc}. Nessuna quota corrente, forecast o chiamata provider. Due ambiti separati: report giornata e risposta grezza completa. Nessun market type omesso. Dettagli ID/linee/esiti/hash nel JSON.\n\n${JSON.stringify(a.counts)}\n\n## Report delle giornate\n\n${header}\n${table(a.reportMatrix)}\n\n## Tutti gli incontri restituiti dal provider\n\n${header}\n${table(a.rawMatrix)}\n\n## Categorie non osservate\n\n${a.categoryChecks.map(c=>'- '+c.category+': '+c.presenceState).join('\n')}\n\n## Limiti\n\n${a.limitations.map(t=>'- '+t).join('\n')}\n`;
 }

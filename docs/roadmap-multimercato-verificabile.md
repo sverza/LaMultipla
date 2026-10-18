@@ -2,6 +2,8 @@
 
 Audit del 14 ottobre 2026. Questa è una proposta da approvare, non l'attivazione di nuovi modelli o automazioni. Obiettivo: censire ogni mercato osservato, stabilire se il suo evento è modellabile con dati indipendenti e dichiarare esplicitamente gli esclusi. Importazione, matematica, previsione validata, selezione shadow e autorizzazione operativa sono cinque stati diversi. Non serve produrre una multipla G7/G8 per raggiungere una milestone.
 
+Aggiornamento del 18 ottobre: roadmap approvata come direzione generale, con autorizzazione operativa limitata alla milestone A. Il [rapporto A](milestone-a-diagnostica-prestazioni.md) documenta l'adapter esterno, l'equivalenza e le nuove misure; supera il blocco prestazionale descritto nell'audit storico sotto. B–G rimangono da autorizzare per lotti. Le date G6/G7 citate nell'audit sono storiche: nessuna esecuzione o freeze retroattivo è autorizzato da questo aggiornamento.
+
 ## Destino delle quote e inventario
 
 L'importatore conserva tutte le selezioni, anche inattive, incomplete o non modellabili, nei report privati; gli snapshot grezzi conservano anche gli incontri fuori dal manifest della giornata. `marketFamilies` del report conta soltanto prezzi attivi: non è l'inventario di tutti i market type. Il selettore filtra 1X2 fulltime; gli altri non sono stati eliminati. La diagnostica v2 interpreta soltanto i mercati con spec riconosciuta. Molte quote restano pertanto senza probabilità, non dichiarate prive di valore.
