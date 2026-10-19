@@ -9,18 +9,22 @@ import {readSnapshot,writeExclusive,digest} from './lib/prospective/store.mjs';
 import {requireRegisteredCode} from './lib/engine/registry.mjs';
 import {buildMultimarketDiagnosticOptimized as buildMultimarketDiagnostic} from './lib/diagnostic-performance/multimarket.mjs';
 import {diagnosticPerformanceIdentity} from './lib/diagnostic-performance/identity.mjs';
+import {buildB1Diagnostic} from './lib/diagnostic-goals-b1/diagnostic.mjs';
+import {b1Identity} from './lib/diagnostic-goals-b1/identity.mjs';
 import {diagnosticHtml} from './lib/diagnostics/html.mjs';
 import {diagnosticPreflight,freezeIndependentDiagnostic} from './lib/diagnostics/freeze.mjs';
 import {controlledSelectorScenarios,selectorFunnel} from './lib/diagnostics/selector-audit.mjs';
 import {diagnosticIdentity} from './lib/diagnostics/identity.mjs';
 const {values}=parseArgs({strict:true,options:{help:{type:'boolean'},preflight:{type:'boolean'},freeze:{type:'boolean'},report:{type:'boolean'},
   'synthetic-audit':{type:'boolean'},'audit-selector':{type:'boolean'},study:{type:'string'},dataset:{type:'string'},schedule:{type:'string'},calendar:{type:'string'},
-  journal:{type:'string'},'odds-report':{type:'string'},assessment:{type:'string'},context:{type:'string'},decision:{type:'string'},inspect:{type:'string'}}});
+  journal:{type:'string'},'odds-report':{type:'string'},assessment:{type:'string'},context:{type:'string'},decision:{type:'string'},inspect:{type:'string'},
+  'goals-b1':{type:'boolean'},catalog:{type:'string'},fixtures:{type:'string'}}});
 const directory=path.join(ROOT,'.local/diagnostics/multimarket');
 const raw=async f=>loadJson(await privateInput(ROOT,f)),sealed=async f=>readSnapshot(await privateInput(ROOT,f));
 async function main(){
-  if(values.help){console.log('Private only: --preflight --study FILE --dataset FILE --schedule FILE | --freeze plus --calendar SNAPSHOT | --report --study FILE --journal FILE [--odds-report FILE] [--assessment FILE] [--context FILE] [--decision FILE] | --synthetic-audit | --audit-selector --decision FILE | --inspect FILE. No provider, delivery or tuning commands.');return;}
+  if(values.help){console.log('Private only: --preflight --study FILE --dataset FILE --schedule FILE | --freeze plus --calendar SNAPSHOT | --report --study FILE --journal FILE [--odds-report FILE] [--assessment FILE] [--context FILE] [--decision FILE] [--goals-b1 --catalog FILE --fixtures FILE] | --synthetic-audit | --audit-selector --decision FILE | --inspect FILE. B1 requires the bound report/catalog/raw snapshots. No provider, delivery or tuning commands.');return;}
   if(['preflight','freeze','report','synthetic-audit','audit-selector','inspect'].filter(k=>values[k]).length!==1)throw new Error('DIAGNOSTIC_ONE_MODE_REQUIRED');
+  if((values['goals-b1']||values.catalog||values.fixtures)&&(!values.report||!values['goals-b1']||!values.catalog||!values.fixtures||!values['odds-report']))throw Error('B1_REPORT_AND_BOUND_SOURCES_REQUIRED');
   if(values.inspect){const r=await sealed(values.inspect);if(!r.schema?.includes('diagnostic')&&!r.schema?.includes('audit'))throw new Error('DIAGNOSTIC_REPORT_REQUIRED');console.log(JSON.stringify(r,null,2));return;}
   const now=new Date();let payload;
   if(values['synthetic-audit'])payload=controlledSelectorScenarios();
@@ -47,13 +51,15 @@ async function main(){
     }
     if(!values.journal)throw new Error('DIAGNOSTIC_JOURNAL_REQUIRED');
     await diagnosticPerformanceIdentity(ROOT);
-    payload=buildMultimarketDiagnostic({journal:await sealed(values.journal),study,now,
+    const input={journal:await sealed(values.journal),study,now,
       report:values['odds-report']?await raw(values['odds-report']):null,assessment:values.assessment?await raw(values.assessment):{},
-      context:values.context?await sealed(values.context):null,decision:values.decision?await sealed(values.decision):null});
+      context:values.context?await sealed(values.context):null,decision:values.decision?await sealed(values.decision):null};
+    payload=values['goals-b1']?buildB1Diagnostic({...input,catalog:await raw(values.catalog),fixtures:await raw(values.fixtures)}):buildMultimarketDiagnostic(input);
   }
   return withLock(directory,async()=>{
     payload.codeIdentity=await diagnosticIdentity(ROOT);
     if(payload.schema==='lamultipla-multimarket-diagnostic-v1')payload.performanceAdapter=await diagnosticPerformanceIdentity(ROOT);
+    if(values['goals-b1'])payload.mappingAdapter=await b1Identity(ROOT);
     const filename=path.join(directory,'reports',digest(payload)+'.json');await writeExclusive(filename,payload);
     let htmlFile=null;if(payload.schema==='lamultipla-multimarket-diagnostic-v1'){
       htmlFile=filename.replace(/\.json$/,'.html');await fs.writeFile(htmlFile,diagnosticHtml(payload),{flag:'wx',mode:0o600});}

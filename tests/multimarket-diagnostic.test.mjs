@@ -5,6 +5,7 @@ import path from 'node:path';
 import {promisify} from 'node:util';
 import {execFile} from 'node:child_process';
 import {syntheticMultimarket} from './fixtures/multimarket.mjs';
+import {syntheticB1} from './fixtures/goals-b1.mjs';
 import {syntheticDecisionBundle} from './fixtures/decision.mjs';
 import {buildMultimarketDiagnostic} from '../scripts/lib/diagnostics/multimarket.mjs';
 import {controlledSelectorScenarios,selectorFunnel,jointRequirements} from '../scripts/lib/diagnostics/selector-audit.mjs';
@@ -107,4 +108,15 @@ test('CLI creates only immutable diagnostic JSON/HTML, rejects network flags and
  const output=JSON.parse(result.stdout),d=await readSnapshot(output.file);assert.equal(d.priceState,'PENDING_FRESH_REPORT');assert.equal(output.providerRequests,0);assert.ok(await fs.stat(output.htmlFile));
  await assert.rejects(run(process.execPath,[path.join(ROOT,'scripts/multimarket-diagnostic.mjs'),'--report','--live-odds'],{cwd:ROOT}));
  await assert.rejects(run(process.execPath,[path.join(ROOT,'scripts/multimarket-diagnostic.mjs'),'--inspect',path.join(ROOT,'README.md')],{cwd:ROOT}));
+});
+test('B1 CLI reads only the exact private source chain and records both adapter identities without delivery',async()=>{
+ const s=await syntheticB1(),dir=path.join(ROOT,'.local/tests/b1-cli-'+crypto.randomUUID());await fs.mkdir(dir,{recursive:true});
+ const study=path.join(dir,'study.json'),journal=path.join(dir,'journal.json'),report=path.join(dir,'report.json'),catalog=path.join(dir,'catalog.json'),fixtures=path.join(dir,'fixtures.json');
+ await writeExclusive(study,s.study);await writeExclusive(journal,s.journal);
+ for(const [file,value] of [[report,s.report],[catalog,s.catalog],[fixtures,s.fixtures]])await fs.writeFile(file,JSON.stringify(value));
+ const result=await run(process.execPath,[path.join(ROOT,'scripts/multimarket-diagnostic.mjs'),'--report','--study',study,'--journal',journal,'--odds-report',report,'--goals-b1','--catalog',catalog,'--fixtures',fixtures],{cwd:ROOT});
+ const output=JSON.parse(result.stdout),d=await readSnapshot(output.file);assert.equal(d.mappingAdapter.version,'goals-mapping-b1-v1');assert.equal(d.mappingB1.counts.verified,73);
+ assert.equal(d.performanceAdapter.version,'diagnostic-performance-v1');assert.equal(d.appDeliveryAllowed,false);assert.equal(d.eligibleForSelector,false);
+ await assert.rejects(run(process.execPath,[path.join(ROOT,'scripts/multimarket-diagnostic.mjs'),'--report','--goals-b1'],{cwd:ROOT}));
+ await assert.rejects(run(process.execPath,[path.join(ROOT,'scripts/multimarket-diagnostic.mjs'),'--freeze','--goals-b1','--catalog',catalog,'--fixtures',fixtures],{cwd:ROOT}));
 });

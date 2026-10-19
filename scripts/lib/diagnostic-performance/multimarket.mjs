@@ -5,7 +5,6 @@ import {quantile} from '../goals/metrics.mjs';
 import {experimentalScreenOptimized} from './screen.mjs';
 import {createDiagnosticContext} from './context.mjs';
 import {DIAGNOSTIC_POLICY,requestedSpecs} from '../diagnostics/multimarket.mjs';
-import {quoteSpec} from '../engine/markets.mjs';
 import {settlementEV} from '../analysis.mjs';
 import {quoteIdentity} from '../availability.mjs';
 import {GENERAL_POLICY} from '../decision/policy.mjs';
@@ -33,10 +32,10 @@ function settlementReviewState(report,q,context,clock){
     &&['regulationTimeIncludingStoppage','extraTimeExcluded','penaltiesExcluded','voidAndPostponementReviewed'].every(k=>v[k]===true)?
     'RECORDED_MANUAL_RULES_ATTESTATION_NOT_INDEPENDENT_CERTIFICATION':'MANUAL_RULES_REVIEW_PENDING';
 }
-export function buildMultimarketDiagnosticOptimized({journal,study,report=null,assessment={},context=null,decision=null,now=new Date()}={},metrics={}){
+export function buildMultimarketDiagnosticOptimized({journal,study,report=null,assessment={},context=null,decision=null,now=new Date()}={},metrics={}, {mappingFactory}={}){
   const started=performance.now();
   const clock=new Date(now).getTime();
-  const work=createDiagnosticContext({journal,study,report,assessment,metrics,beforeIndex:()=>{
+  const work=createDiagnosticContext({journal,study,report,assessment,metrics,mappingFactory,beforeIndex:()=>{
    if(!Number.isFinite(clock)||clock<Date.parse(DIAGNOSTIC_POLICY.registeredAtUtc)||Date.parse(journal.generatedAtUtc)>clock)throw new Error('DIAGNOSTIC_CLOCK_INVALID');
    if(!Array.isArray(assessment.assessment?.estimates??assessment.estimates??[]))throw new Error('DIAGNOSTIC_ASSESSMENT_INVALID');
   }});
@@ -50,7 +49,7 @@ export function buildMultimarketDiagnosticOptimized({journal,study,report=null,a
   metrics.screeningMs=performance.now()-screenStarted;metrics.screeningProbabilityMs=(metrics.probabilityMs??0)-mathBefore;
   const recordsByQuote=new Map();for(const r of screen?.records??[]){let kinds=recordsByQuote.get(r.quoteId);if(!kinds){kinds=new Map();recordsByQuote.set(r.quoteId,kinds);}if(!kinds.has(r.kind))kinds.set(r.kind,r);}
   const quoteCount=new Map();for(const q of report?.selections??[])quoteCount.set(q.quoteId,(quoteCount.get(q.quoteId)??0)+1);
-  const mapped=(report?.selections??[]).map(q=>({q,spec:quoteSpec(q,mappingFor(report,q,work,clock))}));
+  const mapped=(report?.selections??[]).map(q=>({q,spec:work.quoteSpec(q,mappingFor(report,q,work,clock))}));
   const anomalies=mapped.filter(({spec})=>!spec).map(({q})=>({quoteId:q.quoteId,fixtureId:q.fixtureId,marketType:q.marketType,
     marketName:q.marketName,period:q.period,line:q.line,outcome:q.outcome,state:'UNSUPPORTED_OR_UNVERIFIED_MARKET_SCHEMA',eligibleForSelector:false}));
   const projections=[],priced=[];

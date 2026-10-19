@@ -4,6 +4,8 @@ Audit del 14 ottobre 2026. Questa è una proposta da approvare, non l'attivazion
 
 Aggiornamento del 18 ottobre: roadmap approvata come direzione generale, con autorizzazione operativa limitata alla milestone A. Il [rapporto A](milestone-a-diagnostica-prestazioni.md) documenta l'adapter esterno, l'equivalenza e le nuove misure; supera il blocco prestazionale descritto nell'audit storico sotto. B–G rimangono da autorizzare per lotti. Le date G6/G7 citate nell'audit sono storiche: nessuna esecuzione o freeze retroattivo è autorizzato da questo aggiornamento.
 
+Aggiornamento del19 ottobre: autorizzati chiusura degli arretrati e solo B1. Il [rapporto B1](milestone-b1-e-arretrati-scientifici.md) distingue controllo G6 tardivo con10pending, finestra G7 mancata e mapping gol verificati. B2–G rimangono da autorizzare; nessun nuovo mercato ammesso al selettore.
+
 ## Destino delle quote e inventario
 
 L'importatore conserva tutte le selezioni, anche inattive, incomplete o non modellabili, nei report privati; gli snapshot grezzi conservano anche gli incontri fuori dal manifest della giornata. `marketFamilies` del report conta soltanto prezzi attivi: non è l'inventario di tutti i market type. Il selettore filtra 1X2 fulltime; gli altri non sono stati eliminati. La diagnostica v2 interpreta soltanto i mercati con spec riconosciuta. Molte quote restano pertanto senza probabilità, non dichiarate prive di valore.
@@ -89,7 +91,9 @@ Uno stress diagnostico usa soltanto **forma/cardinalità** del report storico, c
 
 Ordine consigliato: A → lotto FT B; in parallelo **solo** verifica diritti/copertura per C/D/E → C → D → E; F quando mercati/joint/evidenze idonei; G dopo affidabilità/end-to-end e consensi. Entro G8 ha senso puntare a census completo, mapping FT diagnostico, controlli missingness e profiling; non a un selettore all-market validato. Non avviare indiscriminatamente modelli prima dei gate dei dati.
 
-## G6/G7: quattro decisioni separate
+## G6/G7: quattro decisioni separate — quadro dell'audit precedente
+
+Aggiornamento del 19 ottobre: il controllo G6 è stato registrato tardivamente con 10 pending; non risultano journal prospettici G7 nei percorsi canonici e la finestra originale è mancata. I passaggi seguenti conservano la proposta formulata prima della scadenza, non un'autorizzazione o un invito a ricostruire G7. Stato effettivo e prossima opportunità G8 nel [rapporto B1](milestone-b1-e-arretrati-scientifici.md).
 
 | Ambito | Posizione proposta |
 |---|---|
@@ -103,3 +107,21 @@ Il 15 ottobre, G6: `node scripts/original-g6-check.mjs --record` sul percorso or
 Per G7 resta da autorizzare una **fase freeze-only**, con calendario ufficiale/provider fresco secondo il protocollo, dataset originale/nuova osservazione CC0 conservata, registry v1/v2 verificato e store esclusivo. Le funzioni freeze esistenti possono produrre forecast senza quotazione o consegna; non usare il runner completo, che include acquisizione/pump, con un'autorizzazione limitata. Eventuale minima fixtures richiede autorizzazione conteggiata; niente aggiramento delle freschezze attraverso CLI legacy. Finestra del 16 ottobre dalle 14:45, guardia prima deadline utile; se persa, registrare lacuna senza retrodatare. Nessuna automazione impostata e nessuna decisione irrevocabile di saltare G7 presa ora.
 
 Questo documento propone le milestone; l'approvazione della roadmap deve precedere un nuovo grande intervento. Nessuna nuova famiglia, coorte, API pagata, automazione, APK o deploy avviati dall'audit.
+
+## Miglioramento continuo per giornata — proposta metodologica, da approvare
+
+Le60 giornate del protocollo v2 esistente sono una finestra confermativa immutabile, non un divieto di analizzare errori o progettare miglioramenti prima della sua conclusione. Il percorso di ricerca parallelo può produrre nuovi challengers per eventi futuri senza riscrivere i forecast o la coorte di riferimento. Nessuna parte di questa proposta viene implementata o attivata in B1.
+
+| Passo | Artifact/decisione proposta | Protezione |
+|---|---|---|
+| Prima della giornata | Freeze prospettico delle versioni registrate su stessi eventi e deadline, con dataset/code/config/cutoff/as-of/ID e timestamp propri | Mancata finestra esplicita, no retrodatazione o ricostruzione. Reference v1/v2 continua secondo il protocollo originario. |
+| Dopo gli eventi | Nuova osservazione risultati con fonte/hash/acquisizione; proper scoring per mercato e confronto appaiato sugli eventi comuni | Pending, conflitti e copertura mostrati; nessuna fonte alternativa silenziosa o selezione dei soli esiti favorevoli. |
+| Review della giornata | Errori di probabilità, calibrazione e incertezza distinti da identità, calendario, indisponibilità dati e liquidazione | Un esito improbabile non dimostra un difetto del modello. Analisi per blocchi temporali e per target; niente causalità dedotta da un singolo insuccesso. |
+| Ipotesi migliorativa | Scheda con causa ipotizzata, evidenza, intervento limitato e versione challenger; proposta di massimo2 challengers per lotto | Tutti i tentativi registrati, anche scartati; dati già esaminati diventano sviluppo dichiarato, non nuovo holdout. Probabilità indipendenti dalle quote. |
+| Preregistrazione challenger | Endpoint primari, reference/baseline, mercati, universo di incontri, prima giornata eleggibile, tuning/calibrazione, piano campione/potenza e molteplicità | Fissare prima di vedere i nuovi risultati. Nessun numero minimo universale inventato; scegliere un effetto minimo utile e un piano temporale coerente con le dipendenze. |
+| Confronto futuro | Forecast reference/challenger sugli stessi eventi, log-loss/Brier e calibrazione, incertezza e missingness, con aggregazione per match/settimana | Report intermedi descrittivi. Test confermativo a orizzonte fissato; eventuali metodi validi con monitoraggio continuo richiedono studio e preregistrazione separati. Non ripetere CI ordinari fino a un risultato favorevole. |
+| Decisione | Mantenere, scartare o proporre una versione futura | Nessuna sostituzione automatica o modifica dei risultati passati; autorizzazione operativa e validazione del selettore restano distinte. |
+
+**Mantenere** il riferimento se il campione è insufficiente, la copertura è inadeguata o il beneficio preregistrato non è dimostrato. **Scartare/sospendere** un challenger per leakage, dati/ID non verificabili, fit inaffidabili, danno di calibrazione o fallimento del test fissato; registrare la ragione. **Proporre un aggiornamento** solo dopo gate tecnici e statistici predefiniti, beneficio appaiato sul nuovo campione e controlli di stabilità/complessità: prima revisione umana e versione/coorte futura esplicita. Non promuovere perché ha ottenuto ROI alto in una giornata.
+
+Le correzioni tecniche di mapping possono avanzare senza chiamarle miglioramenti predittivi. Una nuova idea nata dalla review può essere sperimentata nella prossima finestra autorizzata, mentre i modelli registrati continuano a raccogliere la propria evidenza; non serve aspettare60 giornate per scrivere o collaudare il challenger. Serve invece rispettare il suo piano indipendente prima di dichiararlo migliore. Un eventuale cambio del riferimento sperimentale non cancella la coorte v2 originale né trasforma analisi esplorative già osservate in conferme indipendenti. Questo percorso richiede approvazione metodologica e successivi lotti di implementazione, non inclusi in B1.

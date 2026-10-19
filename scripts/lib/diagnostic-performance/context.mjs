@@ -2,11 +2,12 @@ import {digest} from '../prospective/store.mjs';
 import {settlementProbabilities} from '../engine/markets.mjs';
 import {quantile} from '../goals/metrics.mjs';
 import {validateJournal} from '../engine/forecast.mjs';
+import {quoteSpec} from '../engine/markets.mjs';
 const issued=new WeakMap();
 export const isDiagnosticContext=(context,args)=>issued.get(context)?.every((v,i)=>v===[args.journal,args.study,args.report,args.assessment][i])===true;
 
 // Call-local caches only. Journal validation runs before any cached hashes or indices are created.
-export function createDiagnosticContext({journal,study,report,assessment,metrics={},beforeIndex}){
+export function createDiagnosticContext({journal,study,report,assessment,metrics={},beforeIndex,mappingFactory}){
  validateJournal(journal,study);
  beforeIndex?.();
  const entries=new Map(),reviews=new Map(),cache=new Map();
@@ -37,6 +38,7 @@ export function createDiagnosticContext({journal,study,report,assessment,metrics
       spec.family==='btts'||spec.family==='totals'&&spec.line===2.5?'PROSPECTIVE_VALIDATION_PENDING':'SEPARATE_MARKET_PROTOCOL_REQUIRED'};
   Object.defineProperty(result,'bootstrapPayouts',{value:samples});value.projection=result;return result;
  }
- const context=Object.freeze({journal,study,report,assessment,entries,reviews,journalSha256,studySha256,reportSha256,assessmentSha256,payouts,projection});
+ const resolveQuote=mappingFactory?mappingFactory({reportSha256}):quoteSpec;
+ const context=Object.freeze({journal,study,report,assessment,entries,reviews,journalSha256,studySha256,reportSha256,assessmentSha256,payouts,projection,quoteSpec:resolveQuote});
  issued.set(context,[journal,study,report,assessment]);return context;
 }

@@ -6,7 +6,7 @@ import {effectiveAvailabilityCached} from './availability.mjs';
 import {createDiagnosticContext,isDiagnosticContext} from './context.mjs';
 import {settlementEV} from '../analysis.mjs';
 import {POLICY} from '../shadow/policy.mjs';
-import {quoteSpec,FAMILIES} from '../engine/markets.mjs';
+import {FAMILIES} from '../engine/markets.mjs';
 export function experimentalScreenOptimized({journal,study,report,assessment={},now=new Date()}={},context=null) {
   if(context&&!isDiagnosticContext(context,{journal,study,report,assessment}))throw Error('DIAGNOSTIC_CONTEXT_NOT_ISSUED_FOR_INPUTS');
   if(!context)context=createDiagnosticContext({journal,study,report,assessment,beforeIndex:()=>{
@@ -24,7 +24,7 @@ export function experimentalScreenOptimized({journal,study,report,assessment={},
     const mappingBound=mapping?.reportSha256===context.reportSha256&&mapping?.domain==='bet365.it'&&mapping?.origin==='manual_bet365_it'&&mapping?.settlementVerified===true
       &&typeof mapping.reviewer==='string'&&mapping.reviewer.trim()&&Number.isFinite(Date.parse(mapping.verifiedAtUtc))&&Date.parse(mapping.verifiedAtUtc)<=clock
       &&typeof mapping?.evidence==='string'&&mapping.evidence.trim()&&mapping?.identitySha256===fingerprint([q.fixtureId,q.marketId,q.outcomeId,q.period,q.line,q.outcome]);
-    const spec=quoteSpec(q,mappingBound?mapping:null);if(!spec){unsupported++;continue;}
+    const spec=context.quoteSpec(q,mappingBound?mapping:null);if(!spec){unsupported++;continue;}
     const e=context.entries.get(q.fixtureId),reasons=[...issues],availability=effectiveAvailabilityCached(report,q,review?.manualVerification,clock,30,context);
     if(!e||e.status!=='prospective'||canonicalTeam(q.fixture?.[0])!==e.home||canonicalTeam(q.fixture?.[1])!==e.away||q.kickoffUtc!==e.kickoffUtc
       ||q.quoteId!==fingerprint([q.fixtureId,'bet365.it',q.marketId,q.outcomeId,q.playerKey])||q.marketId==null||q.outcomeId==null||q.playerProp!==false
