@@ -1,6 +1,6 @@
 # PitchAPI — piano storico e dati per modelli di squadra
 
-Base `e310f111b06c94f2baf60776655851fc6bb37a41`,21 ottobre2026. **Due lotti autorizzati: eseguiti cinque elenchi,17 stats e una lineup storica; una lineup prepartita resta pending per finestra temporale.23 nuove richieste riuscite.** La gratuità senza trial/contingente è confermata personalmente dall'utente nella dashboard; non viene ripetuto l'audit commerciale. Restano separati accesso, conservazione e diritti di training/refit.
+Base `e310f111b06c94f2baf60776655851fc6bb37a41`,21 ottobre2026. **Prova autorizzata conclusa: cinque elenchi,17 stats e due lineup;24 nuove richieste HTTP200. La lineup prepartita G8 non contiene titolari, riserve o modulo utilizzabili. Nessuna richiesta pending e nessun retry.** La gratuità senza trial/contingente è confermata personalmente dall'utente nella dashboard; non viene ripetuto l'audit commerciale. Restano separati accesso, conservazione e diritti di training/refit.
 
 ## Direzione e protezione degli originali
 
@@ -85,15 +85,15 @@ Tutti gli elenchi contengono20 squadre.2.281 fixture ID distinti complessivi, ne
 
 **2023/24:** l'ultimo campione è Atalanta–Fiorentina2 giugno2024, recupero della29ª giornata, confermato dalla [pagina ufficiale Atalanta](https://www.atalanta.it/news/recupero-29a-serie-a-tim-23-24-atalanta-fiorentina-cosi-in-campo). L'accesso diretto al PDF CU238 dal PC ha fallito per DNS, senza retry: non viene dichiarato scaricato. La data effettiva del recupero non viene trasformata nella data originaria del rinvio.
 
-Le dieci fixture G8 coincidono con il manifest già preparato per squadre e kickoff; gli ID sono PitchAPI, **non** OddsPapi. Nessuna configurazione operativa o attestazione di riconferma del calendario è stata modificata. Torino–Monza è `m_0pSK27`,23 ottobre18:45UTC/20:45Roma. La futura richiesta `/lineups` non deve precedere21 ottobre18:45UTC/20:45Roma; il nuovo client la blocca fuori dalla finestra esplicita. Non è stata ancora eseguita.
+Le dieci fixture G8 coincidono con il manifest già preparato per squadre e kickoff; gli ID sono PitchAPI, **non** OddsPapi. Nessuna configurazione operativa o attestazione di riconferma del calendario è stata modificata. Torino–Monza è `m_0pSK27`,23 ottobre18:45UTC/20:45Roma. Al termine della discovery la lineup era ancora pending; la singola richiesta è stata poi eseguita21 ottobre18:53UTC, rispettando l'apertura18:45UTC. Esito dettagliato nella sezione prepartita sotto.
 
-Il manifest privato da sottoporre alla seconda conferma è `.local/preparation/pitchapi-history-20261021/detail-approval.private.md`:18 fixture/17 nuove stats e due lineup,19 nuove richieste, totale incarico24/30. Le sei residue restano non allocate. Un'unica lineup prepartita non dimostrerà affidabilità o frequenza degli aggiornamenti.
+Il manifest privato sottoposto alla seconda conferma e poi approvato è `.local/preparation/pitchapi-history-20261021/detail-approval.private.md`:18 fixture/17 nuove stats e due lineup,19 nuove richieste, totale incarico24/30. Le sei residue restano non allocate. Un'unica osservazione prepartita non dimostra affidabilità o frequenza degli aggiornamenti.
 
 Il client diagnostico `pitchapi-history-acquisition.mjs` riusa lock e snapshot sigillati esistenti, con grant distinti e tetto condiviso30; non estende l'autorizzazione del primo lotto12. Gli endpoint devono figurare esattamente nel grant della fase. Esiti ambigui bloccano i successivi invii; risposte già ricevute sono riusate solo dopo verifica di hash e legami. Nessun collegamento a training, coorti o scheduler.
 
 ## Secondo lotto — dati squadra osservati
 
-Conferma dell'utente: «Autorizzo il secondo lotto, massimo19 richieste». Eseguite17 nuove `/stats` e una `/lineups` storica; tutte HTTP200 con envelope applicativo riuscito. La risposta stats Genoa–Lecce già acquisita è stata riusata con verifica di hash. Totale18 campioni stats, di cui17 ordinari e uno spareggio, senza sostituzioni. Nessun nuovo players/event/advanced. Totale incarico **23/30 trasmissioni**, con una richiesta autorizzata pending e sei non allocate; nessun retry.
+Conferma dell'utente: «Autorizzo il secondo lotto, massimo19 richieste». Eseguite17 nuove `/stats` e due `/lineups`, storica e prepartita; tutte HTTP200 con envelope applicativo riuscito. La risposta stats Genoa–Lecce già acquisita è stata riusata con verifica di hash. Totale18 campioni stats, di cui17 ordinari e uno spareggio, senza sostituzioni. Nessun nuovo players/event/advanced. Totale incarico **24/30 trasmissioni**, nessuna richiesta pending, sei non allocate; nessun retry. Il successo HTTP della seconda lineup non equivale a presenza di una formazione.
 
 Matrice FT: ogni denominatore6 corrisponde a3 incontri×2 squadre. Una cella valorizzata comprende lo zero esplicito. Nelle tre gare2022/23 lo spareggio è compreso solo nella vista «tutti i campioni»; la vista del campionato ordinario ha denominatore4, più2 celle dello spareggio in vista separata. Nessuna percentuale viene estesa alla popolazione stagionale.
 
@@ -132,7 +132,7 @@ Somme dei conteggi dei periodi verificabili e partizione tiri non mostrano discr
 
 La matrice completa, con valore positivo/zero/null/omissione/ambiguità/non applicabile/risposta indisponibile per campo, periodo, squadra e scope, è `.local/preparation/pitchapi-history-20261021/team-quality-matrix.private.md`; JSON sigillato e provenienza in `team-quality-review.private.json`. `pitchapi-history-quality.mjs` calcola tutto offline. La categoria non applicabile non viene usata per nascondere un periodo non restituito o una metrica mancante.
 
-## Lineup storica e osservazione prepartita ancora pending
+## Lineup storica e osservazione prepartita conclusa
 
 Genoa–Fiorentina G6, osservata21/10 ore17:54:25UTC: identità fixture/team coerenti,11 titolari per lato,13 riserve home e11 away, moduli presenti,46/46 player ID collegati alle righe players già acquisite, nessuna inversione di squadra. Entrambi i lati `confirmed=true`. Classificazione corretta: **POST_MATCH_CAPTURE**, non evidenza prepartita.
 
@@ -140,15 +140,28 @@ I titolari hanno slot dello schieramento, le riserve categorie di posizione: non
 
 Nessun campo di pubblicazione/aggiornamento della lineup, infortuni o squalifiche è apparso nella risposta. `lineup_type="standard"` è presente anche con `confirmed=true`, mentre la documentazione descrive l'omissione dopo conferma: differenza segnalata senza trattare `standard` come previsione. Fa fede il flag effettivo per questa distinzione, insieme all'istante di osservazione; non viene inventata una data di pubblicazione.
 
-Torino–Monza G8 `/v1/matches/m_0pSK27/lineups`: **autorizzata ma non inviata** prima del21/10 ore20:45Roma. Nessun task o ripartenza programmati. Si può riprendere la singola osservazione già approvata quando la finestra è aperta, leggendo grant, checkpoint e ricevute; non si ripetono le altre23 richieste. Una risposta404/assenza dati sarà registrata senza retry. Fino a quel riscontro, disponibilità e tempestività reale delle probabili formazioni PitchAPI restano **non verificate**.
+Torino–Monza G8: eseguita **una sola** GET `https://api.pitchapi.dev/v1/matches/m_0pSK27/lineups` mediante lo script privato esistente, senza rinnovare il grant e senza ripetere le23 precedenti. Ricevuta alle **2026-10-21T18:53:20.675Z**, cioè21 ottobre ore**20:53:20.675 Europe/Rome**, dopo l'apertura autorizzata delle20:45. HTTP200, `application/json; charset=utf-8`,508 bytes, envelope `data` senza errore. HTTP Date `Wed, 21 Oct 2026 18:53:20 GMT`; identità fixture e squadre corrette. Provenienza: URL, istante effettivo, ricevuta ordinale24 e hash dei bytes, conservati privatamente. Il kickoff resta23 ottobre18:45UTC/20:45Roma.
 
-Ripresa manuale predisposta nel file privato `.local/preparation/pitchapi-history-20261021/resume-lineup.private.mjs`: riusa il grant e il registro, verifica la finestra prima di leggere la chiave e osserva esclusivamente il target già approvato. Il controllo prima della finestra ha restituito pending con **zero richieste**. Nessun timer, trigger o processo in attesa è stato avviato; se il grant è scaduto o i legami cambiano, il runner si arresta. Le autorizzazioni non vengono rinnovate automaticamente.
+| Campo effettivo | Torino | Monza |
+|---|---|---|
+|`confirmed`|Presente, `false`|Presente, `false`|
+|`lineup_type`|Assente|Assente|
+|`formation`|Stringa vuota|Stringa vuota|
+|`starters`|Presente, `null`|Presente, `null`|
+|`subs`|Presente, `null`|Presente, `null`|
+|Pubblicazione/aggiornamento fonte|Campi assenti|Campi assenti|
+
+**Esito di contenuto: NO_PREDICTION_CONTENT_OBSERVED.** È una risposta prepartita non confermata, ma senza una formazione proposta consultabile. Non sono zero titolari o zero riserve: i valori originali sono null. Il riepilogo generico del runner assegna `PREMATCH_PREDICTED` in base al solo flag e mostra0 dopo normalizzazione delle liste mancanti: quelle etichette/conteggi non sono prova della presenza di un XI. La valutazione di contenuto separata conserva gli stati originali e ne impedisce questa interpretazione. Non è stato modificato il codice del runner né sovrascritto lo snapshot originale.
+
+La lineup G6 precedente è **confermata ma acquisita postpartita**; quella G8 è **osservata prima del kickoff, non confermata e priva di contenuto**. Non abbiamo osservato qui né un XI probabile utilizzabile né una formazione ufficiale G8. Non possiamo concludere che PitchAPI non ne fornirà mai una: questa prova dimostra soltanto l'assenza di contenuto alle20:53 del21 ottobre. Non prova disponibilità prima di quell'istante e non misura aggiornamenti successivi. Nessun timestamp di pubblicazione viene inventato a partire da HTTP Date o kickoff.
+
+Ripresa manuale completata tramite `.local/preparation/pitchapi-history-20261021/resume-lineup.private.mjs`. Restano immutabili il precedente checkpoint pending e la prima verifica a zero richieste; il nuovo checkpoint è `checkpoint-24-lineup-observed.private.json`. Risposta e review sigillate in `g8-lineup-observation.private.json`, interpretazione rigorosa dei null/assenze in `g8-lineup-content-assessment.private.json`. Nessun timer, trigger o processo in attesa, nessuna autorizzazione rinnovata. Prova conclusa: **non effettuare altre osservazioni o retry** senza nuova autorizzazione distinta.
 
 Fonti integrative ammissibili alla sola consultazione pubblica: comunicati/convocati/bollettini dei club per indisponibilità e notizie attribuibili, comunicati Lega per squalifiche, pubblicazioni ufficiali dei club per formazioni confermate. La pagina Atalanta citata è un esempio concreto di formazione ufficiale pubblica, con data ma senza ora di pubblicazione sufficientemente precisa per ricostruire un cutoff passato. Non è una fonte di probabili formazioni universale né una concessione a scraping/archiviazione/training automatizzati. Se la prova prepartita fallisce, servirà un piano distinto per una fonte predittiva esterna, con diritti e tempestività verificati; non viene ora selezionato un servizio a pagamento.
 
 ## Decisione tecnica e acquisizione futura subordinata ai diritti
 
-**Promettente per dati FT di squadra**, in particolare corner/falli/tiri e famiglia gol. **Parziale** per cartellini, periodi storici, metadati amministrativi e contributi individuali completi. **Non verificata** per probabili formazioni realmente osservate prima del forecast. Nessun modello è stato costruito, validato o promosso in questo incarico.
+**Promettente per dati FT di squadra**, in particolare corner/falli/tiri e famiglia gol. **Parziale** per cartellini, periodi storici, metadati amministrativi e contributi individuali completi. **Non dimostrata l'idoneità per probabili formazioni preforecast:** la singola osservazione G8 restituisce metadati senza XI. Nessun modello è stato costruito, validato o promosso in questo incarico.
 
 Prima del dataset ampio: chiarimento scritto dei diritti pertinenti e approvazione della policy C futura; protocollo per soli incontri ordinari, campo neutro/spareggi separati, definizioni/versioni di target e disponibilità temporale; QC e piano acquisizioni esplicito. Le2.281 fixture elencate comprendono310 future e uno spareggio: al momento il frame ordinario concluso è1.970 incontri. Gli snapshot stats già disponibili coprono19 di questi e uno spareggio; una futura acquisizione completa FT ordinaria richiederebbe **1.951 nuove stats**, da ricalcolare/verificare al momento dell'autorizzazione. Questo numero è un preventivo tecnico, **non** un'autorizzazione o un diritto al bulk. Eventuali players/events/lineups richiedono scopo e budget separati, non vengono raccolti perché il piano è gratuito.
 
@@ -156,6 +169,8 @@ Avanzamento proposto: dataset FT/QC → baseline e challenger per corner/falli/t
 
 Futuro carico squadra minimo: una lista e10 stats per giornata≈11 richieste, più osservazioni prepartita e acquisizioni individuali soltanto quando previste dalla policy. Revisioni con nuove osservazioni/hash, niente overwrite. Riutilizzare il ciclo esistente per QC, candidati dataset, scoring di forecast immutabili e refit autorizzato; bloccare su lacune/conflitti/diritti, registrare pending e segnalare anomalie. Nessun secondo scheduler, acquisizione ricorrente reale o refit attivati.
 
-La verifica definitiva prepartita rimane aperta. Gli studi registrati, i modelli originali, il selettore e G8 restano invariati; stake reale zero.
+La prova prepartita autorizzata è conclusa con esito negativo quanto alla presenza di una formazione consultabile nell'istante osservato. La continuità/disponibilità in altri istanti resta non verificata. Gli studi registrati, i modelli originali, il selettore e G8 restano invariati; stake reale zero.
 
 Verifiche locali finali: **390/390 test passati**, nessuno skip su Windows; lint senza errori con il solo warning preesistente `combinedPlayedOdd`; build Next.js riuscita;3.400 file protetti e chiave football-data.org invariati. Test sintetici su grant/endpoints/budget condiviso, crash/retry, hash, finestra lineup, denominatori, scope neutro, omissioni/zeri e disponibilità point-in-time. Gli scenari sintetici non sono validazione predittiva. I payload, i grant e il runner privato non vengono pubblicati; solo codice diagnostico, test e documentazione sicuri.
+
+Nella ripresa dell'unica osservazione G8 non è stato modificato codice: aggiornati soltanto rapporto e roadmap, aggiunta privatamente una valutazione immutabile del contenuto. Ricontrollati3.400 originali protetti prima e dopo la richiesta; grant invariato, contatore24, pending0, riserva6. Nessuna ulteriore chiamata PitchAPI, forecast, training o attivazione.
