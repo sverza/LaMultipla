@@ -78,11 +78,11 @@ Tutti gli script sotto esistono. Comandi di lettura eseguiti oggi; assemblaggio 
 1. Su `C:\LaMultipla`, controllare HEAD/branch/CI, alimentazione, UTC effettivo e lock. Controllo offline utilizzabile **anche adesso**, senza scritture:
 
 ```powershell
-node scripts/reference-series.mjs --plan .local/preparation/sprint-g8-20261021/reference-plan.template.private.json --inspect
+node scripts/reference-preflight.mjs --plan .local/preparation/sprint-g8-20261021/reference-plan.template.private.json
 node scripts/reference-series.mjs --verify
 ```
 
-Il primo espone A/B/C e windowState con UTC; il secondo oggi restituisce NOT_FROZEN. L'orologio usato è quello reale: verificare l'UTC con una fonte oraria affidabile e la sincronizzazione Windows se emergono discrepanze. Il timezone del processo non decide la finestra. Nessun flag CLI --now per simulare una data reale.
+Il primo espone A/B/C e windowState con UTC; il secondo oggi restituisce NOT_FROZEN. Il preflight autonomo è manuale, esclusivamente locale/read-only e non richiede una nuova autorizzazione per questi controlli. Non accetta opzioni di freeze, assemblaggio, rete o scheduling; eseguirlo non approva né attiva coorte/freeze. L'orologio usato è quello reale: verificare l'UTC con una fonte oraria affidabile e la sincronizzazione Windows se emergono discrepanze. Il timezone del processo non decide la finestra. Nessun flag CLI --now per simulare una data reale.
 
 2. Dopo le decisioni C, Codex prepara l'envelope di approvazione con identità revisore, timestamp effettivo, hash proposta, cohortApproved/freezeAuthorized veri, round8/sourceRoleA e scadenza alla chiusura. Percorso futuro **oggi mancante**: `.local/preparation/g8-authorized/approval.private.json`. Non basta rinominare il template.
 
@@ -160,4 +160,4 @@ Le metriche/algoritmi registrati non sono cambiati. L'ispezione reale non fa fit
 
 PC verificato: timezone Windows W. Europe Standard Time (Roma), UTC del PC coerente entro circa un secondo con il tool orario UTC indipendente al21/10 21:25:59UTC. Questa osservazione non sostituisce il controllo dell'orologio venerdì.
 
-Suite locale **409/409**, lint senza errori (solo warning preesistente dell'app), build riuscita. Verifica degli hash dei3.400 file protetti e assenza di G8 reale ripetuta alla chiusura. Commit remoto e CI effettivi nella consegna verificata. Il checkpoint privato `.local/preparation/g8-freeze-preflight-20261021/` conserva l'audit e la scheda; approvazione e piano operativo mancanti restano esplicitamente mancanti.
+Suite locale **409/409**, lint senza errori (solo warning preesistente dell'app), build riuscita. Dopo la precisazione operativa, ingresso autonomo read-only collaudato con **10/10 test mirati**, incluso il nuovo rifiuto di qualunque opzione di freeze/rete/scheduling. Nessuno scheduling implementato. Verifica degli hash dei3.400 file protetti e assenza di G8 reale ripetuta alla chiusura. Commit remoto e CI effettivi nella consegna verificata. Il checkpoint privato `.local/preparation/g8-freeze-preflight-20261021/` conserva l'audit e la scheda; approvazione e piano operativo mancanti restano esplicitamente mancanti.

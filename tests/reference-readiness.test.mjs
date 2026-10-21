@@ -104,3 +104,10 @@ test('reference CLI rejects mixed modes before reading files, and exposes no clo
  }
  const h=spawnSync(process.execPath,['scripts/private-calendar.mjs','--help'],{encoding:'utf8'});assert.equal(h.status,0);assert.match(h.stdout,/max-age-minutes/);
 });
+test('standalone reference preflight accepts no freeze, assembly, network, scheduling or clock capability',()=>{
+ const file='scripts/reference-preflight.mjs';
+ const help=spawnSync(process.execPath,[file,'--help'],{encoding:'utf8'});assert.equal(help.status,0);assert.match(help.stdout,/read-only/);
+ for(const option of ['--freeze-approved','--assemble','--refresh','--schedule','--now']){
+  const result=spawnSync(process.execPath,[file,option,'--plan','missing'],{encoding:'utf8'});assert.notEqual(result.status,0);assert.equal(result.stdout,'');assert.match(result.stderr,/REFERENCE_LOCAL_INPUT_CHECK_FAILED/);
+ }
+});
