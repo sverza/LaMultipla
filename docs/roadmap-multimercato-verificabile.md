@@ -1,5 +1,31 @@
 # LaMultipla: copertura e roadmap scientifica multimercato
 
+## Direzione operativa approvata — squadra e partita
+
+Aggiornamento21 ottobre, successivo alla [prima prova PitchAPI](pitchapi-prova-diagnostica.md): priorità ai mercati **di squadra e partita**. I mercati individuali sono esclusi dalla roadmap operativa attuale; le precedenti proposte sui player restano storico progettuale. I dati dei giocatori rimangono candidati per migliorare previsioni di squadra, soltanto dopo verifiche di esposizione, disponibilità temporale e utilità predittiva. Non si avviano modelli player e non si introducono nuove feature perché semplicemente disponibili.
+
+Il [piano storico e prepartita](pitchapi-storico-squadre-piano.md) prepara un campionamento di sei stagioni e una possibile osservazione di lineup futura. Nessuna nuova richiesta è autorizzata dal piano stesso; statistiche osservate non equivalgono a dataset completo né a diritto di training. Gratuità verificata dall'utente; diritti distinti ancora aperti. Originali, studi, cutoff, coorti e G8 invariati.
+
+| Priorità / famiglia | Target e liquidazione da fissare | Evidenza dati e lavoro scientifico successivo |
+|---|---|---|
+|1.1X2 e derivati|Esito FT regolamentare, identità e stati amministrativi|Algoritmi originali invariati. Nuove fonti e feature soltanto in challenger distinto.|
+|2.O/U e BTTS|Gol FT, linee/esiti, push/partial dove applicabile|Distribuzioni esistenti; calibrazione e scoring per target, non validazione ereditata dal1X2.|
+|3.Gol squadra|Gol home/away e margini, linee/payoff|Verifica delle marginali e della dipendenza col totale; avversario/casa-trasferta, incertezza.|
+|4.Handicap/DC/DNB|Lato/segno/linea e rimborso/mezzi esiti corretti|Adapter esistenti con gate; mantenere evidenza di liquidazione e prezzo effettivo, nessuna promozione automatica.|
+|5.Corner squadra/totali|Conteggi refertati per squadra/periodo e regole sui corner assegnati/battuti|Valori osservati in tre gare, storico campionario da verificare. Baseline, conteggi gerarchici e NB/congiunti come candidati; misurare dispersione, ritmo condiviso e interazioni avversario.|
+|6.Cartellini squadra/totali|Giallo, seconda ammonizione, rosso diretto, staff/panchina e punteggi secondo mercato|Aggregati osservati, tassonomia non completa. Candidati multioutput/gerarchici per arbitro/squadra/avversario; non imporre Poisson a eventi rari o compound payoff.|
+|7.Falli squadra|Definizione di fallo commesso, periodo e fornitore di liquidazione|Conteggi osservati, coerenza storica ancora da misurare. Candidati gerarchici per arbitro e coppia di squadre, con controlli di dispersione e stabilità.|
+|8.Tiri e SOT squadra|Definizioni compatibili con la refertazione, blocchi e salvataggi sulla linea|Conteggi osservati. Modello di volume e possibile modello condizionale SOT dato tiri da confrontare con alternative sovradisperse; mai possesso realizzato della partita futura come feature nota.|
+|9.Altri mercati squadra|Offerta reale, identità e payoff dimostrati prima del modello|Nessuna famiglia aggiunta soltanto per derivabilità matematica.|
+
+Per tutte le nuove famiglie: matrice di missingness con denominatore esplicito, dataset ammesso/versionato, split temporali e confronti appaiati con baseline sugli stessi eventi; calibrazione per mercato/linea, intervalli e shift fra stagioni. Dati individuali candidati: continuità, tassi rapportati a minuti verificati, contributi offensivi/difensivi e composizione probabile della squadra, mantenendo coverage e omissioni. Ruolo non obbligatorio universalmente; la sua assenza non deve essere nascosta né imputata dal nome. Aggregazioni e shrinkage sono ipotesi da sviluppare in development separato, con ablation, controllo della molteplicità e conferma prospettica; niente pesi causali inventati.
+
+Le lineup sono osservazioni versionate: prevista prima del forecast, ufficiale prima del kickoff, acquisita dopo la gara sono tre condizioni diverse. Anche una formazione ufficiale prima del kickoff può essere successiva al freeze e quindi non ammissibile per quel forecast. Registrare l'istante reale di osservazione; non ricostruire disponibilità storica dal solo flag `confirmed`. Turnover e indisponibilità richiedono evidenze e non discendono automaticamente da un elenco di riserve.
+
+Prima di ingresso nel selettore: protocollo specifico, validazione predittiva/prospettica, controllo incertezza, prezzi e regole verificati, dipendenze con le altre selezioni e validazione del selettore stesso, quindi approvazione. L'attuale selettore1X2 e la governance restano invariati. Il futuro ciclo riusa `research-cycle.mjs` e l'orchestratore esistente: nessun secondo scheduler, training, refit reale o acquisizione ricorrente attivati.
+
+Le sezioni seguenti conservano la cronologia e le precedenti proposte: questa sezione definisce la priorità operativa corrente, senza reinterpretare gli studi già registrati.
+
 Aggiornamento operativo21 ottobre: roadmap approvata, A/B1 concluse. Lo [sprint G8](sprint-g8-preparazione.md) implementa B2 diagnostica condizionata a evidenze esatte, preflight/freeze-only separato per una nuova serie da approvare, prova singola football-data.org e prototipi challenger/ricerca. Non attiva nuove coorti o automazioni. Gli AH reali, il training della fonte nuova e il collegamento della serie al gestore rimangono bloccati; nessuna promozione scientifica. Le sezioni storiche seguenti conservano lo stato al momento dei rispettivi audit.
 
 Audit del 14 ottobre 2026. Questa è una proposta da approvare, non l'attivazione di nuovi modelli o automazioni. Obiettivo: censire ogni mercato osservato, stabilire se il suo evento è modellabile con dati indipendenti e dichiarare esplicitamente gli esclusi. Importazione, matematica, previsione validata, selezione shadow e autorizzazione operativa sono cinque stati diversi. Non serve produrre una multipla G7/G8 per raggiungere una milestone.
