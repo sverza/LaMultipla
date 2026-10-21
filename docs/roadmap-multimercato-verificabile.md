@@ -1,5 +1,11 @@
 # LaMultipla: copertura e roadmap scientifica multimercato
 
+## Analytics di squadra — campione verificato il 21 ottobre 2026
+
+[Dizionario, copertura e archivio proposto v1](pitchapi-advanced-squadre-v1.md): 18 GET advanced autorizzate, 9 risposte con 64 campi principali numerici e 9 ANALYTICS_UNAVAILABLE. Nei tre campioni di ciascuna stagione 2024/25–2026/27 i sette gruppi sono presenti; nei campioni 2021/22–2023/24 non sono disponibili. Nessuna inferenza di copertura stagionale. Metadati zona PPDA/metodo possesso assenti; convenzione delle componenti VAEP/PV e versioni dei modelli del fornitore da chiarire.
+
+Prima consolidare target tradizionali e policy temporale; poi proporre challenger parsimoniosi gol/tiri con creazione e ingressi in area, separando blocchi in ablation cronologica. Corner, falli e cartellini richiedono target/regole propri: un indicatore territoriale non li sostituisce. xT/VAEP/PV restano successivi, senza promozione automatica o training. Formazioni facoltative; nessun modello individuale operativo. Archivio a sei livelli, osservazioni immutabili e feature ammesse solo se disponibili prima del cutoff. Diritti training/refit ancora distinti dalla conservazione privata confermata dall'utente. Nessuna interferenza con G8, protocolli originali o selettore.
+
 ## Direzione operativa approvata — squadra e partita
 
 Aggiornamento21 ottobre, successivo alla [prima prova PitchAPI](pitchapi-prova-diagnostica.md): priorità ai mercati **di squadra e partita**. I mercati individuali sono esclusi dalla roadmap operativa attuale; le precedenti proposte sui player restano storico progettuale. I dati dei giocatori rimangono candidati per migliorare previsioni di squadra, soltanto dopo verifiche di esposizione, disponibilità temporale e utilità predittiva. Non si avviano modelli player e non si introducono nuove feature perché semplicemente disponibili.

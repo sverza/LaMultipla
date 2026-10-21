@@ -1,5 +1,7 @@
 # PitchAPI — piano storico e dati per modelli di squadra
 
+Aggiornamento successivo: [audit avanzati di squadra v1](pitchapi-advanced-squadre-v1.md), lotto separato di 18 richieste concluso il 21 ottobre. Conservazione privata ora confermata dall'utente; training/refit restano distinti e sospesi. La precedente verifica lineup G8 è conclusa e non viene ripetuta. Le formazioni sono contesto facoltativo, non prerequisito dei modelli originali.
+
 Base `e310f111b06c94f2baf60776655851fc6bb37a41`,21 ottobre2026. **Prova autorizzata conclusa: cinque elenchi,17 stats e due lineup;24 nuove richieste HTTP200. La lineup prepartita G8 non contiene titolari, riserve o modulo utilizzabili. Nessuna richiesta pending e nessun retry.** La gratuità senza trial/contingente è confermata personalmente dall'utente nella dashboard; non viene ripetuto l'audit commerciale. Restano separati accesso, conservazione e diritti di training/refit.
 
 ## Direzione e protezione degli originali
