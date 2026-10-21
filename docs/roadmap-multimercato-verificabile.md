@@ -6,6 +6,8 @@ Aggiornamento del 18 ottobre: roadmap approvata come direzione generale, con aut
 
 Aggiornamento del19 ottobre: autorizzati chiusura degli arretrati e solo B1. Il [rapporto B1](milestone-b1-e-arretrati-scientifici.md) distingue controllo G6 tardivo con10pending, finestra G7 mancata e mapping gol verificati. B2–G rimangono da autorizzare; nessun nuovo mercato ammesso al selettore.
 
+Aggiornamento del 21 ottobre: direzione metodologica del miglioramento continuo approvata. Prima di B2, [audit fonti aggiornato e preparazione G8](risultati-affidabili-audit-2026-10-21.md), [specifica tecnica implementabile](specifica-risultati-miglioramento-continuo-v1.md) e laboratorio read-only/sintetico separato. Il ciclo produttivo, le fonti alternative e nuove coorti non sono attivati; la specifica richiede revisione prima dell'implementazione operativa.
+
 ## Destino delle quote e inventario
 
 L'importatore conserva tutte le selezioni, anche inattive, incomplete o non modellabili, nei report privati; gli snapshot grezzi conservano anche gli incontri fuori dal manifest della giornata. `marketFamilies` del report conta soltanto prezzi attivi: non è l'inventario di tutti i market type. Il selettore filtra 1X2 fulltime; gli altri non sono stati eliminati. La diagnostica v2 interpreta soltanto i mercati con spec riconosciuta. Molte quote restano pertanto senza probabilità, non dichiarate prive di valore.
@@ -108,9 +110,9 @@ Per G7 resta da autorizzare una **fase freeze-only**, con calendario ufficiale/p
 
 Questo documento propone le milestone; l'approvazione della roadmap deve precedere un nuovo grande intervento. Nessuna nuova famiglia, coorte, API pagata, automazione, APK o deploy avviati dall'audit.
 
-## Miglioramento continuo per giornata — proposta metodologica, da approvare
+## Miglioramento continuo per giornata — direzione approvata il 21 ottobre
 
-Le60 giornate del protocollo v2 esistente sono una finestra confermativa immutabile, non un divieto di analizzare errori o progettare miglioramenti prima della sua conclusione. Il percorso di ricerca parallelo può produrre nuovi challengers per eventi futuri senza riscrivere i forecast o la coorte di riferimento. Nessuna parte di questa proposta viene implementata o attivata in B1.
+Le60 giornate del protocollo v2 esistente sono una finestra confermativa immutabile, non un divieto di analizzare errori o progettare miglioramenti prima della sua conclusione. Il percorso di ricerca parallelo può produrre nuovi challengers per eventi futuri senza riscrivere i forecast o la coorte di riferimento. Nessuna parte di questa proposta viene implementata o attivata in B1. La direzione è ora approvata; la specifica del21/10 precisa contratti/tempi/frame, con revisione separata prima del ciclo produttivo.
 
 | Passo | Artifact/decisione proposta | Protezione |
 |---|---|---|
@@ -124,4 +126,4 @@ Le60 giornate del protocollo v2 esistente sono una finestra confermativa immutab
 
 **Mantenere** il riferimento se il campione è insufficiente, la copertura è inadeguata o il beneficio preregistrato non è dimostrato. **Scartare/sospendere** un challenger per leakage, dati/ID non verificabili, fit inaffidabili, danno di calibrazione o fallimento del test fissato; registrare la ragione. **Proporre un aggiornamento** solo dopo gate tecnici e statistici predefiniti, beneficio appaiato sul nuovo campione e controlli di stabilità/complessità: prima revisione umana e versione/coorte futura esplicita. Non promuovere perché ha ottenuto ROI alto in una giornata.
 
-Le correzioni tecniche di mapping possono avanzare senza chiamarle miglioramenti predittivi. Una nuova idea nata dalla review può essere sperimentata nella prossima finestra autorizzata, mentre i modelli registrati continuano a raccogliere la propria evidenza; non serve aspettare60 giornate per scrivere o collaudare il challenger. Serve invece rispettare il suo piano indipendente prima di dichiararlo migliore. Un eventuale cambio del riferimento sperimentale non cancella la coorte v2 originale né trasforma analisi esplorative già osservate in conferme indipendenti. Questo percorso richiede approvazione metodologica e successivi lotti di implementazione, non inclusi in B1.
+Le correzioni tecniche di mapping possono avanzare senza chiamarle miglioramenti predittivi. Una nuova idea nata dalla review può essere sperimentata nella prossima finestra autorizzata, mentre i modelli registrati continuano a raccogliere la propria evidenza; non serve aspettare60 giornate per scrivere o collaudare il challenger. Serve invece rispettare il suo piano indipendente prima di dichiararlo migliore. Un eventuale cambio del riferimento sperimentale non cancella la coorte v2 originale né trasforma analisi esplorative già osservate in conferme indipendenti. La direzione metodologica è approvata; successive registrazioni e lotti di implementazione rimangono distinti, non inclusi in B1 o nel laboratorio del21/10.
