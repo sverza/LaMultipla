@@ -70,6 +70,8 @@ Il [lotto B1](docs/milestone-b1-e-arretrati-scientifici.md) riconcilia i mapping
 
 Il [controllo fonti del 21 ottobre](docs/risultati-affidabili-audit-2026-10-21.md) distingue originali, supplementari e futuri. La prova privata football-data.org autorizzata nello sprint ha riscontrato i20 risultati G6/G7, separatamente dagli originali; training/uso continuativo attendono chiarimento dei diritti. [Challenger](docs/challenger-refresh-g8.md) e [ciclo ricerca dry-run](docs/ciclo-ricerca-dry-run.md) testati su sintetici non costituiscono un ciclo produttivo attivo o una coorte registrata.
 
+L'[audit delle API statistiche gratuite](docs/api-statistiche-gratuite-audit-2026-10-21.md) confronta PitchAPI, 5DollarFootballAPI e API-Football, distinguendo schema, demo pubbliche, accesso Free e diritti. Nessuna fonte completa adottata; [prove autenticate proposte](docs/api-statistiche-piano-verifica.md) da autorizzare separatamente. Il percorso originale G8 resta indipendente dalla ricerca.
+
 Istruzioni Windows, contratto di analisi e limiti: [importatore privato OddsPapi](docs/oddspapi-private-import.md). Non inserire chiavi o risposte API in `public/`, nel sorgente o negli artifact di GitHub.
 
 ## Contratto legacy di consegna v3
