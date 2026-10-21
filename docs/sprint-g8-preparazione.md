@@ -1,5 +1,7 @@
 # Sprint G8 — preparazione verificata al 21 ottobre 2026
 
+Aggiornamento freeze-only: [G8 — READY FOR FREEZE / PREFLIGHT22–23 ottobre](g8-ready-for-freeze-preflight.md). Ispezione anticipata e verifica ricevuta ora disponibili, assemblaggio offline dai futuri input freschi e protezioni prima di ogni scrittura collaudati. Dataset già valido per tutta la finestra: nessun refresh superfluo. Proposta di coorte e freeze ancora da autorizzare; quote/consegne/progressivo restano separati. Lo stato storico sottostante descrive la preparazione precedente.
+
 Stato complessivo **PARZIALE**: codice e prove disponibili, prerequisiti reali ancora aperti. Nessun freeze G8, registrazione definitiva di coorte, acquisizione OddsPapi, consegna o task attivati. Stake reale **0 €**; PR #2 in bozza.
 
 ## Le17 risposte operative

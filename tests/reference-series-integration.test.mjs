@@ -10,7 +10,8 @@ import {sha256} from '../scripts/lib/goals/data.mjs';
 import {EXPERIMENT} from '../scripts/lib/engine/study.mjs';
 import {engineCodeIdentity,requireRegisteredCode} from '../scripts/lib/engine/registry.mjs';
 import {freezeForwardForecast} from '../scripts/lib/shadow/pipeline.mjs';
-import {freezeReferenceSeries,referenceSeriesPreflight} from '../scripts/lib/reference-series.mjs';
+import {freezeReferenceSeries,referenceSeriesPreflight,verifyReferenceReceipt} from '../scripts/lib/reference-series.mjs';
+import {freezeEngine} from '../scripts/lib/engine/forecast.mjs';
 import {CALENDAR_LICENSE_SHA256} from '../scripts/lib/orchestration/calendar-discovery.mjs';
 
 const within='2026-10-23T13:00:00.000Z';
@@ -42,7 +43,8 @@ const preflight=input=>referenceSeriesPreflight({...input,verifyCode:(_root,stud
 const baseOf=input=>path.join(input.root,'.local/research-review/cohorts/reference-g8-20261023-v1');
 const exists=file=>fs.stat(file).then(()=>true,e=>{if(e.code==='ENOENT')return false;throw e;});
 
-test('original v1/v2 freezes recover a crash after v1, preserve bytes and reject changed inputs or late reuse',async()=>{
+test('original v1/v2 freezes recover a crash after v1, preserve bytes and reject changed inputs or late reuse',async t=>{
+ const originalFetch=globalThis.fetch;globalThis.fetch=()=>assert.fail('freeze-only must never access network');t.after(()=>{globalThis.fetch=originalFetch;});
  const input=await syntheticInput(),inputHash=digest(input),base=baseOf(input),clock=()=>new Date(within);let savedV1;
  await assert.rejects(freezeReferenceSeries(input,{clock,preflight,
   freezeV1:async args=>{savedV1=await freezeForwardForecast(args);return savedV1;},
@@ -60,6 +62,12 @@ test('original v1/v2 freezes recover a crash after v1, preserve bytes and reject
  assert.equal(recovered.v1.sha256,digest(v1));assert.equal(recovered.v2.sha256,digest(v2));
  assert.equal(v2.sourceData,'synthetic_test');assert.equal(v2.counts.forecasted,10);assert.equal(v2.models.dc.converged,true);assert.equal(v2.models.bivariate.converged,true);
  assert.equal(v2.trainingCutoffUtc,v1.trainingCutoffUtc);assert.ok(v2.entries.every(e=>e.forecasts.dc.bootstrapGrids.length>=36&&e.forecasts.bivariate.bootstrapGrids.length>=36));
+ // Direct original runners on the SAME synthetic input/clock must produce
+ // byte-equivalent payloads: infrastructure cannot change a probability.
+ const directRoot=path.join(input.root,'direct-original-synthetic-only');
+ const directV1=await freezeForwardForecast({...input,root:directRoot,clock});
+ const directV2=await freezeEngine({...input,root:directRoot,clock:()=>new Date('2026-10-23T13:00:15.000Z')});
+ assert.deepEqual(v1,directV1.journal);assert.deepEqual(v2,directV2.journal);
  const v2Bytes=await fs.readFile(recovered.v2.file),again=await freezeReferenceSeries(input,{clock:()=>new Date('2026-10-23T13:01:00.000Z'),preflight});
  assert.equal(again.reused,true);assert.deepEqual(await fs.readFile(recovered.v2.file),v2Bytes);
  // A valid envelope with different content must still fail the frozen receipt link.
@@ -75,4 +83,5 @@ test('original v1/v2 freezes recover a crash after v1, preserve bytes and reject
  assert.equal(await exists(path.join(input.root,'.local/model/prospective/journals')),false);
  assert.equal(await exists(path.join(input.root,'.local/model-v2/journals')),false);
  assert.equal(digest(input),inputHash);assert.equal(recovered.deliveryExecuted,false);assert.equal(recovered.providerRequests,0);
+ const verified=await verifyReferenceReceipt(input.root);assert.equal(verified.status,'FROZEN_VERIFIED');assert.equal(verified.readOnly,true);assert.equal(verified.forecastExecuted,false);
 });
