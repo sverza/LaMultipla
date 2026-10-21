@@ -6,6 +6,8 @@ Aggiornamento21 ottobre, successivo alla [prima prova PitchAPI](pitchapi-prova-d
 
 Il [piano storico e prepartita](pitchapi-storico-squadre-piano.md) prepara un campionamento di sei stagioni e una possibile osservazione di lineup futura. Nessuna nuova richiesta è autorizzata dal piano stesso; statistiche osservate non equivalgono a dataset completo né a diritto di training. Gratuità verificata dall'utente; diritti distinti ancora aperti. Originali, studi, cutoff, coorti e G8 invariati.
 
+Riscontro successivo autorizzato:18 campioni stats sulle sei stagioni, mediante17 nuove richieste e una risposta riusata; principali target FT squadra valorizzati. Periodi storici incompleti e tre rappresentazioni ambigue dei gialli; spareggio2022/23 separato dal campionato ordinario. Una lineup storica verificata non prova disponibilità prepartita; quella G8 resta pending fino alla finestra autorizzata. Priorità successiva: diritti e dataset/QC FT di squadra, poi challenger e verifiche temporali; nessun nuovo modello o acquisizione ampia avviati.
+
 | Priorità / famiglia | Target e liquidazione da fissare | Evidenza dati e lavoro scientifico successivo |
 |---|---|---|
 |1.1X2 e derivati|Esito FT regolamentare, identità e stati amministrativi|Algoritmi originali invariati. Nuove fonti e feature soltanto in challenger distinto.|
