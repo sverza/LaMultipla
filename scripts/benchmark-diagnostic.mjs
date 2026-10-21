@@ -13,6 +13,7 @@ import {digest,envelope,writeExclusive} from './lib/prospective/store.mjs';
 import {diagnosticHtml} from './lib/diagnostics/html.mjs';
 import {syntheticDiagnosticVolume} from '../tests/fixtures/diagnostic-volume.mjs';
 import {bindSyntheticB1Source} from '../tests/fixtures/goals-b1.mjs';
+import {bindSyntheticAsianEvidence} from '../tests/fixtures/goals-b2.mjs';
 const {values}=parseArgs({strict:true,options:{shape:{type:'string'},mode:{type:'string'},timeout:{type:'string'},worker:{type:'string'},directory:{type:'string'},variant:{type:'string'},help:{type:'boolean'}}});
 const moduleUrl=p=>pathToFileURL(path.join(ROOT,p)).href;
 async function profiledReference(directory,memoize=false){
@@ -46,7 +47,8 @@ export function evForGrid(...a){const t=performance.now();const r=markets.evForG
 }
 async function worker(){
  const directory=await privateInput(ROOT,values.directory),shape=await loadJson(await privateInput(ROOT,values.shape));let s=await syntheticDiagnosticVolume(shape);
- if(values.worker==='b1')s=bindSyntheticB1Source(s);
+ if(['b1','b2'].includes(values.worker))s=bindSyntheticB1Source(s);
+ if(values.worker==='b2')s=bindSyntheticAsianEvidence(s);
  if(values.variant==='incomplete'){s.report.round.verified=false;s.report.selections[0].price=null;s.report.selections[1].active=false;}
  else if(values.variant==='duplicates')s.report.selections[1]=structuredClone(s.report.selections[0]);
  else if(values.variant&&values.variant!=='base')throw Error('BENCHMARK_VARIANT_INVALID');
@@ -57,6 +59,7 @@ async function worker(){
   build=(await import(pathToFileURL(profiled.module))).buildMultimarketDiagnostic;metrics=helpers.metrics;sources=profiled.originals;
  }else if(values.worker==='optimized')build=(await import('./lib/diagnostic-performance/multimarket.mjs')).buildMultimarketDiagnosticOptimized;
  else if(values.worker==='b1')build=(await import('./lib/diagnostic-goals-b1/diagnostic.mjs')).buildB1Diagnostic;
+ else if(values.worker==='b2')build=(await import('./lib/diagnostic-goals-b2/diagnostic.mjs')).buildB2Diagnostic;
  else throw Error('BENCHMARK_MODE_INVALID');
  const inputHash=digest(s),cpu=process.cpuUsage(),start=performance.now(),d=build(s,metrics),buildMs=performance.now()-start;
  const jsonStart=performance.now(),sealed=envelope(d),json=JSON.stringify(sealed,null,2)+'\n',jsonMs=performance.now()-jsonStart;
@@ -65,7 +68,7 @@ async function worker(){
  const result={schema:'lamultipla-diagnostic-performance-benchmark-v1',mode:values.worker,variant:values.variant??'base',sourceData:'synthetic_test',generatedAtUtc:new Date().toISOString(),
   quotes:s.report.selections.length,marketTypes:new Set(s.report.selections.map(q=>q.marketType)).size,buildMs,jsonMs,htmlMs,totalMs:buildMs+jsonMs+htmlMs,metrics,
   cpuUserMs:used.user/1000,cpuSystemMs:used.system/1000,peakRssMiB:process.resourceUsage().maxRSS/1024,rssEndMiB:process.memoryUsage().rss/1048576,
-  outputSha256:sealed.sha256,jsonFormat:'immutable-envelope-pretty-json',jsonBytes:Buffer.byteLength(json),htmlBytes:Buffer.byteLength(html),htmlSha256:digest(html),counts:d.counts,mappingB1Counts:d.mappingB1?.counts??null,
+  outputSha256:sealed.sha256,jsonFormat:'immutable-envelope-pretty-json',jsonBytes:Buffer.byteLength(json),htmlBytes:Buffer.byteLength(html),htmlSha256:digest(html),counts:d.counts,mappingB1Counts:d.mappingB1?.counts??null,mappingB2Counts:d.mappingB2?.counts??null,
   originalSources:sources,inputShapeSha256:digest(shape.selections.map(q=>[q.marketType,q.period,q.marketId,q.outcomeId,q.line,q.outcome])),originalForecastProduced:false,providerRequests:0,actualStakeEUR:0};
  const archiveStarted=performance.now();
  await fs.writeFile(path.join(directory,'diagnostic.private.json'),json,{flag:'wx',mode:0o600});await fs.writeFile(path.join(directory,'diagnostic.private.html'),html,{flag:'wx',mode:0o600});
@@ -73,9 +76,9 @@ async function worker(){
  await writeExclusive(path.join(directory,'completed.private.json'),result);console.log(JSON.stringify({mode:result.mode,totalSeconds:result.totalMs/1000,peakRssMiB:result.peakRssMiB,metrics}));
 }
 async function main(){
- if(values.help){console.log('--shape PRIVATE_EXISTING_REPORT --mode reference|reference-cached|optimized|b1 [--timeout 300] [--variant base|incomplete|duplicates]. reference-cached changes only pure invariant report hashing; b1 uses a coherent synthetic raw/catalog/report chain. Synthetic only; private process profile retained on timeout.');return;}
+ if(values.help){console.log('--shape PRIVATE_EXISTING_REPORT --mode reference|reference-cached|optimized|b1|b2 [--timeout 300] [--variant base|incomplete|duplicates]. reference-cached changes only pure invariant report hashing; b1/b2 use a coherent synthetic raw/catalog/report chain. B2 includes synthetic explicit Asian evidence. Synthetic only; private process profile retained on timeout.');return;}
  if(values.worker)return worker();
- if(!values.shape||!['reference','reference-cached','optimized','b1'].includes(values.mode))throw Error('BENCHMARK_SHAPE_MODE_REQUIRED');
+ if(!values.shape||!['reference','reference-cached','optimized','b1','b2'].includes(values.mode))throw Error('BENCHMARK_SHAPE_MODE_REQUIRED');
  const timeout=Number(values.timeout??300);if(!Number.isFinite(timeout)||timeout<1||timeout>1800)throw Error('BENCHMARK_TIMEOUT_INVALID');
  const directory=path.join(ROOT,'.local/diagnostics/performance',randomUUID());await fs.mkdir(directory,{recursive:true});
  await writeExclusive(path.join(directory,'intent.private.json'),{mode:values.mode,variant:values.variant??'base',timeoutSeconds:timeout,startedAtUtc:new Date().toISOString(),sourceData:'synthetic_test',providerRequests:0});

@@ -1,5 +1,7 @@
 # LaMultipla: copertura e roadmap scientifica multimercato
 
+Aggiornamento operativo21 ottobre: roadmap approvata, A/B1 concluse. Lo [sprint G8](sprint-g8-preparazione.md) implementa B2 diagnostica condizionata a evidenze esatte, preflight/freeze-only separato per una nuova serie da approvare, prova singola football-data.org e prototipi challenger/ricerca. Non attiva nuove coorti o automazioni. Gli AH reali, il training della fonte nuova e il collegamento della serie al gestore rimangono bloccati; nessuna promozione scientifica. Le sezioni storiche seguenti conservano lo stato al momento dei rispettivi audit.
+
 Audit del 14 ottobre 2026. Questa è una proposta da approvare, non l'attivazione di nuovi modelli o automazioni. Obiettivo: censire ogni mercato osservato, stabilire se il suo evento è modellabile con dati indipendenti e dichiarare esplicitamente gli esclusi. Importazione, matematica, previsione validata, selezione shadow e autorizzazione operativa sono cinque stati diversi. Non serve produrre una multipla G7/G8 per raggiungere una milestone.
 
 Aggiornamento del 18 ottobre: roadmap approvata come direzione generale, con autorizzazione operativa limitata alla milestone A. Il [rapporto A](milestone-a-diagnostica-prestazioni.md) documenta l'adapter esterno, l'equivalenza e le nuove misure; supera il blocco prestazionale descritto nell'audit storico sotto. B–G rimangono da autorizzare per lotti. Le date G6/G7 citate nell'audit sono storiche: nessuna esecuzione o freeze retroattivo è autorizzato da questo aggiornamento.

@@ -117,6 +117,10 @@ test('B1 CLI reads only the exact private source chain and records both adapter 
  const result=await run(process.execPath,[path.join(ROOT,'scripts/multimarket-diagnostic.mjs'),'--report','--study',study,'--journal',journal,'--odds-report',report,'--goals-b1','--catalog',catalog,'--fixtures',fixtures],{cwd:ROOT});
  const output=JSON.parse(result.stdout),d=await readSnapshot(output.file);assert.equal(d.mappingAdapter.version,'goals-mapping-b1-v1');assert.equal(d.mappingB1.counts.verified,73);
  assert.equal(d.performanceAdapter.version,'diagnostic-performance-v1');assert.equal(d.appDeliveryAllowed,false);assert.equal(d.eligibleForSelector,false);
+ const b2result=await run(process.execPath,[path.join(ROOT,'scripts/multimarket-diagnostic.mjs'),'--report','--study',study,'--journal',journal,'--odds-report',report,'--goals-b2','--catalog',catalog,'--fixtures',fixtures],{cwd:ROOT});
+ const b2=await readSnapshot(JSON.parse(b2result.stdout).file);assert.equal(b2.mappingAdapter.version,'goals-mapping-b2-v1');assert.ok(b2.mappingB2);
+ assert.equal(b2.appDeliveryAllowed,false);assert.equal(b2.eligibleForSelector,false);
+ await assert.rejects(run(process.execPath,[path.join(ROOT,'scripts/multimarket-diagnostic.mjs'),'--report','--goals-b1','--goals-b2'],{cwd:ROOT}));
  await assert.rejects(run(process.execPath,[path.join(ROOT,'scripts/multimarket-diagnostic.mjs'),'--report','--goals-b1'],{cwd:ROOT}));
  await assert.rejects(run(process.execPath,[path.join(ROOT,'scripts/multimarket-diagnostic.mjs'),'--freeze','--goals-b1','--catalog',catalog,'--fixtures',fixtures],{cwd:ROOT}));
 });
