@@ -1,5 +1,7 @@
 # API statistiche gratuite — audit del 21 ottobre 2026
 
+Aggiornamento successivo all'audit: [prova privata PitchAPI autorizzata](pitchapi-prova-diagnostica.md),12/12 risposte riuscite su tre incontri. Accesso gratuito ai dati osservati verificato; completezza storica, continuità, diritti di training/conservazione e alcune semantiche restano aperti. Le classificazioni sotto descrivono lo stato al momento dell'audit, prima di questa prova.
+
 Base: `e5a3104bb5eb3288732f2a95ad4881d49de762fa`, branch `feature/oddspapi-private-import`, PR #2 in bozza. Ricerca pubblica e riscontri locali; **zero nuove richieste autenticate**, account, chiavi, pagamenti, training o forecast. Le evidenze grezze rimangono private.
 
 ## Conclusione e classificazione

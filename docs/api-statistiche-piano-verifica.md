@@ -1,5 +1,7 @@
 # Prova successiva delle API statistiche — proposta, non autorizzazione
 
+Aggiornamento: la prova PitchAPI è stata successivamente autorizzata dall'utente ed eseguita entro il limite di12 richieste. Esiti e limiti nel [rapporto PitchAPI](pitchapi-prova-diagnostica.md). Le altre proposte sotto rimangono non autorizzate; nessun training o download massivo è autorizzato dalla prova.
+
 Riferimento: [audit21 ottobre2026](api-statistiche-gratuite-audit-2026-10-21.md). Nessuna richiesta autenticata eseguita da questo piano. Nessun forecast, nuovo training, task, consegna o cambiamento di protocollo originale.
 
 ## Gate prima di usare una chiave
