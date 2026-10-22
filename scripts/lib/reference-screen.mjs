@@ -101,7 +101,7 @@ export function experimentOutcome(bundle,{now=bundle.decision.generatedAtUtc}={}
 export function experimentPayload({bundle,reference,intent,now=intent.startedAtUtc}){
  const outcome=bundle?experimentOutcome(bundle):{state:'ANALYSIS_INCOMPLETE',phase:'EVIDENCE_INSUFFICIENT',reasons:['QUOTES_NOT_ACQUIRED']};
  if(outcome.state==='MULTIPLA_SIMULATA'){
-  const decision={...bundle.decision,final:true};decision.governance=governance(decision);
+  const decision={...structuredClone(bundle.decision),final:true};decision.governance=governance(decision);
   return {outcome,payload:appPackage({...bundle,decision}),decision};
  }
  const payload={schema:'lamultipla-app-round-state-v1',id:'reference-g8-screen-'+intent.attemptId,
@@ -138,7 +138,7 @@ export async function runReferenceScreen({root,reference,files={},attemptId,cloc
    inputs:Object.fromEntries(Object.entries(files).map(([k,v])=>[k,{file:v.file,sha256:digest(v.value)}]))});
   const old=await optional(path.join(directory,'intent.json'));
   if(old&&old.inputSha256!==inputSha256)fail('REFERENCE_SCREEN_ATTEMPT_INPUT_CHANGED');
-  const final=await optional(decisionPath(path.join(root,'.local/shadow'),reference.journal.manifest.season,reference.journal.manifest.matchday));
+  const finalFile=decisionPath(path.join(root,'.local/shadow'),reference.journal.manifest.season,reference.journal.manifest.matchday),final=await optional(finalFile);
   if(final&&final.provenance?.referenceScreenInputSha256!==inputSha256)fail('REFERENCE_SCREEN_FINAL_ALREADY_EXISTS');
   const intent=old??{schema:'lamultipla-reference-screen-intent-v1',attemptId,inputSha256,startedAtUtc:clock().toISOString(),receiptSha256:reference.verified.receiptSha256};
   if(Date.parse(intent.startedAtUtc)>clock().getTime())fail('REFERENCE_SCREEN_CLOCK');
@@ -174,10 +174,20 @@ export async function runReferenceScreen({root,reference,files={},attemptId,cloc
   }
   await afterStage('final');
   const packageFile=path.join(directory,'app-package.json');await writeSame(packageFile,result.payload);
+  await afterStage('package');
+  const persistedDecisionFile=result.decision?(result.outcome.state==='MULTIPLA_SIMULATA'?finalFile:decisionFile):null;
+  const previewSha256=bundle?digest(bundle.decision):null,decisionSha256=result.decision?digest(result.decision):null;
+  const packageSha256=digest(result.payload);
+  if(bundle&&digest(await readSnapshot(decisionFile))!==previewSha256
+   ||persistedDecisionFile&&digest(await readSnapshot(persistedDecisionFile))!==decisionSha256
+   ||result.payload.schema==='lamultipla-app-decision-v4'&&result.payload.source.decisionSha256!==decisionSha256)
+   fail('REFERENCE_SCREEN_PERSISTED_DECISION_HASH_MISMATCH');
+  if(digest(await readSnapshot(packageFile))!==packageSha256)fail('REFERENCE_SCREEN_PERSISTED_PACKAGE_HASH_MISMATCH');
   const receipt={schema:'lamultipla-reference-screen-receipt-v1',inputSha256,attemptId,referenceReceiptSha256:reference.verified.receiptSha256,
-   ...result.outcome,decisionSha256:result.decision?digest(result.decision):null,packageFile,packageSha256:digest(result.payload),
+   ...result.outcome,previewDecisionFile:bundle?decisionFile:null,previewDecisionSha256:previewSha256,
+   decisionFile:persistedDecisionFile,decisionSha256,packageFile,packageSha256,
    generatedAtUtc:result.payload.generatedAtUtc,providerRequests:0,deliveryExecuted:false,actualStakeEUR:0};
-  await writeSame(path.join(directory,'receipt.json'),receipt);return receipt;
+  await writeSame(path.join(directory,'receipt.json'),receipt);await afterStage('receipt');return receipt;
  });
 }
 export async function loadScreenFiles(root,options){

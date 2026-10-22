@@ -27,12 +27,13 @@ export function appPackage(bundle){
     combined:c?{observedPrice:c.actualPrice,verifiedAtUtc:c.actualPriceVerification.verifiedAtUtc,verificationSha256:digest(c.actualPriceVerification),
       diagnosticOddsProduct:c.nominalOddsProduct,jointProbability:null,jointConfidenceInterval:null,jointProbabilityBounds:c.jointProbabilityBounds,
       jointSensitivityEnvelope:c.jointSensitivityEnvelope,expectedNetPerUnitBounds:c.expectedNetPerUnitBounds,dependenceMethod:c.dependenceMethod,statisticallyValidated:false}:null,
-    shadowCause:d.noBetCause,reasonCodes:d.governance.shadow.reasons,counts:d.governance.shadow.counts,
+    shadowCause:d.noBetCause,reasonCodes:[...d.governance.shadow.reasons],counts:d.governance.shadow.counts,
     exclusions:{...Object.fromEntries([...new Set(d.opportunities.screening.flatMap(s=>s.reasons))].map(reason=>[reason,d.opportunities.screening.filter(s=>s.reasons.includes(reason)).length])),...d.selectionGate.reasonCounts},
     phases:d.governance.phases.map(s=>({step:s.step,state:s.state}))};
   if(d.progressive){
     p.source.generalProtocolVersion=PROGRESSIVE_POLICY.version;
     p.reasonCodes.push(c?'proposta_shadow_definitiva':'no_bet_provvisorio','ricontrollare_prezzi_prima_di_ogni_eventuale_giocata');
   }
-  return validateDecisionV4(p);
+  // Presentation must own nested values too: UI edits cannot change the source.
+  return structuredClone(validateDecisionV4(p));
 }
