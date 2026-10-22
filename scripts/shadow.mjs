@@ -23,13 +23,15 @@ import {GENERAL_POLICY,assertFutureRound} from './lib/decision/policy.mjs';
 import {privateInput} from './lib/orchestration/analysis-plan.mjs';
 import {persistProgressiveDecision,closeProgressiveRound,commitFinal,attemptDirectory} from './lib/shadow/progressive.mjs';
 import {validateRoundIdentity,PROGRESSIVE_POLICY} from './lib/orchestration/progressive-policy.mjs';
+import {privateOutputDirectory} from './lib/reference-readiness.mjs';
 
 const {values}=parseArgs({options:{help:{type:'boolean'},cycle:{type:'boolean'},'live-odds':{type:'boolean'},'refresh-data':{type:'boolean'},
   preview:{type:'boolean'},journal:{type:'string'},study:{type:'string'},report:{type:'string'},assessment:{type:'string'},
   dataset:{type:'string'},schedule:{type:'string'},round:{type:'string'},'max-legs':{type:'string'},'combined-prices':{type:'string'},
   inspect:{type:'string'},evaluate:{type:'string'},results:{type:'string'},progress:{type:'boolean'},
   'extension-journal':{type:'string'},'extension-study':{type:'string'},context:{type:'string'},'context-evidence':{type:'string'},'context-dataset':{type:'string'},
-  'progressive-plan':{type:'string'},'close-progressive':{type:'boolean'},'progressive-history':{type:'string'}},strict:true});
+  'progressive-plan':{type:'string'},'close-progressive':{type:'boolean'},'progressive-history':{type:'string'},
+  'preview-out':{type:'string'},'attempt-metadata':{type:'string'}},strict:true});
 const directory=path.join(ROOT,'.local/shadow');
 const clock=()=>new Date();
 const files=async folder=>{try{return(await fs.readdir(folder)).filter(n=>n.endsWith('.json')).map(n=>path.join(folder,n));}catch(e){if(e.code==='ENOENT')return [];throw e;}};
@@ -43,6 +45,13 @@ async function engineIdentity(){
     generalProtocolSha256:sha256((await fs.readFile(path.join(ROOT,GENERAL_POLICY.protocolPath),'utf8')).replace(/\r\n/g,'\n'))};
 }
 async function main(){
+  if((values['preview-out']||values['attempt-metadata'])&&(!values.preview||values.cycle||values['progressive-plan']||!values.journal||!values.report))
+    throw new Error('Pinned preview requires offline journal/report mode');
+  const attemptMetadata=values['attempt-metadata']?await readSnapshot(await privateInput(ROOT,values['attempt-metadata'])):null;
+  let previewOutput=null;
+  if(values['preview-out']){const candidate=path.resolve(ROOT,values['preview-out']);
+    previewOutput=path.join(await privateOutputDirectory(ROOT,path.dirname(candidate)),path.basename(candidate));
+    try{await fs.lstat(previewOutput);throw new Error('Pinned preview already exists; verify and recover it without recalculating');}catch(e){if(e.code!=='ENOENT')throw e;}}
   const progressivePlan=values['progressive-plan']?await readSnapshot(await privateInput(ROOT,values['progressive-plan'])):null;
   if(progressivePlan){
     validateRoundIdentity(progressivePlan.schedule);
@@ -132,10 +141,11 @@ async function main(){
       provenance:{...await engineIdentity(),repositoryCommit:registry.identity.repositoryCommit,repositoryDirty:registry.identity.repositoryDirty,journalPath,reportPath,
         quoteAcquisition:report.acquisition??null,mode:values.cycle?'cycle':'local',
         sourceData:report.source.mode==='synthetic_test'?'synthetic_test':'local_original_artifacts'},
-      progressive:progressivePlan?.decisionMetadata??null});
+      progressive:progressivePlan?.decisionMetadata??attemptMetadata});
     if(extension){decision.experimentalMarkets=experimentalScreen({...extension,report,assessment,now:clock()});
       for(const r of decision.experimentalMarkets.records)r.contextState=decision.contextGate.entries.find(e=>e.fixtureId===r.fixtureId)?.state??'CONTEXT_REVIEW_REQUIRED';}
-    const frozen=progressivePlan?await persistProgressiveDecision(decision,ROOT,progressivePlan,{now:clock()}):await persistDecision(decision,directory,{preview:values.preview});
+    const frozen=previewOutput?{filename:previewOutput,sha256:await writeExclusive(previewOutput,{...decision,final:false})}:
+      progressivePlan?await persistProgressiveDecision(decision,ROOT,progressivePlan,{now:clock()}):await persistDecision(decision,directory,{preview:values.preview});
     console.log(values.preview?'Anteprima shadow privata:':'Decisione shadow congelata:',frozen.filename);
     console.log(JSON.stringify({sha256:frozen.sha256,decision:decision.decision,cause:decision.noBetCause,...decision.opportunities.counts,
       combinations:decision.selector.counts.combinations,proposal:decision.selector.selected?.id??null,actualStakeEUR:0,

@@ -5,6 +5,7 @@ export {privateLock} from './process-lock.mjs';
 import {signDelivery,verifyDelivery,deliveryId} from '../../../shared/private-delivery.mjs';
 import {parseDecisionEnvelope} from '../../../shared/decision-v4.mjs';
 import {writeExclusive,readSnapshot} from '../prospective/store.mjs';
+import {PROGRESSIVE_POLICY} from '../orchestration/progressive-policy.mjs';
 
 export async function readOutbox(directory,trust,{now=new Date()}={}){
   let names=[];try{names=await fs.readdir(directory);}catch(e){if(e.code!=='ENOENT')throw e;}
@@ -20,6 +21,9 @@ export async function enqueueDelivery({directory,envelope,trust,privateKey,expir
     const records=await readOutbox(directory,trust,{now}),p=envelope.payload;
     const id=await deliveryId({...trust,season:p?.round?.season,matchday:p?.round?.matchday,kind:p?.final?'final':'preview',envelopeSha256:envelope.sha256});
     const existing=records.find(r=>r.statement.deliveryId===id);if(existing)return {record:existing,reused:true};
+    if(p.source?.generalProtocolVersion===PROGRESSIVE_POLICY.version&&p.status==='simulation'
+      &&p.selections.some(s=>new Date(now).getTime()>=Date.parse(s.identity.kickoffUtc)-PROGRESSIVE_POLICY.queueLeadMinutes*60000))
+      throw new Error('PRIVATE_QUEUE_USEFUL_WINDOW_MISSED');
     if(records.some(r=>r.statement.kind==='final'&&r.statement.season===p?.round?.season&&r.statement.matchday===p?.round?.matchday))throw new Error('Finale locale già congelato');
     const keyIds=Object.keys(trust.keys);if(keyIds.length!==1)throw new Error('Chiave di firma attiva richiesta');
     const frame=await signDelivery(envelope,{readerUid:trust.readerUid,applicationId:trust.applicationId,channel:trust.channel,keyId:keyIds[0],
