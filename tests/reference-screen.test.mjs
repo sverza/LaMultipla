@@ -7,7 +7,7 @@ import os from 'node:os';
 import {spawnSync} from 'node:child_process';
 import 'fake-indexeddb/auto';
 import {referenceScreenFixture,screenNow} from './fixtures/reference-screen.mjs';
-import {experimentOutcome,runReferenceScreen,loadFrozenReference,bindReferenceReport,referenceQuotePlan} from '../scripts/lib/reference-screen.mjs';
+import {experimentOutcome,runReferenceScreen,loadFrozenReference,bindReferenceReport,referenceQuotePlan,assertObservedFreeze} from '../scripts/lib/reference-screen.mjs';
 import {createDecision} from '../scripts/lib/shadow/pipeline.mjs';
 import {governance} from '../scripts/lib/decision/governance.mjs';
 import {digest,readSnapshot,envelope} from '../scripts/lib/prospective/store.mjs';
@@ -74,6 +74,10 @@ test('report binding rejects identity swaps, duplicated fixtures, synthetic-to-r
 });
 test('reference adapter refuses missing/partial authentic freeze before creating an experiment or making requests',async t=>{
  const s=await setup(t);await assert.rejects(loadFrozenReference(s.root,'does-not-exist'),/REQUIRES_FROZEN_VERIFIED/);
+ const proof={receipt:{generatedAtUtc:screenNow},intent:{startedAtUtc:'2026-10-23T12:59:00.000Z'},verified:{journals:{v1:{generatedAtUtc:screenNow},v2:{generatedAtUtc:screenNow}}}};
+ assertObservedFreeze(proof,screenNow);
+ assert.throws(()=>assertObservedFreeze(proof,'2026-10-23T12:59:59.999Z'),/NOT_YET_OBSERVED/);
+ assert.throws(()=>assertObservedFreeze({...proof,receipt:{generatedAtUtc:'2026-10-23T12:58:00.000Z'}},screenNow),/NOT_YET_OBSERVED/);
  const help=spawnSync(process.execPath,['scripts/reference-screen.mjs','--help'],{cwd:root,encoding:'utf8'});assert.equal(help.status,0);
  const unknown=spawnSync(process.execPath,['scripts/reference-screen.mjs','--clock',screenNow],{cwd:root,encoding:'utf8'});assert.notEqual(unknown.status,0);
 });

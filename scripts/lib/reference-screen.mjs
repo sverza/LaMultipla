@@ -25,6 +25,12 @@ export const APPROVED_REFERENCE_SHA='3d477e4f8c9b9ab5393514af3f8f711443787a3fe43
 const fail=message=>{throw Error(message);};
 const optional=async file=>{try{return await readSnapshot(file);}catch(e){if(e.code!=='ENOENT')throw e;return null;}};
 export const screeningDirectory=root=>path.join(root,'.local/research-review/cohorts/reference-g8-20261023-v1/screening');
+export function assertObservedFreeze({receipt,intent,verified},now=new Date()){
+ const completed=Date.parse(receipt.generatedAtUtc),started=Date.parse(intent.startedAtUtc),at=new Date(now).getTime();
+ if(!Number.isFinite(completed)||!Number.isFinite(started)||!Number.isFinite(at)||completed>at||completed<started
+  ||Object.values(verified.journals).some(j=>!Number.isFinite(Date.parse(j.generatedAtUtc))||Date.parse(j.generatedAtUtc)>completed))
+  fail('REFERENCE_SCREEN_FREEZE_NOT_YET_OBSERVED');
+}
 
 // All checks use the historic freeze clock. This verifies an existing grant;
 // it cannot renew it or create a new forecast after its expiry.
@@ -35,6 +41,7 @@ export async function loadFrozenReference(root,filename){
  if(digest(input.proposal)!==APPROVED_REFERENCE_SHA)fail('REFERENCE_SCREEN_UNAPPROVED_PROPOSAL');
  const base=path.dirname(screeningDirectory(root)),intent=await readSnapshot(path.join(base,'freeze-intent.json')),
   receipt=await readSnapshot(path.join(base,'freeze-receipt.json'));
+ assertObservedFreeze({receipt,intent,verified});
  const check=await referenceSeriesPreflight({...input,now:new Date(intent.startedAtUtc)});
  if(digest({check,calendar:input.calendar,study:input.study})!==intent.inputSha256||receipt.proposalSha256!==APPROVED_REFERENCE_SHA)
   fail('REFERENCE_SCREEN_FREEZE_INPUT_CHANGED');
