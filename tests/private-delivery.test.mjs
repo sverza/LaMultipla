@@ -119,7 +119,11 @@ test('two processes cannot enter writer critical section concurrently; abandoned
   await assert.rejects(privateLock(s.directory,async()=>assert.fail('concurrent entry')),/già in esecuzione/);
   const exited=new Promise(resolve=>child.once('exit',resolve));child.kill('SIGKILL');await exited;
   const orphan=path.join(s.directory,'locks',`${child.pid}-00000000-0000-0000-0000-000000000000.json.tmp`);await fs.writeFile(orphan,'unfinished');
-  assert.equal(await privateLock(s.directory,async()=>true),true);assert.deepEqual(await fs.readdir(path.join(s.directory,'locks')),[]);
+  assert.equal(await privateLock(s.directory,async()=>true),true);
+  // An unpublished temporary is not a participant. Preserve another owner's
+  // incomplete diagnostic file; recovery removes only verified dead records.
+  assert.deepEqual(await fs.readdir(path.join(s.directory,'locks')),[path.basename(orphan)]);
+  assert.equal(await fs.readFile(orphan,'utf8'),'unfinished');
 });
 test('REST atomic publication lost response retries immutable record without duplication',async t=>{
   const s=await setup(t),server=fakeFirestore(),cloud=cloudFor(s,server);server.loseCommitResponse();
