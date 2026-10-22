@@ -96,9 +96,10 @@ Da `C:\LaMultipla`, operazioni locali senza rete:
 node scripts/pitchapi-archive.mjs import-existing
 node scripts/pitchapi-archive.mjs rebuild
 node scripts/pitchapi-archive.mjs plan --stats-per-season 8 --advanced-per-recent-season 4
+node scripts/pitchapi-archive.mjs plan-next --max-requests 60
 ```
 
-`plan` prepara soltanto un nuovo manifest e non autorizza né esegue richieste. Ogni piano futuro richiede un nuovo consenso preciso; il piano del pilota è ormai esaurito. Il comando reale utilizzato per questo singolo lotto è:
+`plan` riproduce la strategia del pilota; `plan-next` pianifica il backlog incrementale, distribuendo il limite fra le stagioni ancora incomplete e stratificando temporalmente gli endpoint non osservati. Salta stagioni esaurite, recupera anche soli advanced quando le stats esistono già, riduce l’ultimo lotto e restituisce zero richieste quando non resta nulla. Entrambi preparano soltanto un manifest e non autorizzano né eseguono richieste. Ogni piano futuro richiede un nuovo consenso preciso; il piano del pilota è ormai esaurito. È stata preparata offline una proposta di lotto successivo, senza grant né acquisizione. Il comando reale utilizzato per questo singolo lotto è:
 
 ```powershell
 node scripts/pitchapi-archive.mjs run --grant .local/preparation/pitchapi-archive-20261022/pilot-grant.private.json --batch-size 60
@@ -116,8 +117,8 @@ Nessun peso, modello corner/cartellini/tiri, training o refit introdotto. Lo svi
 
 ## Verifiche tecniche e integrità
 
-15 nuovi test dell’archivio; 31 test mirati con i moduli PitchAPI esistenti. Coperti: identità/stagioni, fixture future, campo neutro, campionamento, tetto 60, endpoint esclusi, null/zero/omissioni, gialli ambigui, periodi, raw alterati, revisioni, offline/restart, lock concorrenti, auth/rate limit, errori di schema e riflessione delle credenziali.
+17 nuovi test dell’archivio; 33 test mirati con i moduli PitchAPI esistenti. Coperti: identità/stagioni, fixture future, campo neutro, campionamento, tetto 60, endpoint esclusi, null/zero/omissioni, gialli ambigui, periodi, raw alterati, revisioni, offline/restart, lock concorrenti, auth/rate limit, errori di schema e riflessione delle credenziali; completamento delle stagioni esaurite, backlog advanced-only e ultimo lotto ridotto.
 
-Suite completa: **439/439**. Lint: zero errori, solo warning preesistente `combinedPlayedOdd`. Build Next/TypeScript completata. Dettagli privati nei log dell’incarico. Solo codice, test e questa documentazione vengono pubblicati; snapshot, manifest con payload reali, grant e credenziale rimangono in `.local`.
+Suite completa: **441/441**. Lint: zero errori, solo warning preesistente `combinedPlayedOdd`. Build Next/TypeScript completata. Dettagli privati nei log dell’incarico. Solo codice, test e questa documentazione vengono pubblicati; snapshot, manifest con payload reali, grant e credenziale rimangono in `.local`.
 
 Controllo integrità: **3.400 originali invariati**, dieci file di controllo (approvazioni/piano G8, ledger OddsPapi e cifrato PitchAPI) invariati, 54 vecchie ricevute e relativi raw invariati. Nessun OddsPapi, forecast G8, modifica scientifica, scheduler, Firebase, Android, deploy o scommessa. Stake reale zero. PR #2 mantenuta in bozza; commit e CI sono riportati nella consegna finale.

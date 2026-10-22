@@ -7,11 +7,11 @@ import {loadPitchKey} from './lib/private/pitch-key.mjs';
 import {readPitchResponse} from './lib/pitchapi-trial.mjs';
 import {readPitchHistoryResponse,acquirePitchArchive} from './lib/pitchapi-history-acquisition.mjs';
 import {readPitchAdvancedResponse} from './lib/pitchapi-advanced-acquisition.mjs';
-import {ARCHIVE_VERSION,archivePut,pitchBytesHash,pitchArchiveKind,importPitchArchiveResponse,rebuildPitchArchive,planPitchArchivePilot,validatePitchArchiveGrant} from './lib/pitchapi-team-archive.mjs';
+import {ARCHIVE_VERSION,archivePut,pitchBytesHash,pitchArchiveKind,importPitchArchiveResponse,rebuildPitchArchive,planPitchArchivePilot,planPitchArchiveIncremental,validatePitchArchiveGrant} from './lib/pitchapi-team-archive.mjs';
 
 const args=process.argv.slice(2),command=args.shift();
 const options={};
-for(let i=0;i<args.length;i+=2){if(!['--grant','--batch-size','--stats-per-season','--advanced-per-recent-season'].includes(args[i])||!args[i+1]||Object.hasOwn(options,args[i]))throw Error('PITCH_ARCHIVE_ARGUMENT');options[args[i]]=args[i+1];}
+for(let i=0;i<args.length;i+=2){if(!['--grant','--batch-size','--stats-per-season','--advanced-per-recent-season','--max-requests'].includes(args[i])||!args[i+1]||Object.hasOwn(options,args[i]))throw Error('PITCH_ARCHIVE_ARGUMENT');options[args[i]]=args[i+1];}
 const directory=path.join(ROOT,'.local','pitchapi','team-archive-v1');
 async function safeDirectory(dir){
  const relative=path.relative(path.join(ROOT,'.local'),path.resolve(dir));
@@ -38,17 +38,19 @@ async function importExisting(){
 }
 function summary(result){return {viewSha256:result.sha,coverage:result.view.coverage.map(({season,listed,candidates,statsFixtures,advancedAvailable,advancedUnavailable})=>({season,listed,candidates,statsFixtures,advancedAvailable,advancedUnavailable})),revisions:result.view.revisions.length};}
 async function run(){
- if(!['import-existing','rebuild','plan','run'].includes(command))throw Error('PITCH_ARCHIVE_COMMAND_import-existing_rebuild_plan_run');
+ if(!['import-existing','rebuild','plan','plan-next','run'].includes(command))throw Error('PITCH_ARCHIVE_COMMAND_import-existing_rebuild_plan_plan-next_run');
  if(command!=='run'&&(options['--grant']||options['--batch-size']))throw Error('PITCH_ARCHIVE_ARGUMENT');
  if(command!=='plan'&&(options['--stats-per-season']||options['--advanced-per-recent-season']))throw Error('PITCH_ARCHIVE_ARGUMENT');
+ if(command!=='plan-next'&&options['--max-requests'])throw Error('PITCH_ARCHIVE_ARGUMENT');
  await safeDirectory(directory);
  // One archive lock covers imports, views and acquisition; no second scheduler.
  return privateLock(directory,async()=>{
   if(command==='import-existing'){const imported=await importExisting();const result=await rebuildPitchArchive(directory);console.log(JSON.stringify({imported,networkRequests:0,...summary(result)}));return;}
   if(command==='rebuild'){console.log(JSON.stringify({networkRequests:0,...summary(await rebuildPitchArchive(directory))}));return;}
-  if(command==='plan'){
+  if(command==='plan'||command==='plan-next'){
    const {view,sha}=await rebuildPitchArchive(directory);
-   const plan=planPitchArchivePilot({view,viewSha256:sha,createdAtUtc:new Date().toISOString(),statsPerSeason:Number(options['--stats-per-season']??8),advancedPerRecentSeason:Number(options['--advanced-per-recent-season']??4)});
+   const createdAtUtc=new Date().toISOString();
+   const plan=command==='plan'?planPitchArchivePilot({view,viewSha256:sha,createdAtUtc,statsPerSeason:Number(options['--stats-per-season']??8),advancedPerRecentSeason:Number(options['--advanced-per-recent-season']??4)}):planPitchArchiveIncremental({view,viewSha256:sha,createdAtUtc,limit:Number(options['--max-requests']??60)});
    const file=path.join(directory,'plans',digest(plan)+'.json');await archivePut(file,plan);
    const manifest=['# PitchAPI historical team pilot — private exact manifest','',`Plan SHA256: ${digest(plan)}`,`Max requests: ${plan.maxRequests}; retries: 0; no replacements.`,'','| # | Season | Fixture | Kickoff UTC | GET |','|---|---|---|---|---|',...plan.requests.map((r,i)=>`| ${i+1} | ${r.season} | ${r.fixture.home_team.name} – ${r.fixture.away_team.name} (${r.fixture.id}) | ${r.fixture.time_utc} | ${r.url} |`)].join('\n')+'\n';
    const md=file.replace('.json','.private.md');try{await fs.writeFile(md,manifest,{flag:'wx',mode:0o600});}catch(e){if(e.code!=='EEXIST')throw e;if(await fs.readFile(md,'utf8')!==manifest)throw e;}
@@ -59,7 +61,7 @@ async function run(){
   if(!grantFile.startsWith(path.join(ROOT,'.local')+path.sep)||await fs.realpath(grantFile)!==grantFile)throw Error('PITCH_ARCHIVE_PRIVATE_GRANT_REQUIRED');
   const grant=await readSnapshot(grantFile);validatePitchArchiveGrant(grant);
   const base=await readSnapshot(path.join(directory,'views',grant.plan.sourceViewSha256+'.json'));
-  const rebuilt=planPitchArchivePilot({view:base,viewSha256:grant.plan.sourceViewSha256,createdAtUtc:grant.plan.createdAtUtc,statsPerSeason:grant.plan.statsPerSeason,advancedPerRecentSeason:grant.plan.advancedPerRecentSeason});
+  const rebuilt=grant.plan.policy==='REMAINING_ENDPOINTS_BALANCED_TEMPORAL_STRATA_V1'?planPitchArchiveIncremental({view:base,viewSha256:grant.plan.sourceViewSha256,createdAtUtc:grant.plan.createdAtUtc,limit:grant.plan.limit}):planPitchArchivePilot({view:base,viewSha256:grant.plan.sourceViewSha256,createdAtUtc:grant.plan.createdAtUtc,statsPerSeason:grant.plan.statsPerSeason,advancedPerRecentSeason:grant.plan.advancedPerRecentSeason});
   if(digest(rebuilt)!==grant.planSha256)throw Error('PITCH_ARCHIVE_PLAN_CHANGED');
   const size=Number(options['--batch-size']??1);if(!Number.isSafeInteger(size)||size<1||size>60)throw Error('PITCH_ARCHIVE_BATCH_SIZE');
   const acquisition=path.join(directory,'acquisition');await safeDirectory(acquisition);

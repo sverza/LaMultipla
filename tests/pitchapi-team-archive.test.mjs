@@ -6,7 +6,7 @@ import os from 'node:os';
 import {digest,readSnapshot} from '../scripts/lib/prospective/store.mjs';
 import {PITCH_HISTORY_SEASONS} from '../scripts/lib/pitchapi-history-plan.mjs';
 import {acquirePitchArchive} from '../scripts/lib/pitchapi-history-acquisition.mjs';
-import {ARCHIVE_VERSION,pitchBytesHash,buildPitchArchiveUniverse,reviewPitchArchiveResponse,importPitchArchiveResponse,rebuildPitchArchive,planPitchArchivePilot,validatePitchArchiveGrant} from '../scripts/lib/pitchapi-team-archive.mjs';
+import {ARCHIVE_VERSION,pitchBytesHash,buildPitchArchiveUniverse,reviewPitchArchiveResponse,importPitchArchiveResponse,rebuildPitchArchive,planPitchArchivePilot,planPitchArchiveIncremental,validatePitchArchiveGrant} from '../scripts/lib/pitchapi-team-archive.mjs';
 const at='2027-01-01T12:00:00.000Z';
 const team=(id,name)=>({id,name});
 function catalogs(){return PITCH_HISTORY_SEASONS.map((season,s)=>({key:String(s),observation:{acquiredAtUtc:at,url:'https://api.pitchapi.dev/v1/leagues/l_0ALvwF/matches?season='+encodeURIComponent(season)+'&status=all'},body:{data:{league:{id:'l_0ALvwF',season},matches:Array.from({length:12},(_,i)=>({id:'m_'+String(s*100+i).padStart(6,'0'),date:season.slice(0,4)+'-'+String(i+1).padStart(2,'0')+'-01',time_utc:season.slice(0,4)+'-'+String(i+1).padStart(2,'0')+'-01T12:00:00Z',status:'finished',home_team:team('t_000001','Synthetic Home'),away_team:team('t_000002','Synthetic Away'),score_home:0,score_away:1}))}}}));}
@@ -120,4 +120,20 @@ test('archive lock rejects concurrent producer and credential reflection leaves 
  const first=assert.rejects(acquirePitchArchive(o),/STOPPED_NO_AUTOMATIC_RETRY/);await started;
  await assert.rejects(acquirePitchArchive(o),/già in esecuzione/);release();await first;
  assert.ok(!(await fs.readdir(directory)).some(n=>n.endsWith('.receipt.json')));
+});
+
+test('archive incremental plan skips exhausted seasons and completes advanced-only and short final batches',()=>{
+ const v=view(),pending=v.universe.filter(f=>f.season==='2025/2026').slice(0,3).map(f=>'https://api.pitchapi.dev/v1/matches/'+f.fixture.id+'/advanced');
+ v.observations=v.universe.flatMap(f=>(Number(f.season.slice(0,4))>=2024?['stats','advanced']:['stats']).map(kind=>({url:'https://api.pitchapi.dev/v1/matches/'+f.fixture.id+'/'+kind,review:{canContinue:true}}))).filter(o=>!pending.includes(o.url));
+ const options={view:v,viewSha256:digest(v),createdAtUtc:at};
+ const p=planPitchArchiveIncremental(options);assert.equal(p.maxRequests,3);assert.deepEqual(p.requests.map(r=>r.url),pending);assert.ok(p.requests.every(r=>r.kind==='advanced'));
+ assert.equal(planPitchArchiveIncremental({...options,limit:2}).maxRequests,2);
+ v.observations.push(...pending.map(url=>({url,review:{canContinue:true}})));assert.equal(planPitchArchiveIncremental({...options,viewSha256:digest(v)}).maxRequests,0);
+});
+test('archive incremental plan balances remaining seasons deterministically within arbitrary approved batch sizes',()=>{
+ const v=view(),options={view:v,viewSha256:digest(v),createdAtUtc:at,limit:17},p=planPitchArchiveIncremental(options);
+ assert.deepEqual(p,planPitchArchiveIncremental(options));assert.equal(p.maxRequests,17);assert.equal(new Set(p.requests.map(r=>r.url)).size,17);
+ for(const season of PITCH_HISTORY_SEASONS)assert.ok([2,3].includes(p.requests.filter(r=>r.season===season).length));
+ assert.ok(p.requests.filter(r=>r.kind==='advanced').every(r=>Number(r.season.slice(0,4))>=2024));
+ for(const limit of [0,61,1.5])assert.throws(()=>planPitchArchiveIncremental({...options,limit}),/PLAN_INPUT/);
 });

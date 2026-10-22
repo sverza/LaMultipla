@@ -169,6 +169,21 @@ export function planPitchArchivePilot({view,viewSha256,createdAtUtc,statsPerSeas
   maxRequests:requests.length,ceiling:60,requests,retries:0,pagination:false,replacements:false,trainingEligible:false};
 }
 
+// Subsequent batches can finish exhausted seasons and analytics-only backlogs.
+// Planning remains offline; every resulting manifest needs its own consent.
+export function planPitchArchiveIncremental({view,viewSha256,createdAtUtc,limit=60}){
+ if(digest(view)!==viewSha256||!time(createdAtUtc)||!Number.isSafeInteger(limit)||limit<1||limit>60)throw fail('PLAN_INPUT');
+ if(view.revisions.length||view.observations.some(o=>!o.review.canContinue))throw fail('UNRESOLVED_SOURCE_CONFLICT');
+ const known=new Set(view.observations.map(o=>o.url));
+ const queues=PITCH_HISTORY_SEASONS.map(season=>view.universe.filter(f=>f.season===season&&f.candidate&&Date.parse(f.fixture.time_utc)<Date.parse(createdAtUtc)).sort(compare).flatMap(f=>
+  (Number(season.slice(0,4))>=2024?['stats','advanced']:['stats']).filter(kind=>!known.has(urlFor(f.fixture.id,kind))).map(kind=>({season,scope:f.scope,fixture:f.fixture,catalogObservations:f.catalogObservations,kind,url:urlFor(f.fixture.id,kind)}))));
+ const counts=queues.map(()=>0);let count=0;
+ while(count<limit){let added=false;for(let i=0;i<queues.length&&count<limit;i++)if(counts[i]<queues[i].length){counts[i]++;count++;added=true;}if(!added)break;}
+ const requests=queues.flatMap((rows,i)=>stratify(rows,counts[i]));
+ return {schema:ARCHIVE_VERSION+'-plan',createdAtUtc,sourceViewSha256:viewSha256,policy:'REMAINING_ENDPOINTS_BALANCED_TEMPORAL_STRATA_V1',limit,
+  maxRequests:requests.length,ceiling:60,requests,retries:0,pagination:false,replacements:false,trainingEligible:false};
+}
+
 export function validatePitchArchiveGrant(grant){
  const p=grant?.plan;
  if(grant?.schema!==ARCHIVE_VERSION+'-grant'||grant.authorized!==true||grant.scope!=='PRIVATE_HISTORICAL_TEAM_PILOT_ONLY'||grant.retention!=='PRIVATE_USER_CONFIRMED'||!time(grant.approvedAtUtc)||!time(grant.recordedAtUtc)||Date.parse(grant.approvedAtUtc)>Date.parse(grant.recordedAtUtc)||grant.ceiling!==60||p?.schema!==ARCHIVE_VERSION+'-plan'||digest(p)!==grant.planSha256||p.maxRequests!==p.requests?.length||p.maxRequests<1||p.maxRequests>60||p.retries!==0||p.pagination!==false||p.replacements!==false||new Set(p.requests.map(r=>r.url)).size!==p.requests.length)throw fail('EXACT_GRANT_REQUIRED');
