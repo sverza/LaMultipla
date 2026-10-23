@@ -33,6 +33,12 @@ export function timing(schedule,now){
   return {eligibleFixtureIds:eligible.map(e=>e.fixtureId),slots,active,nextWindowAtUtc:next,
     exhausted:!unresolved&&eligible.length<2&&!next,unresolved};
 }
+// Journal and schedule have distinct envelope schemas but the same event identity.
+// Legacy in-memory manifests omit schema; unknown explicit schemas remain refused.
+export function scheduleFromJournalManifest(manifest){
+  if(!manifest||manifest.schema!==undefined&&!['lamultipla-round-manifest-v1','lamultipla-prospective-schedule-v1'].includes(manifest.schema))fail('PROGRESSIVE_ROUND_IDENTITY_INVALID');
+  return {schema:'lamultipla-prospective-schedule-v1',season:manifest.season,matchday:manifest.matchday,events:manifest.events};
+}
 export function validateAttemptMetadata(p,journal,now){
   const at=new Date(now).getTime();
   if(p?.schema!=='lamultipla-progressive-attempt-v1'||p.protocolSha256!==digest(PROGRESSIVE_POLICY)
@@ -42,8 +48,8 @@ export function validateAttemptMetadata(p,journal,now){
     ||!instant(p.plannedAtUtc)||Date.parse(p.plannedAtUtc)>at||Date.parse(p.plannedAtUtc)<Date.parse(PROGRESSIVE_POLICY.registeredAtUtc)
     ||p.eligibleFixtureIds.some(id=>!journal.manifest.events.some(e=>e.fixtureId===id))
     ||journal.provenance?.cohortEligible===false&&journal.provenance.scientificJournalSha256!==p.scientificJournalSha256)fail('PROGRESSIVE_ATTEMPT_INVALID');
-  validateRoundIdentity({schema:'lamultipla-prospective-schedule-v1',...journal.manifest});
-  if(p.roundIdentitySha256!==digest(validateRoundIdentity({schema:'lamultipla-prospective-schedule-v1',...journal.manifest})))fail('PROGRESSIVE_ATTEMPT_ROUND_MISMATCH');
+  const identity=validateRoundIdentity(scheduleFromJournalManifest(journal.manifest));
+  if(p.roundIdentitySha256!==digest(identity))fail('PROGRESSIVE_ATTEMPT_ROUND_MISMATCH');
   return p;
 }
 export function proposalExpiry(payload){

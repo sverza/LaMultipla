@@ -10,7 +10,7 @@ import {journalId,batchForecast,sealJournal} from '../prospective/freeze.mjs';
 import {canonicalTeam} from '../goals/data.mjs';
 import {verifyDecisionBundle} from '../decision/delivery.mjs';
 import {attemptDirectory,roundDirectory,writeSame,commitFinal} from '../shadow/progressive.mjs';
-import {PROGRESSIVE_POLICY,fail,validateRoundIdentity} from './progressive-policy.mjs';
+import {PROGRESSIVE_POLICY,fail,validateRoundIdentity,scheduleFromJournalManifest} from './progressive-policy.mjs';
 const execute=promisify(execFile);
 const optional=async file=>{try{return await readSnapshot(file);}catch(e){if(e.code==='ENOENT')return null;throw e;}};
 const manifest=plan=>({schema:'lamultipla-round-manifest-v1',season:plan.round.season,matchday:plan.round.matchday,
@@ -44,7 +44,7 @@ export function progressiveAdapters(root,options={}){
       }
     }
     if(original&&(original.generatedAtUtc<PROGRESSIVE_POLICY.registeredAtUtc
-      ||digest(validateRoundIdentity({schema:'lamultipla-prospective-schedule-v1',...original.manifest}))!==digest(validateRoundIdentity(plan.schedule))))
+      ||digest(validateRoundIdentity(scheduleFromJournalManifest(original.manifest)))!==digest(validateRoundIdentity(plan.schedule))))
       fail('PROGRESSIVE_SCIENTIFIC_IDENTITY_CONFLICT');
     if(missing&&missing.roundIdentitySha256!==digest(validateRoundIdentity(plan.schedule)))fail('PROGRESSIVE_SCIENTIFIC_IDENTITY_CONFLICT');
     let journal=original;
