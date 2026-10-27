@@ -15,6 +15,7 @@ import {settlementTemplate} from '../scripts/lib/decision/gates.mjs';
 import {governance} from '../scripts/lib/decision/governance.mjs';
 import {privateHandoff,redactedReceipt,verifyDecisionBundle} from '../scripts/lib/decision/delivery.mjs';
 import {obligations,assertFutureRound} from '../scripts/lib/decision/policy.mjs';
+import {verifyCompletedDecisionRace} from './fixtures/decision-race-contract.mjs';
 // Synthetic fixtures only; these tests are not prospective evidence or betting validation.
 const now='2026-10-10T10:15:00Z',observed='2026-10-10T10:14:00Z';
 function input(){
@@ -96,14 +97,15 @@ test('edited authorization, decision logic, input hashes, identity or governance
     const b=structuredClone(base);edit(b);assert.throws(()=>privateHandoff(b));}
   const old=structuredClone(base);delete old.decision.governance;assert.throws(()=>redactedReceipt(old),/legacy/);
 });
-test('final freeze is one per round across policies and concurrent writers; previews stay separate',async()=>{
+test('final freeze is one per round across policies and concurrent writers; previews stay separate',async t=>{
   const dir=await fs.mkdtemp(path.join(os.tmpdir(),'lamultipla-general-'));try{
     const i=input(),d=createDecision(i),name=decisionPath(dir,round.season,6);await fs.mkdir(path.dirname(name),{recursive:true});
     const old=name.replace('shadow-value-v2','shadow-value-v1');await writeExclusive(old,{legacy:true});
     await assert.rejects(()=>assertNoDecision(name),/already frozen/);await assert.rejects(()=>persistDecision(d,dir));
     await fs.rm(old);const results=await Promise.allSettled([persistDecision(d,dir),persistDecision(d,dir)]);
-    assert.equal(results.filter(r=>r.status==='fulfilled').length,1);
-    const saved=results.find(r=>r.status==='fulfilled').value;assert.equal((await readSnapshot(saved.filename)).governance.phases[10].state,'FROZEN');
+    const race=await verifyCompletedDecisionRace(results,d,dir),saved=race.saved;
+    t.diagnostic(JSON.stringify({initialWinners:race.initialWinners,recoveredAfterQuiescence:race.recoveredAfterQuiescence}));
+    assert.equal((await readSnapshot(saved.filename)).governance.phases[10].state,'FROZEN');
     const preview=await persistDecision(d,dir,{preview:true});assert.equal(preview.decision.governance.phases[10].state,'PREVIEW_NOT_FINAL');
   }finally{await fs.rm(dir,{recursive:true,force:true});}
 });
