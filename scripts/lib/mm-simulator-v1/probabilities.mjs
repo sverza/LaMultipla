@@ -3,6 +3,7 @@ import {quantile} from '../goals/metrics.mjs';
 import {validateJournal} from '../engine/forecast.mjs';
 import {settlementProbabilities} from '../engine/markets.mjs';
 import {validateBoardSnapshot,FAMILIES,hashValue,timestamp,isObject,uniqueSorted} from './contracts.mjs';
+import {reconcileUniverse} from './universe.mjs';
 
 export const PROBABILITY_SCHEMA='lamultipla-mm-probability-diagnostic-v1';
 export const PROJECTION_POLICY=Object.freeze({version:'mm-probability-projection-v1',families:Object.freeze(['BTTS','TOTAL_GOALS']),
@@ -72,6 +73,7 @@ export function diagnoseProbabilityBoards({boards,journal,study,freezeCompletedA
  validateBoardSnapshot(boards);
  if(!hash(boards.canonicalSha256))fail('MM2_BOARD_HASH_REQUIRED');
  verifyJournalStructure(journal,study);
+ const universeCoverage=reconcileUniverse(boards,journal.manifest);
  if(freezeCompletedAtUtc!==null&&(!timestamp(freezeCompletedAtUtc)||Date.parse(freezeCompletedAtUtc)<Date.parse(journal.generatedAtUtc)))fail('MM2_FREEZE_TIMESTAMP_INVALID');
  const journalSha256=hashValue(journal),studySha256=hashValue(study),entries=new Map(journal.entries.map(e=>[e.fixtureId,e]));
  const metadata=Object.fromEntries(PROJECTION_POLICY.models.map(kind=>[kind,{id:kind==='dc'?'dc-v2':'bivariate-v2',version:journal.modelVersion,
@@ -128,9 +130,12 @@ export function diagnoseProbabilityBoards({boards,journal,study,freezeCompletedA
    eligibleForSelector:false,operationallyApproved:false});}
  }
  const matched=boardStates.filter(b=>b.forecastLinkState==='EXACT_MATCH').length;
- const state=!matched?'NO_COMPATIBLE_DIAGNOSTIC_INPUT':boardStates.some(b=>b.forecastLinkState!=='EXACT_MATCH'||b.completeness.state!=='COMPLETE'||b.normalization.state!=='VALID'||b.frozenEntryStatus!=='prospective'
+ const state=!universeCoverage.complete?'PARTIAL_DIAGNOSTIC':!matched?'NO_COMPATIBLE_DIAGNOSTIC_INPUT':boardStates.some(b=>b.forecastLinkState!=='EXACT_MATCH'||b.completeness.state!=='COMPLETE'||b.normalization.state!=='VALID'||b.frozenEntryStatus!=='prospective'
   ||Object.values(b.models).some(m=>!m.projection||m.projection.uncertainty.state!=='MARGINAL_BOOTSTRAP_DESCRIPTIVE'))?'PARTIAL_DIAGNOSTIC':'COMPLETE_OFFLINE_DIAGNOSTIC';
+ // Additive versioned coverage evidence only for a deficient universe. Complete
+ // historical M2 v1 diagnostics retain exactly their original bytes/semantics.
  const result={schema:PROBABILITY_SCHEMA,policy:structuredClone(PROJECTION_POLICY),policySha256:hashValue(PROJECTION_POLICY),state,
+  ...(!universeCoverage.complete?{universeCoverage}:{}),
   provenance:{verification:'STRUCTURAL_ONLY_NOT_A_FREEZE_ATTESTATION',journalId:journal.id,journalSha256,studySha256,datasetSha256:journal.datasetSha256,
    sourceCommit:journal.sourceCommit??null,
    modelVersion:journal.modelVersion,modelCodeSha256:study.modelCodeSha256,protocolSha256:study.protocolSha256,

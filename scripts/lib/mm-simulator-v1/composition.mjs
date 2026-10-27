@@ -2,8 +2,9 @@ import {frechet} from '../shadow/combinations.mjs';
 import {validateBoardSnapshot,hashValue,timestamp,isObject,exactFields} from './contracts.mjs';
 import {diagnoseProbabilityBoards,PROJECTION_POLICY} from './probabilities.mjs';
 import {validScenario,syntheticGateContext,selectionScenarioGates,ticketScenarioGates} from './composition-gates.mjs';
+import {reconcileUniverse} from './universe.mjs';
 
-export const COMPOSITION_SCHEMA='lamultipla-mm-synthetic-composition-v1';
+export const COMPOSITION_SCHEMA='lamultipla-mm-synthetic-composition-v2';
 const safety=()=>({exploratory:true,operationallyApproved:false,scientificallyValidated:false,statisticallyValidated:false,
  actualStakeEUR:0,eligibleForOriginalSelector:false,appDeliveryAllowed:false,admissible:false});
 const blockers=['M3A_SYNTHETIC_ONLY','POLICY_NOT_APPROVED','AUTHENTIC_EVIDENCE_NOT_VERIFIED','M3B_NOT_IMPLEMENTED'];
@@ -51,6 +52,7 @@ export function composeSyntheticExploration(input){
   modelCodeSha256:diagnostic.provenance.modelCodeSha256,protocolSha256:diagnostic.provenance.protocolSha256,
   provenance:structuredClone(diagnostic.provenance),searchSha256:hashValue(search),
   scenarioSha256:scenario===null?null:hashValue(scenario),evidenceSha256:hashValue({context,selectionReviews,ticketReviews,calendar})};
+ const universeCoverage=reconcileUniverse(boards,journal.manifest);
  const contextState=syntheticGateContext(context,journal,atUtc),byBoard=new Map(boards.boards.map(b=>[b.id,b]));
  const candidates=[],exclusions=[],boardExclusions=[];
  const quoteCounts=new Map();for(const b of boards.boards)for(const q of b.outcomes)quoteCounts.set(q.id,(quoteCounts.get(q.id)??0)+1);
@@ -58,7 +60,7 @@ export function composeSyntheticExploration(input){
   completeness:b.completeness.state,availability:b.availability.state,reasons:[...b.exclusionReasons]});
  for(const record of diagnostic.records){
   const b=byBoard.get(record.boardId),reasons=[...record.exclusions],m=record.models[search.primaryModel];
-  if(!b?.diagnosticInputReady||b.completeness.state!=='COMPLETE'||b.normalization.state!=='VALID')reasons.push('BOARD_INCOMPLETE_OR_INVALID');
+  if(!b?.observed||b.completeness.state!=='COMPLETE'||b.normalization.state!=='VALID')reasons.push('BOARD_INCOMPLETE_OR_INVALID');
   if(b?.availability.state!=='OPEN'||record.selectionAvailability!=='OPEN')reasons.push('SOURCE_UNAVAILABLE');
   if(quoteCounts.get(record.quoteId)!==1)reasons.push('DUPLICATE_QUOTE_ID');
   if(record.forecastLinkState!=='EXACT_MATCH'||record.frozenEntryStatus!=='prospective'||record.frozenEntryExclusions?.length)reasons.push('FORECAST_NOT_ELIGIBLE');
@@ -118,10 +120,26 @@ export function composeSyntheticExploration(input){
  for(let size=search.minLegs;size<=Math.min(search.maxLegs,candidates.length)&&!truncated;size++)walk(size,0,[]);
  const satisfied=combinations.filter(c=>!c.scenarioGateFailures.length).length;
  const missing=combinations.some(c=>c.scenarioGateFailures.some(r=>!economicReasons.has(r)));
- const state=truncated?'ANALYSIS_INCOMPLETE':satisfied?'SYNTHETIC_CRITERIA_SATISFIED_NOT_ADMISSIBLE'
+ const state=truncated||!universeCoverage.complete?'ANALYSIS_INCOMPLETE':satisfied?'SYNTHETIC_CRITERIA_SATISFIED_NOT_ADMISSIBLE'
   :missing||!combinations.length&&(exclusions.length||boardExclusions.length)?'ANALYSIS_INCOMPLETE'
    :combinations.length?'NO_COMBINATION_MEETS_SYNTHETIC_CRITERIA_IN_REVIEWED_SCOPE':'MATHEMATICALLY_CALCULABLE_NO_COMBINATION';
- return seal({...base,state,reasons:[...(truncated?['SEARCH_TRUNCATED']:[]),...(scenario===null?['POLICY_SCENARIO_NOT_PROVIDED']:[]),
+ const selectionDiagnostics=diagnostic.records.map(record=>{
+  const excluded=exclusions.find(e=>e.quoteId===record.quoteId),candidate=candidates.find(c=>c.quoteId===record.quoteId);
+  return {quoteId:record.quoteId,boardId:record.boardId,fixtureId:String(record.event.sourceEventId),
+   gateState:excluded?'INPUT_EXCLUDED':candidate?.scenarioGates.reasons.length?
+    candidate.scenarioGates.reasons.every(r=>economicReasons.has(r))?'CRITERIA_NOT_MET':'GATES_INCOMPLETE':'SYNTHETIC_GATES_SATISFIED_ONLY',
+   inputReasons:[...(excluded?.reasons??[])].sort(),gateReasons:[...(candidate?.scenarioGates.reasons??[])].sort(),
+   reasons:[...new Set([...(excluded?.reasons??[]),...(candidate?.scenarioGates.reasons??[])])].sort()};
+ }).sort((a,b)=>cmp(a.quoteId,b.quoteId));
+ const comparatorDiagnostics=diagnostic.boardStates.map(b=>{
+  const entry=journal.entries.find(e=>e.fixtureId===String(b.event.sourceEventId)),p=b.models.bivariate;
+  const absent=entry?.forecasts?.bivariate==null;
+  const available=!absent&&p.projection?.state==='PROBABILITY_CALCULABLE'&&p.projection?.uncertainty.state==='MARGINAL_BOOTSTRAP_DESCRIPTIVE'&&!p.reasons.length;
+  return {boardId:b.boardId,fixtureId:String(b.event.sourceEventId),model:'bivariate-v2',modelIdentity:structuredClone(p.model),state:absent?'ABSENT':available?'AVAILABLE':'INVALID',
+   reasons:absent?['COMPARATOR_FORECAST_MISSING']:[...new Set(p.reasons)].sort()};
+ }).sort((a,b)=>cmp(a.boardId,b.boardId));
+ return seal({...base,state,universeCoverage,selectionDiagnostics,comparatorDiagnostics,
+  reasons:[...(truncated?['SEARCH_TRUNCATED']:[]),...(!universeCoverage.complete?['UNIVERSE_COVERAGE_INCOMPLETE']:[]),...(scenario===null?['POLICY_SCENARIO_NOT_PROVIDED']:[]),
   ...(exclusions.length||boardExclusions.length?['INPUT_COVERAGE_EXCLUSIONS_PRESENT']:[])],atUtc,source,search:structuredClone(search),
   scenario:structuredClone(scenario),contextVerification:{sha256:contextState.sha256,reasons:contextState.reasons},
   mathematicalState:combinations.length?'COMBINATIONS_CALCULABLE':candidates.length?'MARGINALS_ONLY':'NO_VERIFIABLE_MARGINALS',

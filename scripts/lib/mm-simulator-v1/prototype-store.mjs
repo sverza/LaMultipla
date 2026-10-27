@@ -6,9 +6,10 @@ import {writeExclusive,verifyEnvelope} from '../prospective/store.mjs';
 import {hashValue,hashBytes,timestamp,exactFields} from './contracts.mjs';
 import {PROTOTYPE_POLICY,PROTOTYPE_POLICY_SHA256,assertPrototypePolicy} from './prototype-policy.mjs';
 import {discoverPrototype,checkPrototypeTicket,summarizePrototype,prototypeSafety} from './prototype-analysis.mjs';
+import {temporalPreflight} from './temporal-preflight.mjs';
 
 const folder='mm-simulator-synthetic-v1';
-const codeFiles=['prototype-policy.mjs','prototype-analysis.mjs','prototype-store.mjs','composition.mjs','composition-gates.mjs','contracts.mjs','probabilities.mjs',
+const codeFiles=['prototype-policy.mjs','prototype-analysis.mjs','prototype-store.mjs','composition.mjs','composition-gates.mjs','contracts.mjs','probabilities.mjs','universe.mjs','temporal-preflight.mjs',
  '../private/process-lock.mjs','../prospective/store.mjs','../orchestration/progressive-policy.mjs','../context/dossier.mjs','../context/evidence.mjs','../context/policy.mjs',
  '../shadow/combinations.mjs','../shadow/policy.mjs','../decision/policy.mjs','../goals/data.mjs','../goals/metrics.mjs','../engine/forecast.mjs','../engine/markets.mjs','../engine/study.mjs'];
 const fail=c=>{throw Error(c);},same=(a,b)=>hashValue(a)===hashValue(b);
@@ -63,6 +64,16 @@ function fixedIntent(intent,{authorityId,inputSha256,codeSha256,policyRef,input}
   ||!timestamp(intent.recordedAtRealUtc)||intent.schema!=='lamultipla-mm-synthetic-intent-v1'||intent.authorityId!==authorityId||intent.inputSha256!==inputSha256
   ||intent.codeSha256!==codeSha256||intent.policySha256!==PROTOTYPE_POLICY_SHA256||!same(intent.policyRef,policyRef)
   ||intent.simulationStartedAtUtc!==input.data.atUtc||intent.synthetic!==true)fail('MM3B_INPUT_POLICY_OR_CODE_CONFLICT');
+}
+async function persistedTimeBound(directory,input){
+ let bound=Date.parse(input.data.atUtc);
+ for(const name of await fs.readdir(directory))if(/^(intent|preview|prepared|decision|commit-proof|review-\d+-claim)\.json$/.test(name)){
+  const {payload}=await requireFile(directory,name);
+  for(const key of ['simulationStartedAtUtc','atSimulationUtc','completedAtSimulationUtc'])if(payload[key]!==undefined){
+   if(!timestamp(payload[key]))fail('MM3C_PERSISTED_TIMESTAMP_INVALID');bound=Math.max(bound,Date.parse(payload[key]));
+  }
+ }
+ return bound;
 }
 function expectedPreview(input,analysis){return {schema:'lamultipla-mm-synthetic-preview-v1',inputSha256:hashValue(input),
  atSimulationUtc:input.data.atUtc,discoverySha256:analysis.discovery.canonicalSha256,
@@ -125,21 +136,43 @@ export async function runSyntheticPrototype({root,input,policy=PROTOTYPE_POLICY,
  // Structural/synthetic validation before creating the namespace. Replay uses
  // the original simulation instant; it does not pretend stale inputs are fresh.
  discoverPrototype(input,input?.data?.atUtc);
+ let completionOnly=false,receiptPending=false,notBefore=Date.parse(input.data.atUtc);
+ const context={...where,inputSha256,codeSha256};
  // A complete immutable authority with no active/residual owner can be replayed
  // without creating even a temporary lock. Partial or contended states still
  // require the existing lock and explicit recovery path below.
  if(await safeDirectory(root,where.authorityId,{create:false})){
   const receipt=await readFile(where.directory,'receipt.json');
+  const oldIntent=await readFile(where.directory,'intent.json'),oldPolicy=await readFile(where.directory,'policy.json');
+  if(oldIntent){
+   if(!oldPolicy)fail('MM3B_REQUIRED_ARTIFACT_MISSING:policy.json');
+   fixedIntent(oldIntent.payload,{...context,policyRef:oldPolicy.ref,input});
+  }
   if(receipt){
    const owners=await fs.readdir(path.join(where.directory,'locks'));
    if(owners.length===0){const verified=await verifySyntheticPrototype({root,input,policy});return {...verified,replayed:true};}
   }
+  const proof=await readFile(where.directory,'commit-proof.json');
+  if(proof||receipt){await verifyFinal(where.directory,input,context,{receiptRequired:Boolean(receipt)});completionOnly=true;receiptPending=Boolean(proof&&!receipt);
+   if(proof)notBefore=Math.max(notBefore,Date.parse(proof.payload.completedAtSimulationUtc));}
+  else notBefore=await persistedTimeBound(where.directory,input);
  }
+ let last=notBefore;
+ const clock=()=>{
+  const at=simulationClock();if(completionOnly){if(!timestamp(at)||Date.parse(at)<last)fail('MM3B_SIMULATION_CLOCK_ROLLBACK');}
+  else temporalPreflight(input,at,last);last=Date.parse(at);return at;
+ };
+ if(!completionOnly||receiptPending)clock();
  await safeDirectory(root,where.authorityId);
  return privateLock(where.directory,async()=>{
-  const directory=where.directory,context={...where,inputSha256,codeSha256};await inspectNames(directory);
+  const directory=where.directory;await inspectNames(directory);
   const step=async name=>onCheckpoint(name);
-  async function publish(name,payload){await step('before:'+name);await writeExclusive(path.join(directory,name),payload);await step('after:'+name);return requireFile(directory,name);}
+  if(!completionOnly){last=Math.max(last,await persistedTimeBound(directory,input));clock();}
+  async function publish(name,payload){
+   if(completionOnly&&name!=='receipt.json')fail('MM3C_RECOVERY_RECEIPT_ONLY');
+   clock();await step('before:'+name);clock();
+   await writeExclusive(path.join(directory,name),payload);await step('after:'+name);return requireFile(directory,name);
+  }
   let policyFile=await readFile(directory,'policy.json');
   if(!policyFile)policyFile=await publish('policy.json',{schema:'lamultipla-mm-synthetic-policy-registration-v1',policy:PROTOTYPE_POLICY,
    policySha256:PROTOTYPE_POLICY_SHA256,codeSha256,registeredAtRealUtc:new Date().toISOString(),authorizationScope:'USER_M3B_SYNTHETIC_ONLY',...prototypeSafety()});
@@ -156,8 +189,6 @@ export async function runSyntheticPrototype({root,input,policy=PROTOTYPE_POLICY,
    const savedInput=await requireFile(directory,'input.json');if(!same(savedInput.payload.input,input))fail('MM3B_INPUT_FILE_ALTERED');
    const verified=await verifyFinal(directory,input,context);return {state:'SYNTHETIC_FINAL_VERIFIED',replayed:true,directory,receipt:verified.receipt.ref,decision:verified.decision,...prototypeSafety()};
   }
-  let last=Date.parse(input.data.atUtc);
-  const clock=()=>{const at=simulationClock();if(!timestamp(at)||Date.parse(at)<last)fail('MM3B_SIMULATION_CLOCK_ROLLBACK');last=Date.parse(at);return at;};
   if(!intent){discoverPrototype(input,clock());intent=await publish('intent.json',{schema:'lamultipla-mm-synthetic-intent-v1',authorityId:where.authorityId,
    inputSha256,policySha256:PROTOTYPE_POLICY_SHA256,codeSha256,policyRef:policyFile.ref,simulationStartedAtUtc:input.data.atUtc,
    recordedAtRealUtc:new Date().toISOString(),...prototypeSafety()});}
@@ -169,23 +200,24 @@ export async function runSyntheticPrototype({root,input,policy=PROTOTYPE_POLICY,
   const finalExists=await readFile(directory,'decision.json'),proofExists=await readFile(directory,'commit-proof.json');
   if(proofExists){
    if(!finalExists)fail('MM3B_PROOF_WITHOUT_DECISION');
-   const v=await verifyFinal(directory,input,context,{receiptRequired:false});await publish('receipt.json',v.receiptPayload);
+   const v=await verifyFinal(directory,input,context,{receiptRequired:false});completionOnly=true;await publish('receipt.json',v.receiptPayload);
    return {state:'SYNTHETIC_FINAL_VERIFIED',replayed:false,recovered:true,directory,receipt:(await requireFile(directory,'receipt.json')).ref,decision:v.decision,...prototypeSafety()};
   }
   const initial=discoverPrototype(input,input.data.atUtc),previewPayload=expectedPreview(input,initial);
   await reviewLayout(directory,Math.min(initial.candidates.length,PROTOTYPE_POLICY.maxTicketReviews));
   let preview=await readFile(directory,'preview.json');if(preview&&!same(preview.payload,previewPayload))fail('MM3B_PREVIEW_ALTERED');
   if(!preview)preview=await publish('preview.json',previewPayload);
-  const reviews=[],results=[];
+  const reviews=[],results=[];let claimLast=Date.parse(input.data.atUtc);
   for(let i=0;i<Math.min(initial.candidates.length,PROTOTYPE_POLICY.maxTicketReviews);i++){
    const suffix=String(i+1).padStart(2,'0'),candidate=initial.candidates[i];let claim=await readFile(directory,`review-${suffix}-claim.json`);
    if(claim){const c=claim.payload;if(c.slot!==i+1||c.combinationId!==candidate.id||c.inputSha256!==inputSha256||c.authorityId!==where.authorityId
-     ||c.policySha256!==PROTOTYPE_POLICY_SHA256||!timestamp(c.atSimulationUtc)||Date.parse(c.atSimulationUtc)<last)fail('MM3B_REVIEW_CLAIM_CONFLICT');last=Date.parse(c.atSimulationUtc);}
+     ||c.policySha256!==PROTOTYPE_POLICY_SHA256||!timestamp(c.atSimulationUtc)||Date.parse(c.atSimulationUtc)<claimLast)fail('MM3B_REVIEW_CLAIM_CONFLICT');last=Math.max(last,Date.parse(c.atSimulationUtc));}
    else{
     const at=clock(),fresh=discoverPrototype(input,at);if(!same(fresh.candidates.map(c=>c.id),initial.candidates.map(c=>c.id)))fail('MM3B_REVIEW_INPUTS_EXPIRED');
     claim=await publish(`review-${suffix}-claim.json`,{schema:'lamultipla-mm-synthetic-review-claim-v1',authorityId:where.authorityId,inputSha256,
      policySha256:PROTOTYPE_POLICY_SHA256,slot:i+1,combinationId:candidate.id,atSimulationUtc:at,...prototypeSafety()});
    }
+   claimLast=Date.parse(claim.payload.atSimulationUtc);
    const resultPayload={schema:'lamultipla-mm-synthetic-review-record-v1',claimRef:claim.ref,
     result:checkPrototypeTicket(initial,input,candidate.id,claim.payload.atSimulationUtc),...prototypeSafety()};
    let result=await readFile(directory,`review-${suffix}-result.json`);
@@ -214,13 +246,14 @@ export async function runSyntheticPrototype({root,input,policy=PROTOTYPE_POLICY,
    {state:checked.decision.state,reasons:checked.decision.reasons,selected:checked.decision.selected?.combinationId??null}))fail('MM3B_COMMIT_GATES_CHANGED');
   await publish('commit-proof.json',{schema:'lamultipla-mm-synthetic-commit-proof-v1',authorityId:where.authorityId,inputSha256,
    preparedRef:prepared.ref,decisionRef:decisionFile.ref,completedAtSimulationUtc:completed,observedAtRealUtc:new Date().toISOString(),...prototypeSafety()});
-  const verified=await verifyFinal(directory,input,context,{receiptRequired:false});await publish('receipt.json',verified.receiptPayload);
+  const verified=await verifyFinal(directory,input,context,{receiptRequired:false});completionOnly=true;await publish('receipt.json',verified.receiptPayload);
   const final=await verifyFinal(directory,input,context);return {state:'SYNTHETIC_FINAL_VERIFIED',replayed:false,directory,receipt:final.receipt.ref,decision:final.decision,...prototypeSafety()};
  });
 }
 
 export async function verifySyntheticPrototype({root,input,policy=PROTOTYPE_POLICY}){
- assertPrototypePolicy(policy);const where=prototypeAuthorityPath(root,input),codeSha256=await codeIdentity();await inspectNames(where.directory);
+ assertPrototypePolicy(policy);const where=prototypeAuthorityPath(root,input),codeSha256=await codeIdentity();
+ if(!await safeDirectory(root,where.authorityId,{create:false}))fail('MM3B_REQUIRED_ARTIFACT_MISSING:namespace');await inspectNames(where.directory);
  const policyFile=await requireFile(where.directory,'policy.json'),intent=await requireFile(where.directory,'intent.json'),saved=await requireFile(where.directory,'input.json');
  if(!same(policyFile.payload.policy,policy)||policyFile.payload.codeSha256!==codeSha256)fail('MM3B_POLICY_REGISTRATION_ALTERED');
  fixedIntent(intent.payload,{...where,inputSha256:hashValue(input),codeSha256,policyRef:policyFile.ref,input});

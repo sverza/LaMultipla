@@ -52,6 +52,7 @@ export function discoverPrototype(input,atUtc,policy=PROTOTYPE_POLICY){
  for(let size=search.minLegs;size<=Math.min(search.maxLegs,legs.length)&&!truncated;size++)walk(size,0,[]);
  const compact=combinations.map(({legs,...c})=>{void legs;return c;});
  const discovery={source:checked.source,search,candidates:legs,combinations,exclusions:checked.exclusions,boardExclusions:checked.boardExclusions,
+  universeCoverage:checked.universeCoverage,selectionDiagnostics:checked.selectionDiagnostics,comparatorDiagnostics:checked.comparatorDiagnostics,
   constraintExclusions,searchTruncated:truncated,counts:{inputBoards:checked.counts.inputBoards,inputSelections:checked.counts.inputSelections,
    mathematicalCandidates:legs.length,examinedCombinations:examined,visitedNodes:nodes,constructedCombinations:combinations.length},
   canonicalSha256:hashValue({verification:checked.canonicalSha256,search,compact,constraintExclusions,examined,nodes,truncated})};
@@ -83,18 +84,29 @@ export function summarizePrototype(input,analysis,results,policy=PROTOTYPE_POLIC
  const coverageGaps=input.data.diagnostic.boardStates.filter(b=>b.completeness.state!=='COMPLETE'||b.normalization.state!=='VALID'
   ||b.boardAvailability==='UNKNOWN'||b.forecastLinkState!=='EXACT_MATCH'||b.frozenEntryStatus!=='prospective'
   ||b.models.dc.projection?.uncertainty.state!=='MARGINAL_BOOTSTRAP_DESCRIPTIVE');
- const reasons=[...(d.searchTruncated?['SEARCH_TRUNCATED']:[]),...(analysis.candidates.length>policy.maxTicketReviews?['REVIEW_BUDGET_EXHAUSTED']:[]),
+ const reasons=[...(!d.universeCoverage.complete?['UNIVERSE_COVERAGE_INCOMPLETE']:[]),...(d.searchTruncated?['SEARCH_TRUNCATED']:[]),...(analysis.candidates.length>policy.maxTicketReviews?['REVIEW_BUDGET_EXHAUSTED']:[]),
   ...(unverified.length?['TICKET_REVIEWS_INCOMPLETE']:[]),...(marginalGaps.length?['MARGINAL_REVIEWS_INCOMPLETE']:[]),...(coverageGaps.length?['INPUT_COVERAGE_INCOMPLETE']:[])];
  const selected=reasons.length?null:ranked.find(r=>r.conditionalSyntheticNetPerUnitBounds[0]>=policy.minCombinationLowerEV)??null;
  const state=reasons.length?'ANALYSIS_INCOMPLETE':selected?'SYNTHETIC_EXPLORATORY_SIMULATION_RECORDED'
   :analysis.candidates.length?'NO_COMBINATION_IN_REVIEWED_SYNTHETIC_SCOPE':'NO_SYNTHETIC_COMBINATION_AVAILABLE';
- return {schema:'lamultipla-mm-synthetic-prototype-decision-v1',state,reasons,atSimulationUtc:analysis.atUtc,
+ return {schema:'lamultipla-mm-synthetic-prototype-decision-v2',state,reasons:[...new Set(reasons)].sort(),atSimulationUtc:analysis.atUtc,
   policySha256:hashValue(policy),inputSha256:hashValue(input),discoverySha256:d.canonicalSha256,
   source:structuredClone(d.source),search:structuredClone(d.search),counts:{...d.counts,ticketCandidates:analysis.candidates.length,
-   reviewSlots:results.length,verifiedTickets:ranked.length,unverifiedTickets:unverified.length,coverageGaps:coverageGaps.length},
+   reviewSlots:results.length,verifiedTickets:ranked.length,unverifiedTickets:unverified.length,coverageGaps:coverageGaps.length+d.universeCoverage.gapCount},
+  universeCoverage:structuredClone(d.universeCoverage),boardCoverage:{receivedBoards:input.data.boards.boards.length,
+   completeBoards:input.data.boards.boards.filter(b=>b.completeness.state==='COMPLETE').length,
+   incompleteBoards:input.data.boards.boards.filter(b=>b.completeness.state!=='COMPLETE').length,
+   validBoards:input.data.boards.boards.filter(b=>b.normalization.state==='VALID').length,invalidBoards:input.data.boards.boards.filter(b=>b.normalization.state!=='VALID').length},
+  boardAvailability:{openBoards:input.data.boards.boards.filter(b=>b.availability.state==='OPEN').length,
+   closedBoards:input.data.boards.boards.filter(b=>b.availability.state==='CLOSED').length,unknownBoards:input.data.boards.boards.filter(b=>b.availability.state==='UNKNOWN').length},
+  selectionDiagnostics:structuredClone(d.selectionDiagnostics),comparatorDiagnostics:structuredClone(d.comparatorDiagnostics),
+  futureAdmission:{state:'NOT_AUTHORIZED',reason:'SYNTHETIC_ONLY_NO_PROSPECTIVE_POLICY'},
   reviewOrder:expected.map(c=>c.id),reviewResultSha256:results.map(hashValue),verifiedRanking:ranked,
   selected,bestVerifiedInReviewedScope:ranked[0]??null,exploratoryPolicyEligible:Boolean(selected),
   globalNoBet:false,scope:'SYNTHETIC_OBSERVED_UNIVERSE_ONLY',marginalIntervalsSimultaneous:false,
-  jointProbability:null,jointConfidenceInterval:null,exclusions:structuredClone(d.exclusions),boardExclusions:structuredClone(d.boardExclusions),
+  jointProbability:null,jointConfidenceInterval:null,exclusions:[...d.exclusions.map(e=>({...structuredClone(e),stage:'INPUT'})),
+   ...d.selectionDiagnostics.filter(e=>e.gateReasons.length).map(e=>({quoteId:e.quoteId,boardId:e.boardId,fixtureId:e.fixtureId,stage:'SYNTHETIC_GATES',reasons:[...e.gateReasons]}))]
+    .sort((a,b)=>a.quoteId<b.quoteId?-1:a.quoteId>b.quoteId?1:a.stage<b.stage?-1:a.stage>b.stage?1:0),
+  boardExclusions:structuredClone(d.boardExclusions),
   constraintExclusions:structuredClone(d.constraintExclusions),...prototypeSafety()};
 }

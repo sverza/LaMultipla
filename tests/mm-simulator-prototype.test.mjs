@@ -129,7 +129,7 @@ test('M3-B: input clock rollback, no active progressive slot and exact exclusive
  const f=await syntheticPrototypeFixture();assert.throws(()=>discoverPrototype(f.input,'2026-10-16T12:44:59.999Z'),/INPUT_INVALID|WINDOW_CLOSED/);
  assert.throws(()=>discoverPrototype(f.input,'2026-10-16T16:15:00.000Z'),/WINDOW_CLOSED/);
  const root=await rootFor(t);await assert.rejects(run(root,f.input,{simulationClock:()=> '2026-10-16T12:49:00.000Z'}),/CLOCK_ROLLBACK/);
- assert.ok(!(await fs.readdir(prototypeAuthorityPath(root,f.input).directory)).includes('decision.json'));
+ assert.deepEqual(await fs.readdir(root),[]);
 });
 test('M3-B: full registered search ceiling truncates at 20000 terminal subsets and stays below 100000 nodes',async t=>{
  const root=await rootFor(t),f=await syntheticPrototypeFixture({activeFixtures:10});
