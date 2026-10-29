@@ -17,7 +17,8 @@ export async function jsonSha256(value){
   if(!globalThis.crypto?.subtle)fail('verifica SHA256 indisponibile: usare HTTPS o localhost');
   return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(value)))),b=>b.toString(16).padStart(2,'0')).join('');
 }
-export function isExperimentalInput(v){return object(v)&&(v.schema===ROUND_STATE_SCHEMA||v.schema==='lamultipla-app-decision-v4'||v.schema==='lamultipla-public-decision-receipt-v1'
+export function isExperimentalInput(v){return object(v)&&(['lamultipla-mm-local-signed-frame-v1','lamultipla-mm-display-envelope-v1','lamultipla-mm-app-experiment-v1'].includes(v.schema)
+  ||v.schema===ROUND_STATE_SCHEMA||v.schema==='lamultipla-app-decision-v4'||v.schema==='lamultipla-public-decision-receipt-v1'
   ||v.schema==='lamultipla-prospective-envelope-v1'&&['lamultipla-app-decision-v4','lamultipla-public-decision-receipt-v1',ROUND_STATE_SCHEMA].includes(v.payload?.schema));}
 export function validateDecisionV4(p){
   fields(p,['schema','id','round','generatedAtUtc','status','mode','sourceData','delivery','actualStakeEUR','nominalStakeEUR','operational',

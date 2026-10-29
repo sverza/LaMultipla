@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-img-element -- i percorsi relativi devono funzionare anche sotto GitHub Pages */
 
 import {ExperimentCard} from './experiment';
+import {MultimarketExperiments} from './multimarket-experiment';
 import {PrivateDelivery} from './private-delivery';
 import {privateDeliveryInfo} from './lib/private';
 import type {PrivateDeliveryInfo} from '../shared/private-receiver.mjs';
@@ -467,7 +468,7 @@ export default function Home() {
   return (
     <main className="shell">
       <header>
-        <button className="brand" onClick={() => setView('dash')} aria-label="Apri la dashboard"><img src="./icon-192.png" alt="" /><span><strong>La Multipla</strong><small>Serie A · stake fisso €3</small></span></button>
+        <button className="brand" onClick={() => setView('dash')} aria-label="Apri la dashboard"><img src="./icon-192.png" alt="" /><span><strong>La Multipla</strong><small>{view==='experiment'?'Esperimenti · stake reale 0 €':'Serie A · stake fisso €3'}</small></span></button>
         <div className="header-actions"><button className="round theme-toggle" onClick={toggleTheme} aria-label="Cambia modalità colore"><span className="moon">☾</span><span className="sun">☀</span></button><button className="round" onClick={() => { setText(''); setModal('import'); }} aria-label="Importa schedina">＋</button></div>
       </header>
 
@@ -513,6 +514,7 @@ export default function Home() {
           </section>
           {!experiments.length&&<div className="empty">Nessuna analisi sperimentale importata.</div>}
           {experiments.map(item=><ExperimentCard key={item.sha256} envelope={item} deliveryInfo={deliveryInfo[item.sha256]} />)}
+          <MultimarketExperiments />
         </>}
 
         {view === 'settings' && <>
