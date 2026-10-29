@@ -1,6 +1,16 @@
 # La Multipla · Serie A
 
-Tracker personale, mobile-first, per una multipla Serie A da 3 € a giornata. Funziona come PWA e come app Android; non usa backend, account o Firebase. Schedine, risultati e preferenze restano sul dispositivo in IndexedDB.
+App personale, mobile-first, per analisi sperimentali e storico Serie A, disponibile come PWA e APK Android. Schedine legacy, esperimenti, risultati e preferenze restano sul dispositivo in IndexedDB. Il nuovo canale privato PC → Firebase → Android usa account separati, pacchetti firmati e conferme di ricezione; non è il feed pubblico delle schedine.
+
+Il motore è sperimentale: **stake reale sempre 0 €**, nessuna autorizzazione al gioco o alla pubblicazione di proposte. Il tracker legacy da 3 € resta distinto dall'archivio **Esperimento** v4.
+
+## Protocollo di analisi unico
+
+Il [protocollo generale v1](docs/protocollo-generale-v1.md) coordina acquisizione privata, modelli indipendenti, EV, contesto, liquidazione, combinazioni, congelamento e valutazione. `shadow.mjs` è l'unico produttore di decisioni; `decision.mjs` ne verifica il replay e prepara pacchetti locali. Tutti i modelli restano sperimentali per il gioco, stake reale zero: nessuna pubblicazione automatica. [Audit dell'architettura e punto 10](docs/rapporto-protocollo-2026-10-10.md).
+
+## Analisi sperimentali private v4
+
+Il collegamento decisione → app è implementato: `decision --app-package` prepara un file privato verificato per la scheda **Esperimento**. MULTIPLA SIMULATA e NO BET motivato restano separati da storico/ROI, con stake reale 0 € e nessuna conferma di gioco. Backup v4 include l’archivio sperimentale e conserva compatibilità v3. [Contratto](docs/contratto-app-v4.md), [collaudo Windows](docs/collaudo-v4-windows.md), [rapporto e blocchi](docs/rapporto-punto10-2026-10-11.md).
 
 ## Funzioni principali
 
@@ -16,7 +26,16 @@ Tracker personale, mobile-first, per una multipla Serie A da 3 € a giornata. F
 - notifiche Android per nuove schedine e promemoria degli esiti;
 - controllo aggiornamenti APK dalla pagina Impostazioni.
 
-Lo stake è sempre fissato a 3 €. Una bozza non entra nelle statistiche finché non viene confermata come giocata.
+Nel tracker legacy lo stake nominale è fissato a 3 €. Una bozza non entra nelle statistiche finché non viene confermata come giocata.
+Questa regola riguarda soltanto il tracker legacy: i pacchetti sperimentali v4 impongono stake reale zero e rifiutano la promozione a giocata.
+
+## Calendario privato e orchestrazione Windows
+
+Il raccoglitore `scripts/private-calendar.mjs` incrocia stagione, giornata, squadre e orari CC0 Openfootball con gli identificativi e kickoff UTC del provider. Mantiene snapshot privati immutabili, cache e budget condiviso con le quote. Dati mancanti, annullamenti, orari discordanti e turni incompleti impediscono l'ammissione; l'incrocio delle fonti **non è una riconferma ufficiale Lega**. Download recente e risultati aggiornati sono controlli distinti.
+
+Il [gestore progressivo](docs/punto11-gestione-progressiva.md) collega il collector a giornate riconfermate, piani versionati e rivalutazioni delle partite residue, anche su giorni diversi. Il primo forecast scientifico resta immutabile, le revisioni shadow separate; NO BET provvisorio non chiude il ciclo e una proposta ammissibile viene finalizzata subito. Anticipo minimo due ore, con margini per calcolo/queue e prezzi da ricontrollare. Stati nuovi richiedono un ricevitore compatibile; v4 precedente rimane leggibile. Primo collaudo OddsPapi reale ancora da eseguire. Nessun task o nuovo APK attivato. [Protocollo](docs/protocollo-analisi-progressive-v1.md), [verifica originale del 15 ottobre](docs/verifica-originale-15-ottobre.md).
+
+Preparazione del 13 ottobre: [fonti risultati e diritti](docs/fonti-risultati-seriea-2026-27.md), [prima prova originale G7](docs/preparazione-prima-prova-g7.md). `original-g6-check.mjs --inspect` verifica gli originali; `--record` è bloccato fino al15 ottobre e conserva i pending. Evidenze supplementari in quarantena, nessuna sostituzione CC0 o modifica dei modelli. Config progressivo G7 predisposto localmente, riconferme/input/cloud-client ancora da completare.
 
 ## Pubblicazione PWA su GitHub Pages
 
@@ -35,10 +54,29 @@ Controlli prima di pubblicare:
 
 ```text
 npm run lint
+npm test
 npm run build
 ```
 
-## Consegna automatica della schedina
+## Quote OddsPapi per l'analisi
+
+L'importatore Node acquisisce privatamente sul PC le quote pre-match `bet365.it` di Serie A, con cache, controllo del piano Free e riserva sulla quota. I prezzi vengono passati a uno screening che richiede stime indipendenti, contesto e verifica manuale finale; può concludere NO BET e non pubblica schedine. Il motore privato dispone di modelli indipendenti con validazione retrospettiva 1X2; la validazione futura e l’autorizzazione operativa sono ancora incomplete. L’app è il tracker, non il motore statistico.
+
+La [diagnostica multimercato separata](docs/g7-audit-multimercato.md) permette di consultare 1X2, Over/Under1.5/2.5/3.5 e Goal/No Goal dai forecast v2 congelati, con probabilità, intervalli e screening sul report quote già acquisito. Produce JSON/HTML privati, senza nuove chiamate OddsPapi o consegne nell'app. I nuovi mercati restano sperimentali e non entrano nel selettore 1X2; soglie, governance e coorte scientifica rimangono invariate.
+
+La [roadmap multimercato](docs/roadmap-multimercato-verificabile.md) distingue tutti i mercati osservati, mapping, dati necessari, licenze e gate scientifici. La [milestone A](docs/milestone-a-diagnostica-prestazioni.md) aggiunge census e adapter diagnostico esterno con equivalenza verificata e hash scientifici invariati. Lo [sprint G8](docs/sprint-g8-preparazione.md) aggiunge B2 diagnostica e preparazione separata del riferimento, senza attivazioni.
+
+Il [lotto B1](docs/milestone-b1-e-arretrati-scientifici.md) riconcilia i mapping gol con catalogo e snapshot esatti, compreso `Double Chance Full Time` e `2X`→`X2`. La [B2](docs/milestone-b2-diagnostica-ft.md) ammette AH FT diagnostici soltanto con evidenze esatte di lato/linea/regole: quote reali senza prova escluse. G6 resta il controllo tardivo19 ottobre con10pending, G7 non ricostruita; selettore invariato.
+
+Il [controllo fonti del 21 ottobre](docs/risultati-affidabili-audit-2026-10-21.md) distingue originali, supplementari e futuri. La prova privata football-data.org autorizzata nello sprint ha riscontrato i20 risultati G6/G7, separatamente dagli originali; training/uso continuativo attendono chiarimento dei diritti. [Challenger](docs/challenger-refresh-g8.md) e [ciclo ricerca dry-run](docs/ciclo-ricerca-dry-run.md) testati su sintetici non costituiscono un ciclo produttivo attivo o una coorte registrata.
+
+L'[audit delle API statistiche gratuite](docs/api-statistiche-gratuite-audit-2026-10-21.md) confronta PitchAPI, 5DollarFootballAPI e API-Football, distinguendo schema, demo pubbliche, accesso Free e diritti. Nessuna fonte completa adottata; [prove autenticate proposte](docs/api-statistiche-piano-verifica.md) da autorizzare separatamente. Il percorso originale G8 resta indipendente dalla ricerca.
+
+Istruzioni Windows, contratto di analisi e limiti: [importatore privato OddsPapi](docs/oddspapi-private-import.md). Non inserire chiavi o risposte API in `public/`, nel sorgente o negli artifact di GitHub.
+
+## Contratto legacy di consegna v3
+
+Questo contratto descrive il tracker esistente, non autorizza nuove proposte del motore. L’adapter v4 privato è separato; i diritti di pubblicazione restano da chiarire; non tradurre gli intervalli del modello in fiducia soggettiva.
 
 La PWA controlla `public/latest-slip.json` all’apertura e quando torna in primo piano. L’APK lo controlla anche periodicamente in background e, se gli avvisi sono attivati, segnala una nuova giornata con una notifica. Android decide il momento esatto del controllo per proteggere la batteria.
 

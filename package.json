@@ -6,19 +6,30 @@
     "node": ">=22.13.0"
   },
   "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "odds:import": "node scripts/oddspapi.mjs",
+    "odds:analyze": "node scripts/oddspapi-analysis.mjs",
+    "odds:review": "node scripts/oddspapi-review.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "android:add": "npx cap add android",
     "android:sync": "npx cap sync android",
     "android:open": "npx cap open android",
-    "lint": "eslint app next.config.ts capacitor.config.ts --ignore-pattern dist --ignore-pattern .next --ignore-pattern out --ignore-pattern android"
+    "lint": "eslint app scripts tests next.config.ts capacitor.config.ts --ignore-pattern dist --ignore-pattern .next --ignore-pattern out --ignore-pattern android",
+    "model:study": "node scripts/goals-study.mjs",
+    "shadow:run": "node scripts/shadow.mjs",
+    "model:engine": "node scripts/model-engine.mjs",
+    "match:context": "node scripts/context.mjs",
+    "decision:review": "node scripts/decision.mjs",
+    "app:experiment-selftest": "node scripts/app-v4-selftest.mjs",
+    "test:app-browser": "node tests/browser-v4.mjs"
   },
   "dependencies": {
-    "@capacitor/android": "^8.5.0",
+    "@capacitor/android": "8.5.1",
     "@capacitor/cli": "^8.5.0",
     "@capacitor/core": "^8.5.0",
-    "next": "16.2.6",
+    "next": "16.4.3",
     "react": "19.2.6",
     "react-dom": "19.2.6"
   },
@@ -33,7 +44,8 @@
     "@vitejs/plugin-react": "6.0.2",
     "@vitejs/plugin-rsc": "0.5.26",
     "eslint": "9.39.4",
-    "eslint-config-next": "16.2.6",
+    "eslint-config-next": "16.4.3",
+    "fake-indexeddb": "6.2.5",
     "react-server-dom-webpack": "19.2.6",
     "tailwindcss": "4.2.1",
     "typescript": "5.9.3",

@@ -1,0 +1,78 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function access(reader) { return get(/databases/$(database)/documents/users/$(reader)/access/config).data; }
+    function readerIs(reader) { return request.auth != null && request.auth.uid == reader; }
+    function writerIs(reader) { return request.auth != null && request.auth.uid == access(reader).writerUid; }
+    function member(reader) { return readerIs(reader) || writerIs(reader); }
+    function hex(value) { return value is string && value.matches('^[a-f0-9]{64}$'); }
+    function sequence(value) { return value is int && value >= 1 && value <= 1000000; }
+    function meta(value) {
+      return sequence(value.sequence) && hex(value.deliveryId) && hex(value.deliveryHash);
+    }
+    function same(a, b) { return a.sequence == b.sequence && a.deliveryId == b.deliveryId && a.deliveryHash == b.deliveryHash; }
+    function supported(channel) { return channel == 'synthetic_shadow' || channel == 'shadow'; }
+    match /users/{reader}/access/config {
+      allow get: if member(reader);
+      // Provision in owner console only. No reader/writer can change roles.
+      allow list, create, update, delete: if false;
+    }
+    match /users/{reader}/channels/{channel} {
+      match /events/{event} {
+        allow get: if supported(channel) && member(reader);
+        allow list, update, delete: if false;
+        allow create: if supported(channel) && writerIs(reader)
+          && request.resource.data.keys().hasOnly(['sequence','deliveryId','deliveryHash','body','previousDeliveryHash','kind','roundKey','expiresAtUtc'])
+          && meta(request.resource.data) && event == string(request.resource.data.sequence)
+          && request.resource.data.body is string && request.resource.data.body.size() <= 262144
+          && request.resource.data.roundKey is string && request.resource.data.roundKey.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+          && request.resource.data.expiresAtUtc is string && request.resource.data.expiresAtUtc.size() == 24
+          && (request.resource.data.kind == 'preview' || request.resource.data.kind == 'final')
+          && !exists(/databases/$(database)/documents/users/$(reader)/channels/$(channel)/finals/$(request.resource.data.roundKey))
+          && (request.resource.data.sequence == 1
+              ? !exists(/databases/$(database)/documents/users/$(reader)/channels/$(channel)/head/current) && request.resource.data.previousDeliveryHash == null
+              : get(/databases/$(database)/documents/users/$(reader)/channels/$(channel)/head/current).data.sequence + 1 == request.resource.data.sequence
+                && get(/databases/$(database)/documents/users/$(reader)/channels/$(channel)/head/current).data.deliveryHash == request.resource.data.previousDeliveryHash)
+          && same(request.resource.data, getAfter(/databases/$(database)/documents/users/$(reader)/channels/$(channel)/head/current).data)
+          && (request.resource.data.kind != 'final' || same(request.resource.data, getAfter(/databases/$(database)/documents/users/$(reader)/channels/$(channel)/finals/$(request.resource.data.roundKey)).data));
+      }
+      match /head/current {
+        allow get: if supported(channel) && member(reader);
+        allow list, delete: if false;
+        allow create, update: if supported(channel) && writerIs(reader)
+          && request.resource.data.keys().hasOnly(['sequence','deliveryId','deliveryHash'])
+          && meta(request.resource.data)
+          && (!exists(/databases/$(database)/documents/users/$(reader)/channels/$(channel)/head/current) ? request.resource.data.sequence == 1 : request.resource.data.sequence == resource.data.sequence + 1)
+          && !exists(/databases/$(database)/documents/users/$(reader)/channels/$(channel)/events/$(string(request.resource.data.sequence)))
+          && same(request.resource.data, getAfter(/databases/$(database)/documents/users/$(reader)/channels/$(channel)/events/$(string(request.resource.data.sequence))).data);
+      }
+      match /finals/{round} {
+        allow get: if supported(channel) && member(reader);
+        allow list, update, delete: if false;
+        allow create: if supported(channel) && writerIs(reader)
+          && request.resource.data.keys().hasOnly(['sequence','deliveryId','deliveryHash']) && meta(request.resource.data)
+          && getAfter(/databases/$(database)/documents/users/$(reader)/channels/$(channel)/events/$(string(request.resource.data.sequence))).data.kind == 'final'
+          && getAfter(/databases/$(database)/documents/users/$(reader)/channels/$(channel)/events/$(string(request.resource.data.sequence))).data.roundKey == round
+          && same(request.resource.data, getAfter(/databases/$(database)/documents/users/$(reader)/channels/$(channel)/events/$(string(request.resource.data.sequence))).data);
+      }
+      match /acks/{device} {
+        allow get: if supported(channel) && member(reader);
+        allow list, delete: if false;
+        allow create, update: if supported(channel) && readerIs(reader) && device.matches('^[a-z0-9-]{8,64}$')
+          && request.resource.data.keys().hasOnly(['sequence','deliveryHash']) && sequence(request.resource.data.sequence) && hex(request.resource.data.deliveryHash)
+          && get(/databases/$(database)/documents/users/$(reader)/channels/$(channel)/events/$(string(request.resource.data.sequence))).data.deliveryHash == request.resource.data.deliveryHash
+          && (!exists(/databases/$(database)/documents/users/$(reader)/channels/$(channel)/acks/$(device)) || request.resource.data.sequence >= resource.data.sequence);
+      }
+      match /devices/{device} {
+        allow get: if supported(channel) && member(reader);
+        allow list, delete: if false;
+        allow create, update: if supported(channel) && readerIs(reader) && device.matches('^[a-z0-9-]{8,64}$')
+          && request.resource.data.keys().hasOnly(['fcmToken','applicationId','roundStateProtocol'])
+          && (!('roundStateProtocol' in request.resource.data) || request.resource.data.roundStateProtocol == 1)
+          && request.resource.data.fcmToken is string && request.resource.data.fcmToken.size() <= 4096
+          && (request.resource.data.applicationId == 'it.personale.lamultipla' || request.resource.data.applicationId == 'it.personale.lamultipla.collaudo');
+      }
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}

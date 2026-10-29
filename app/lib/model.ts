@@ -1,3 +1,5 @@
+import { isExperimentalInput } from '../../shared/decision-v4.mjs';
+
 export type PickResult = 'pending' | 'won' | 'lost' | 'void';
 export type SlipResult = PickResult | 'cashout';
 
@@ -86,6 +88,7 @@ export const formatDate = (date: string, long = false) =>
 export const isPlayed = (slip: Slip) => slip.placement === 'played';
 
 export function normalizeSlip(raw: Partial<Slip>): Slip {
+  if (isExperimentalInput(raw) || 'mode' in raw && (raw as Record<string, unknown>).mode === 'experimental') throw new Error('Le analisi sperimentali non sono schedine.');
   const validPickResults = new Set<PickResult>(PICK_RESULTS);
   const validSlipResults = new Set<SlipResult>([...PICK_RESULTS, 'cashout']);
   const picks = Array.isArray(raw.picks) ? raw.picks.map((pick, index) => {
@@ -131,6 +134,7 @@ export function normalizeSlip(raw: Partial<Slip>): Slip {
 }
 
 export function parseSlip(raw: unknown): Slip {
+  if (isExperimentalInput(raw)) throw new Error('Importare il pacchetto dalla sezione Esperimento, senza trasformarlo in schedina.');
   if (!raw || typeof raw !== 'object') throw new Error('Il JSON deve contenere un oggetto.');
   const source = raw as Record<string, unknown>;
   const selections = source.selections;
@@ -154,7 +158,7 @@ export function parseSlip(raw: unknown): Slip {
     const odd = Number(selection.odd);
     const probability = Number(selection.probability);
     const confidence = Number(selection.confidence);
-    if (!selection.match || !selection.market || odd <= 1 || probability <= 0 || probability > 100) {
+    if (!selection.match || !selection.market || !Number.isFinite(odd) || !Number.isFinite(probability) || odd <= 1 || probability <= 0 || probability > 100) {
       throw new Error(`Selezione ${index + 1}: partita, mercato, quota o probabilità non validi.`);
     }
     if (!Number.isInteger(confidence) || confidence < 1 || confidence > 5) {

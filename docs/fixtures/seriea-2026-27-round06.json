@@ -1,0 +1,70 @@
+{
+  "schema": "lamultipla-prospective-schedule-v1",
+  "season": "2026/27",
+  "matchday": 6,
+  "scheduleSource": "https://en.legaseriea.it/serie-a/news/the-referees-for-the-6th-round-x3981",
+  "fixtureIdSource": "OddsPapi identifiers from the user's completed private test; no new request",
+  "events": [
+    {
+      "fixtureId": "id1000002371945292",
+      "home": "Genoa CFC",
+      "away": "ACF Fiorentina",
+      "kickoffUtc": "2026-10-10T13:00:00.000Z"
+    },
+    {
+      "fixtureId": "id1000002371945294",
+      "home": "Inter Milano",
+      "away": "Parma Calcio",
+      "kickoffUtc": "2026-10-10T16:00:00.000Z"
+    },
+    {
+      "fixtureId": "id1000002371945300",
+      "home": "SSC Napoli",
+      "away": "Frosinone Calcio",
+      "kickoffUtc": "2026-10-10T18:45:00.000Z"
+    },
+    {
+      "fixtureId": "id1000002371945290",
+      "home": "Como 1907",
+      "away": "AS Roma",
+      "kickoffUtc": "2026-10-11T10:30:00.000Z"
+    },
+    {
+      "fixtureId": "id1000002371945296",
+      "home": "Lazio Rome",
+      "away": "AC Monza",
+      "kickoffUtc": "2026-10-11T13:00:00.000Z"
+    },
+    {
+      "fixtureId": "id1000002371945298",
+      "home": "US Lecce",
+      "away": "Bologna FC",
+      "kickoffUtc": "2026-10-11T13:00:00.000Z"
+    },
+    {
+      "fixtureId": "id1000002371945302",
+      "home": "Sassuolo Calcio",
+      "away": "AC Milan",
+      "kickoffUtc": "2026-10-11T16:00:00.000Z"
+    },
+    {
+      "fixtureId": "id1000002371945288",
+      "home": "Cagliari Calcio",
+      "away": "Juventus Turin",
+      "kickoffUtc": "2026-10-11T18:45:00.000Z"
+    },
+    {
+      "fixtureId": "id1000002371945286",
+      "home": "Atalanta BC",
+      "away": "Venezia FC",
+      "kickoffUtc": "2026-10-12T16:30:00.000Z"
+    },
+    {
+      "fixtureId": "id1000002371945304",
+      "home": "Torino FC",
+      "away": "Udinese Calcio",
+      "kickoffUtc": "2026-10-12T18:45:00.000Z"
+    }
+  ],
+  "secondaryScheduleSource": "https://www.legaseriea.it/serie-a/news/quando-si-gioca-anticipi-e-posticipi-fino-alla-12a-giornata"
+}

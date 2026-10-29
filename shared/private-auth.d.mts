@@ -1,0 +1,2 @@
+export type PrivateSession={uid:string;idToken:string;refreshToken:string;expiresAt:number};
+export function createPrivateAuth(config:{apiKey:string;expectedUid:string},options:{load:()=>Promise<PrivateSession|null>;save:(session:PrivateSession|null)=>Promise<void>;fetchImpl?:typeof fetch;clock?:()=>number}):{signIn:(email:string,password:string)=>Promise<string>;getIdToken:()=>Promise<string>;signOut:()=>Promise<void>};
